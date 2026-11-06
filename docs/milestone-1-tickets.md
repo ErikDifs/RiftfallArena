@@ -9,8 +9,9 @@ Work stops after each ticket until the developer gives the go-ahead. Game feel i
 | Date | Checkpoint | Contents |
 |---|---|---|
 | 2026-11-06 | `Riftfall Arena.rbxl` at git commit `806f524` (saved, not published) | Empty baseplate, spawn and default lighting, with no scripts |
+| 2026-11-06 | Published place `134091394433436`, version 2 | Ticket 1: the skeleton, `Config`, `Rules`, `Protocol` and tests |
 
-The place is not published yet (`PlaceId` 0), so Roblox version history does not exist and the saved `.rbxl` is the only code history. Code edits only reach that file when Studio saves it. Publish a private place before Ticket 2, as the first [Studio safeguard](code-structure.md#working-safely-with-studio-hosted-code) asks, rather than waiting for Ticket 8.
+Roblox version history for the published place is the code's history, as set out in [ADR-0005](adr/0005-game-code-lives-in-studio-edited-through-mcp.md). Code edits only reach it when Studio publishes, so publish at the end of each accepted ticket. The `.rbxl` in this repo is a snapshot from the same point, and it goes stale between checkpoints.
 
 ## 1. Foundation
 
