@@ -68,6 +68,12 @@ Roblox version history for the published place is the code's history, as set out
 
 **Test in Studio:** Dash in every direction, while firing and on the ledge. Judge distance, speed, Evade timing and readability, whether the strafing dummy is fair to hit, and whether simulated latency causes rubber-banding.
 
+**Left for later tickets:**
+
+- Rooted, Stunned and Frozen are server-set character attributes that only block a Dash so far. Whatever first applies one must also stop walking, and Stunned must also stop Casts.
+- `dashCancelsWindup` has no effect yet, because nothing has a wind-up.
+- A player's Evade has only been tested by the unit path and dummies. A real player shooting a player belongs to Ticket 8's Stage 2 run.
+
 ## 5. Tidal Bolt
 
 **Scope:** the first Ability through the shared projectile path, Ability input and cooldown display, server-owned Wet with Applied By tracking, the Wet visual on the character, and the light push as Knockback under ADR-0002.
@@ -76,7 +82,8 @@ Roblox version history for the published place is the code's history, as set out
 
 - Wet appears only after Server Confirmation, and expires at its configured duration.
 - The server enforces the cooldown, and a Rejected Cast restores the cooldown display.
-- Knockback direction and strength come from the server, and Movement Validation allows for it.
+- Knockback direction and strength come from the server, and Movement Validation allows for it through `Movement.allowDisplacement`.
+- Knockback interrupts an active Dash, which the Dash client doesn't do yet.
 - Evade prevents damage, Wet and Knockback, but does not remove an existing Wet.
 - Adding the Ability needed data and only small generic changes, not a separate projectile path.
 

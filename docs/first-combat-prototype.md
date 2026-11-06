@@ -147,7 +147,8 @@ All values are provisional and configurable.
 | Item | Starting rule |
 |---|---|
 | Duration | About 0.25 s |
-| Distance | About 20 studs, purely a tuning value |
+| Input | Left Shift |
+| Distance | About 20 studs, purely a tuning value. A wall or cover ends the Dash early, and the charge stays spent. |
 | Direction | Movement-input direction, or straight backwards relative to the aim direction when there is no movement input, so that Dash always works as an escape |
 | Crowd control | Unavailable while Rooted, Stunned, Frozen or under any future state marked as preventing mobility. The server validates this. |
 | Knockback | Interrupts an active Dash. The player may spend another available charge to recover, but no free recovery Dash is granted. |
