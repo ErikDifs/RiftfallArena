@@ -26,7 +26,7 @@ The [playtest plan](playtest-plan.md) defines how this is tested. Only if that l
 
 ## Roster
 
-The Basic Attack is untyped and non-Reactive, so that the combo rules stay easy to understand.
+The Basic Attack is untyped and non-Reactive, so that the combo rules stay easy to understand. It applies no Statuses and does not trigger Reactions or Shatter.
 
 | Ability | Type | Behaviour |
 |---|---|---|
@@ -36,6 +36,30 @@ The Basic Attack is untyped and non-Reactive, so that the combo rules stay easy 
 | Seismic Slam | Physical, close-range heavy AoE | Knockback and Shatter-capable. |
 | Rift Wall | Space control | Temporary barrier that blocks movement and projectiles from both sides. |
 | Rift Step | Mobility | Short teleport toward the Aim Point with a meaningful cooldown. |
+
+## Basic Attack
+
+The Basic Attack keeps players aiming, moving, applying pressure and finishing weakened opponents while Abilities are on cooldown. Staying at maximum range and spamming it should not become the optimal strategy.
+
+| Item | Starting rule |
+|---|---|
+| Form | A ranged projectile with visible travel time, not hitscan |
+| Firing | Hold the input to fire about once every 0.4 s, with no repeated clicking |
+| Damage | About 6, with no damage falloff initially |
+| Speed | About twice the projectile speed of Tidal Bolt, so it needs some leading but is considerably easier to land |
+| Range | About 60 studs, after which it disappears harmlessly |
+| Movement | Players move and aim normally while firing, with no slowdown, and Dash under the Dash compatibility rules |
+| Presentation | Lighter than an Ability: a small muzzle or cast effect, a light trail and a lighter firing sound, with normal confirmed-hit feedback |
+
+It uses the same authoritative projectile model as Abilities, with no separate trust model. Local firing presentation starts immediately, the server validates cadence and state and owns the hit, other clients reconstruct the visual, and damage waits for Server Confirmation. Holding the input never lets the client choose the actual fire rate.
+
+If playtesting shows players avoid closing distance and just poke from range, tune in this order:
+
+1. projectile speed
+2. range
+3. Basic Attack damage
+4. Arc Burst and close-range reward
+5. only then, consider damage falloff
 
 ## Prototype Character
 

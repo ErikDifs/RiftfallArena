@@ -43,7 +43,7 @@ Everything a player can use at a given moment: their Basic Attack, Dash and Abil
 _Avoid_: Loadout, class
 
 **Basic Attack**:
-The modest attack every player always has, which cannot be replaced.
+The untyped, non-Reactive projectile every player always has, which cannot be replaced.
 _Avoid_: Auto attack, primary
 
 **Ability**:
@@ -101,7 +101,7 @@ The small, deliberate margin that covers projectile radius, character capsule si
 _Avoid_: Aim assist, soft lock, lag compensation
 
 **Cast**:
-A player's single use of an ability, sent once with its Aim Point. The server either accepts or rejects it.
+A player's single use of an Ability or Basic Attack, sent once with its Aim Point. The server either accepts or rejects it.
 _Avoid_: Shot, fire event
 
 **Authoritative Projectile**:
