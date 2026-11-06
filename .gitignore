@@ -1,0 +1,6 @@
+# Studio session lock, recreated whenever the place is open
+*.rbxl.lock
+*.rbxlx.lock
+
+# macOS
+.DS_Store
