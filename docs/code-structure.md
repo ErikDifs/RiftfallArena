@@ -39,7 +39,14 @@ StarterPlayer
         ├── CosmeticProjectiles
         ├── Feedback
         └── Hud
+
+ServerStorage
+└── Tests
+    ├── RunAll
+    └── <Name>Spec
 ```
+
+The server creates a `Remotes` folder under `Shared/Net` at startup, from the events defined in `Protocol`. Avoid dots in instance names, because the MCP reads them as path separators.
 
 ## Rules for each part
 
@@ -82,6 +89,8 @@ Small deterministic tests are enough, without an elaborate framework. They cover
 - Status consumption
 - Reaction ownership and credit
 - Rank progression
+
+They never run in the game by themselves. During Play, run `require(game.ServerStorage.Tests.RunAll).run()` on the Server DataModel, which returns a pass and fail summary.
 
 ## Working safely with Studio-hosted code
 
