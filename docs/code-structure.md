@@ -14,13 +14,15 @@ ReplicatedStorage
     │   └── Tuning
     ├── Rules
     │   ├── ReactionRules
-    │   └── RankRules
+    │   ├── RankRules
+    │   └── HitboxRules
     └── Net
         └── Protocol
 
 ServerScriptService
 └── Server
     ├── Main
+    ├── Characters
     ├── Casts
     ├── Projectiles
     ├── Combat
