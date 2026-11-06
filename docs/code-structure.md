@@ -15,7 +15,8 @@ ReplicatedStorage
     ├── Rules
     │   ├── ReactionRules
     │   ├── RankRules
-    │   └── HitboxRules
+    │   ├── HitboxRules
+    │   └── CastRules
     └── Net
         └── Protocol
 
@@ -23,6 +24,7 @@ ServerScriptService
 └── Server
     ├── Main
     ├── Characters
+    ├── Dummies
     ├── Casts
     ├── Projectiles
     ├── Combat
