@@ -151,3 +151,16 @@ Roblox version history for the published place is the code's history, as set out
 - A checkpoint is recorded above.
 
 **Test in Studio:** run the multi-client test with the developer watching each client, then join the published place from a real client. Stage 3 itself, with outside testers, is the only stage that can pass the prototype.
+
+**Stage 2 run, 2026-11-07, two clients through the MCP:**
+
+- Passed: real Q and E between players, Wet, Knockback, Reactions and kills on both clients and the server; private damage numbers; forged and flooded requests; a Dash forced into rejection snapping back; a real Dash's Evade on both clients; a spectator seeing a Reaction; a player leaving mid-fight; effects cleaning up.
+- With 200–250 ms of `IncomingReplicationLag`: no corrections or rubber-banding, and client and server agreed on position afterwards.
+- Fixed: the kill notice showed Studio's negative test ids as "Killed by -1".
+
+**Written down, not fixed:**
+
+- Players can spawn on the same pad, one standing on the other, and a respawn can land next to the killer, because Roblox picks a spawn at random.
+- `IncomingReplicationLag` delayed remote events by the full amount, but other players' movement by only about 30 ms. So this run understates how far behind a laggy player sees targets, and whether cones feel fair under latency, as ADR-0001 asks, is for Stage 3 to show.
+- Each client ran at about 15 fps with its window in the background, and judging feel by hand in this setup isn't reliable.
+- A malformed request logs a warning each time, so a client could flood the server's console with them.
