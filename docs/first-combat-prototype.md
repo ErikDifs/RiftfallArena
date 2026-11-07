@@ -178,6 +178,12 @@ A tap is smaller and faster, so it's better for catching or interrupting someone
 
 Charging Arc Burst mainly increases its coverage and the likelihood of landing the payoff, not the payoff itself. The cooldown starts on release, so a full Charge never wins on damage over time.
 
+### Tidal Bolt and cover
+
+A projectile's centre path decides whether it strikes world geometry, and its radius isn't swept against cover, so large Charged bolts don't unexpectedly collide with nearby walls and corners. A big bolt may visually overlap the edge of cover if its centre path clears it.
+
+Before any projectile hit on a character is accepted, the normal radius check must pass, and then at least one of the target's sight points, the same ones Arc Burst uses, must be visible from the projectile's current position on the server. A character fully protected behind cover isn't hit, while a genuinely exposed part of them still counts. This applies to tap and Charged bolts, dummies, and future projectiles sharing this path. Projectile radius, Hitbox size and Hit Tolerance remain separate, and Hit Tolerance doesn't change.
+
 ### Arc Burst's hit area
 
 Arc Burst is a readable close and mid-range area Ability, not a precision anti-air attack, so it uses a flat horizontal sector rather than a 3D cone. Camera pitch doesn't tilt it. A target is hit when:
