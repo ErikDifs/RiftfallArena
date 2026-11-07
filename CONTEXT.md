@@ -100,6 +100,10 @@ _Avoid_: Default avatar, test rig
 The small, deliberate margin that covers character capsule size and simulation differences. It never grows to make an attack more forgiving, never changes an attack's path and never turns clear misses into hits.
 _Avoid_: Aim assist, soft lock, lag compensation
 
+**Sector**:
+A flat, horizontal slice of a circle in front of a Cast's origin, set by its range, width and a height allowance above and below. It follows only the horizontal part of the aim, so camera pitch never tilts it. Arc Burst and the melee Basic Attack hit with one.
+_Avoid_: Cone, arc, 3D cone
+
 **Cast**:
 A player's single use of an Ability or Basic Attack, sent once with its Aim Point. For a Chargeable Ability, that is on release. The server either accepts or rejects it.
 _Avoid_: Shot, fire event

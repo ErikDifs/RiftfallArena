@@ -193,6 +193,25 @@ On 2026-11-07, after Ticket 8, the developer changed the first loop before any S
 
 **Test in Studio:** swing at the static and moving dummies, aiming up and down, and use Arc Burst across the raised area's edge. Judge whether 8 studs feels short but fair, whether swings read clearly, and whether a flat Arc Burst ever misses something you expected to hit.
 
+**Built 2026-11-07, not yet checked by the developer or published.** `HitboxRules.sectorHits` is the one Sector check. Server `Cones` became `Sectors`, and client `CosmeticCones` became `CosmeticSectors`. Both Arc Burst and the Basic Attack now have `form = "Sector"`, with `range`, `widthDegrees` and `heightAllowance` stats. 155 specs pass, including a new `SectorsSpec`, which runs a copy of the real module against temporary walls.
+
+**Checked through the MCP in Studio:**
+
+- A swing hit the static dummy for 6, with no Knockback and no Reaction, whether aimed level, steeply up or steeply down. Aimed away, it missed.
+- From 9.5 studs away the swing hit, and from 10.2 it missed, against 9.8 for 8 studs plus the Hitbox radius and Hit Tolerance. Aimed 50° off the dummy it hit, and 90° off it missed.
+- 34 requests in 2 s gave 6 hits and 28 `OnCooldown` rejections. Holding the real mouse button for 2 s gave 6 hits.
+- Arc Burst hit from 19.4 studs and missed from 20.2. Tidal Bolt, then a swing, then Arc Burst gave 12, then 6 with no Reaction, then 30 with the Wet Reaction. So the swing neither triggers nor consumes Wet.
+- The shooting dummy fired a Tidal Bolt about every 3 s, each hitting for 12 with Knockback 25.
+- A click created the swing's 8 arc segments, which cleaned themselves up. The MCP never caught one on screen, as it only lasts 0.12 s.
+
+**Left for later tickets:**
+
+- How the swing looks and sounds hasn't been seen by a person yet. It's a level arc at 75% of the range, with the old Basic Attack sound renamed `Swing`.
+- Arc Burst's bolts are now drawn level, with no tilt, to match the flat Sector.
+- From the floor beside the raised area, its ledge blocks line of sight to the shooting dummy in the middle. Arc Burst can't hit it there, and the dummy doesn't fire at a player standing there. This is cover working as intended, but it's worth judging whether it feels right.
+- A Sector's height allowance is measured from the Cast's origin, 1 stud above the root, and Hit Tolerance doesn't widen it. Arc Burst's ±8 was set from the dummies' positions, not a measured audit of the arena's heights.
+- The Basic Attack keeps `usableDuringDash`, as the old ranged one did.
+
 ## 10. Projectile line of sight
 
 **Scope:** stop a projectile hitting a character who is fully behind cover. First reproduce the through-cover hit where practical, then require line of sight from the projectile's position to the target's sight points before a hit counts.

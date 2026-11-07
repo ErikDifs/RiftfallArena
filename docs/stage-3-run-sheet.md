@@ -43,7 +43,7 @@ Rough goals, not pass or fail:
 - Evade mattering without constantly triggering
 - few attacks that look broken or unfair
 
-Stage 2 left one thing for you to judge here: whether cones feel fair under latency. Also watch for spawn killing, since the spawn rule only changes if this stage shows it's still a problem.
+Stage 2 left one thing for you to judge here: whether Arc Burst feels fair under latency. It was a cone then, and is now a flat Sector. Also watch for spawn killing, since the spawn rule only changes if this stage shows it's still a problem.
 
 The melee Basic Attack adds more to judge:
 
