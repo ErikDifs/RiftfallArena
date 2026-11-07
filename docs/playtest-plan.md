@@ -12,6 +12,8 @@ Use a static target dummy, a strafing dummy, a dummy capable of occasional Dash 
 
 Validate aiming, projectile feel, cast responsiveness, hit feedback, Wet readability, Arc Burst Reaction readability, Dash and Evade timing, and obvious networking bugs.
 
+The shooting dummy fires tap Tidal Bolts through the normal combat path, at their normal cooldown. Solo testing can therefore cover taking projectile damage, Wet, Knockback, Charging being interrupted by Knockback, death and respawn, and cover. It doesn't Charge or chase, so specs and Stage 2 cover ordinary damage not interrupting Charging, and how another player's Telegraph looks. Don't raise its fire rate or damage to kill faster: use a dedicated test setup if a quick death is needed.
+
 ### Stage 2: Local multi-client
 
 Use Roblox Studio multi-client testing to validate client and server authority, Cosmetic Projectiles, Server Confirmation, Rejected Cast behaviour, Dash reconciliation, Evade, Status and Reaction replication, and what each player sees when latency or state differs.
