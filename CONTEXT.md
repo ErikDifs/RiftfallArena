@@ -101,7 +101,7 @@ The small, deliberate margin that covers character capsule size and simulation d
 _Avoid_: Aim assist, soft lock, lag compensation
 
 **Cast**:
-A player's single use of an Ability or Basic Attack, sent once with its Aim Point. The server either accepts or rejects it.
+A player's single use of an Ability or Basic Attack, sent once with its Aim Point. For a Chargeable Ability, that is on release. The server either accepts or rejects it.
 _Avoid_: Shot, fire event
 
 **Casting Style**:

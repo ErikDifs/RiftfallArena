@@ -94,6 +94,7 @@ Combat.start({
 The exact events can change, but the first loop will likely cover:
 
 - `CastRequest`
+- `ChargeStart` and a release message for Chargeable Abilities, as set out in [ADR-0006](adr/0006-server-timed-charging-with-a-two-stage-cast.md)
 - `CastRejected`
 - `DashRequest`
 - `DashRejected`

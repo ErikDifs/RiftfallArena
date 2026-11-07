@@ -131,7 +131,7 @@ Combat actions are explicit rather than queued: a fresh press leads to a visible
 | Pressing Q or E during a Dash | Allowed, and Charging begins. Only a new Dash that starts while Charging cancels it |
 | Releasing during a Dash | Casts normally, under normal server validation |
 | Pressing Dash while Charging with no Dash charges | No Dash, Charging continues, and no time is lost or cancellation logged |
-| A Dash the client started but the server rejects | Charging stays cancelled and is logged under `Dash`, because recreating a Charge the player has visibly lost would be more confusing. The Dash itself reconciles under the normal rules |
+| A Dash the client started but the server rejects | Charging stays cancelled and is logged under `Dash`, because recreating a Charge the player has visibly lost would be more confusing. The server ends Charging on any `DashRequest`, so it knows this cause itself. The Dash itself reconciles under the normal rules |
 | Holding the Basic Attack, then starting Charging | Charging takes priority and swings stop. If the input is still held when Charging ends in any way, swings resume |
 | Pressing another Ability while Charging | Ignored and not queued, and the current Charge continues |
 | Holding Q and E, with only Q Charging | Releasing Q follows the normal rules, and E needs a release and a fresh press |
@@ -295,7 +295,7 @@ Balance from measured combat, not only spreadsheet DPS. Track at least:
 - Dash usage while chasing
 - how often fights end because neither player can reconnect
 - how often kills happen immediately after another fight
-- how often Charging ends without a Cast, by cause: Dash, Knockback, Stun, Frozen, death or `Expired`
+- how often Charging ends without a Cast, by cause: Dash, Knockback, Stun, Frozen, death, `Expired` or `ClientCancelled`
 
 If fights run too long mainly because players miss, prefer increasing damage or adjusting Ability cadence before making Hit Tolerance more generous.
 

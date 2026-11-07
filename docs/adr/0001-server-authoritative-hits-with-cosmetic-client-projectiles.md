@@ -2,12 +2,14 @@
 
 For the first combat prototype, casts must feel instant but hits must be fair, so the caster's client immediately plays the animation, sound and a Cosmetic Projectile while the server alone simulates the Authoritative Projectile and decides all hits and damage. A Cast and its Aim Point are sent once, and other clients rebuild their Cosmetic Projectile from that event, so projectile positions are never replicated per frame.
 
+A Chargeable Ability may send a `ChargeStart` message before its Cast, as set out in [ADR-0006](0006-server-timed-charging-with-a-two-stage-cast.md). The Cast and its Aim Point are still sent once, on release, Charge state isn't streamed, and server-authoritative hit resolution is unchanged.
+
 ## Rules
 
 - Damage, status effects, knockback, hit markers and meaningful impact effects happen only after Server Confirmation.
 - A Cosmetic Projectile may predict environment impacts, but must not show a convincing player or NPC hit before Server Confirmation.
 - A Rejected Cast cancels the local visuals and restores the local cooldown state.
-- Hit Tolerance stays small and intentional. It covers projectile radius, capsule size and simulation differences, and does not broadly turn misses into hits.
+- Hit Tolerance stays small and intentional. It covers capsule size and simulation differences, and does not broadly turn misses into hits. Projectile radius is separate, and an attack's forgiveness comes from its own radius, range or width.
 
 ## Considered Options
 
