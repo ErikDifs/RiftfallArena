@@ -104,6 +104,10 @@ _Avoid_: Aim assist, soft lock, lag compensation
 A player's single use of an Ability or Basic Attack, sent once with its Aim Point. The server either accepts or rejects it.
 _Avoid_: Shot, fire event
 
+**Charging**:
+The exclusive state of holding an Ability's input to build a stronger Cast, with slower walking and a Telegraph. Its Cast happens on release.
+_Avoid_: Channelling, wind-up, Dash charges
+
 **Authoritative Projectile**:
 The server's simulation of a projectile, and the only version that can hit anything.
 _Avoid_: Real projectile, server bullet

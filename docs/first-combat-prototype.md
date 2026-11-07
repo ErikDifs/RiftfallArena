@@ -61,6 +61,24 @@ If playtesting shows players avoid closing distance and just poke from range, tu
 4. Arc Burst and close-range reward
 5. only then, consider damage falloff
 
+## Charging
+
+Holding an Ability's input to build a stronger Cast. It should be a real decision: cast quickly for responsiveness, or become vulnerable and predictable for a larger, easier-to-land attack. Maximum charge must not be the obviously correct choice every time.
+
+Charging costs a player three things, but doesn't leave them helpless:
+
+- **Action freedom:** Charging is one exclusive combat state, not separate handling for each input. While Charging, the Basic Attack is unavailable, and no other Ability can Charge or cast. Releasing casts the Charging Ability normally.
+- **Mobility:** walking drops to about 75% of normal speed, 16 to 12 studs per second, with a configurable multiplier. The server owns this modifier, the client reflects it immediately enough to feel responsive, and Movement Validation uses the server's state. Normal speed returns immediately when Charging ends in any way.
+- **Predictability:** opponents can see the Telegraph and respond.
+
+| What happens while Charging | Result |
+|---|---|
+| Dash | Remains available, and cancels Charging |
+| Knockback | Interrupts Charging, because continuing to Charge while being thrown would feel wrong |
+| Stun, Frozen or death | Interrupts Charging |
+| Root | Prevents movement under its normal rules, without cancelling Charging |
+| Ordinary damage | Does not interrupt Charging, so rapid Basic Attacks and incidental monster hits can't suppress it |
+
 ## Prototype Character
 
 Everyone uses the same controlled appearance, backed by the fixed Hitbox from [ADR-0004](adr/0004-fixed-gameplay-hitbox-independent-of-appearance.md). This removes variability from silhouette, animation, proportions, accessories, Status readability and perceived hit accuracy.
