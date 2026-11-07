@@ -113,6 +113,34 @@ The server tracks the Charging state's lifetime independently. If no valid relea
 
 Session logs count `Expired` alongside the other causes. If it occurs for normal players, investigate latency and reliability, or increase the grace period.
 
+### What Charging changes
+
+Geometry and numbers scale continuously and linearly with the server's Charge percentage, and all are configurable. Damage multipliers apply on top of Rank values.
+
+| Tidal Bolt | Tap | Full Charge |
+|---|---:|---:|
+| Projectile radius and visual size | 0.6 | 1.8 |
+| Projectile speed | 80 | 65 |
+| Knockback | 25 | 40 |
+| Damage | 12 | 15 |
+
+A tap is smaller and faster, so it's better for catching or interrupting someone. A full Charge is larger, easier to connect with and displaces further, but its Telegraph is more obvious. Wet doesn't change with Charge. Hit Tolerance doesn't grow either, because the larger radius is itself the extra forgiveness.
+
+| Arc Burst | Tap | Full Charge |
+|---:|---:|---:|
+| Range | 18 | 28 |
+| Width | 90° | 120° |
+| Damage | 14 | 16.1 |
+| Wet Reaction bonus | 16 | 16 |
+
+Charging Arc Burst mainly increases its coverage and the likelihood of landing the payoff, not the payoff itself. The cooldown starts on release, so a full Charge never wins on damage over time.
+
+If players routinely stand at range and full-Charge Arc Burst rather than engaging with positioning and Dash, tune in this order, and don't raise damage to compensate:
+
+1. full-Charge Arc Burst range
+2. width growth
+3. the commitment or cost of Charging, only if necessary
+
 ## Casting Styles
 
 Not every Ability is Chargeable, and an Ability's Casting Style is data-driven where practical. Charging stays a distinctive tactical mechanic, not the default for every spell.
@@ -161,8 +189,8 @@ A normal fight between evenly matched players, with most attacks connecting, tak
 
 These are design limits rather than hard engine constraints, so an exceptional future Ability can break them deliberately, not accidentally.
 
-- No ordinary single hit deals more than about 40% of maximum health.
-- No single setup and payoff sequence deals more than about 60% of maximum health.
+- No ordinary single hit deals more than about 40% of maximum health. A full Rank 3 Arc Burst Reaction landing slightly above that, at 40.7, is acceptable, but going significantly beyond it needs a new design decision.
+- No single setup and payoff sequence deals more than about 60% of maximum health. A full Charge sequence at Rank 3 reaches 59.45, very close to this ceiling, so don't raise Charge damage multipliers without revisiting these limits.
 - Rank advantages matter, but a high-Rank player cannot instantly delete someone with a functional lower-Rank Build.
 
 ### Starting numbers
@@ -175,7 +203,7 @@ These are provisional. Do not spend much time balancing them before multiplayer 
 | Basic Attack | About 6 damage, about 0.4 s cadence |
 | Tidal Bolt | About 12 damage, about 3 s cooldown |
 | Arc Burst | About 14 base damage, with a significantly stronger Wet Reaction |
-| Tidal Bolt into Arc Burst | About 40–45% of total health |
+| Tidal Bolt into Arc Burst | About 40–45% of total health at Rank 1 with tap Casts, about 42 damage. A Charged sequence may modestly exceed this, because the player paid for it |
 | Rank scaling | About 20–30% total numerical improvement by Rank 3, depending on the Ability |
 | Dash | About 2 charges, about 4 s recharge per charge, for roughly 2–3 meaningful Dashes per fight |
 
