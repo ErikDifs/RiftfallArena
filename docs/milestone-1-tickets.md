@@ -15,6 +15,7 @@ Work stops after each ticket until the developer gives the go-ahead. Game feel i
 | 2026-11-07 | Published place `134091394433436`, version 11 (private) | Ticket 5: Tidal Bolt, Wet, Knockback and the Ability input and cooldown display |
 | 2026-11-07 | Published place `134091394433436`, version 12 (private) | Ticket 6: Arc Burst, the shared Reaction system and the Wet Reaction's payoff feedback |
 | 2026-11-07 | Published place `134091394433436`, version 13 (private) | Ticket 7: health, Natural Recovery, Kill Recovery, death and respawn, kill and low-health feedback, session logs and the shooting dummy |
+| 2026-11-07 | Published place `134091394433436`, version 26 (private) | Ticket 8's Stage 2 fixes: the prototype spawn rule, and kill notices naming test players |
 
 Roblox version history for the published place is the code's history, as set out in [ADR-0005](adr/0005-game-code-lives-in-studio-edited-through-mcp.md). Code edits only reach it when Studio publishes, so publish at the end of each accepted ticket. The `.rbxl` in this repo is a snapshot from the same point, and it goes stale between checkpoints.
 
