@@ -290,10 +290,9 @@ Balance from measured combat, not only spreadsheet DPS. Track at least:
 - damage dealt by Reactions versus normal attacks
 - Dashes used per fight
 - percentage of attacks that land
-- how often players successfully disengage
+- how often players successfully disengage: a fight ending with both players alive and no damage either way for at least 7 seconds. This is also the only measure of fights ending because neither player could reconnect, as the logs can't tell those apart
 - how often Natural Recovery starts
-- Dash usage while chasing
-- how often fights end because neither player can reconnect
+- Dashes while chasing: a Dash during a fight whose direction is within a configurable 45° of the direction to that fight's opponent
 - how often kills happen immediately after another fight
 - how often Charging ends without a Cast, by cause: Dash, Knockback, Stun, Frozen, death, `Expired` or `ClientCancelled`
 

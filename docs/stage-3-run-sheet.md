@@ -48,8 +48,8 @@ Stage 2 left one thing for you to judge here: whether cones feel fair under late
 The melee Basic Attack adds more to judge:
 
 - whether swings near the edge of range feel unfair under real latency
-- whether fights exceed the 6–9 second target, or end because neither player can reconnect
-- whether players disengage too easily
+- whether fights exceed the 6–9 second target
+- whether players disengage too easily, or fights end because neither player can reconnect
 
 ## Comments to record
 

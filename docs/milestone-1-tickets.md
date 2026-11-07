@@ -172,3 +172,85 @@ Autosaves also take version numbers, so a version only counts as a checkpoint if
 - `IncomingReplicationLag` delayed remote events by the full amount, but other players' movement by only about 30 ms. So this run understates how far behind a laggy player sees targets, and whether cones feel fair under latency, as ADR-0001 asks, is for Stage 3 to show.
 - Each client ran at about 15 fps with its window in the background, and judging feel by hand in this setup isn't reliable.
 - A malformed request logs a warning each time, so a client could flood the server's console with them.
+
+## Combat changes before Stage 3
+
+On 2026-11-07, after Ticket 8, the developer changed the first loop before any Stage 3 test: a melee Basic Attack, flat Sectors instead of cones, and Charging for Tidal Bolt and Arc Burst. The [first combat prototype](first-combat-prototype.md) and [ADR-0006](adr/0006-server-timed-charging-with-a-two-stage-cast.md) hold the design. Version 26 is the fallback checkpoint from before these changes.
+
+## 9. Flat sectors and melee
+
+**Scope:** the shared flat Sector hit check, Arc Burst moved onto it at its current tap values, the melee Basic Attack, the shooting dummy on tap Tidal Bolts, and renaming `Cone` and `Cones` to `Sector` and `Sectors` wherever the old term is no longer accurate.
+
+**Acceptance checks:**
+
+- One shared Sector check decides both Arc Burst and Basic Attack hits, from the horizontal aim direction, range, width and height allowance, with line of sight. Camera pitch doesn't change it.
+- The Basic Attack hits every valid target within 8 studs, 120° and ±5 studs, for about 6 damage, at the server's 0.4 s cadence, with no Knockback, no Status and no Reaction.
+- Arc Burst hits within 18 studs, 90° and ±8 studs, and still triggers the Wet Reaction.
+- Hit Tolerance is unchanged.
+- The shooting dummy fires tap Tidal Bolts through the normal path, at their normal cooldown.
+- No code or glossary still calls a Sector a cone.
+- Specs cover the Sector's range, width and height edges, pitch being ignored, and cover.
+
+**Test in Studio:** swing at the static and moving dummies, aiming up and down, and use Arc Burst across the raised area's edge. Judge whether 8 studs feels short but fair, whether swings read clearly, and whether a flat Arc Burst ever misses something you expected to hit.
+
+## 10. Projectile line of sight
+
+**Scope:** stop a projectile hitting a character who is fully behind cover. First reproduce the through-cover hit where practical, then require line of sight from the projectile's position to the target's sight points before a hit counts.
+
+**Acceptance checks:**
+
+- The through-cover case is reproduced before the fix, or the reason it couldn't be is recorded.
+- Specs cover a tap-sized Tidal Bolt blocked by cover, a full-size bolt blocked by cover, an exposed target still hit, and a partly exposed target following the existing sight-point rules. The larger case sets the projectile radius directly, since Charging doesn't exist yet.
+- Wall collision still uses the projectile's centre path, and Hit Tolerance is unchanged.
+
+**Test in Studio:** stand just behind thin cover while the shooting dummy fires, then lean out past its edge.
+
+## 11. Charging foundation and Tidal Bolt
+
+**Scope:** Charging as a reusable mechanism for any Chargeable Ability, built through Tidal Bolt: the ADR-0006 start and release protocol with attempt identifiers, server-derived Charge, the Tap Window, the exclusive combat state, slowdown, cancels and interrupts, the input rules, the fresh-press rule, auto-release, expiry, session logging of end causes, Tidal Bolt's scaling, its orb Telegraph, the full-Charge cue, the caster's local estimate for immediate visuals, and the server's Charge in replicated Casts. No Arc Burst-specific presentation.
+
+**Acceptance checks:**
+
+- Nothing about Charging is hard-coded to Tidal Bolt: an Ability's data makes it Chargeable.
+- The server derives Charge only from its own timestamps, and never accepts a client Charge or duration.
+- A release within the Tap Window is exactly 0% Charge, with no slowdown or Telegraph.
+- The server rejects a start while on cooldown, and the cooldown starts only on a Cast.
+- Dash, Knockback, Stun, Frozen and death end Charging with no cooldown, and ordinary damage doesn't. A `DashRequest` ends it as `Dash`, accepted or not.
+- Holding the key after a lost Charge does nothing until a fresh press.
+- The client auto-releases at about 1.75 s, and the server expires a Charge at about 2.25 s with no Cast.
+- A stale or late release is a Rejected Cast, and can't affect a newer attempt.
+- Walking drops to about 12 studs per second only while visibly Charging, and Movement Validation doesn't correct an honest player across the transitions.
+- Session logs count each end cause, and Dashes while chasing.
+- Tidal Bolt scales linearly to radius 1.8, speed 65, Knockback 40 and damage 15, with Wet unchanged.
+
+**Test in Studio:** tap, partly Charge and fully Charge Tidal Bolt at the dummies, Dash out of a Charge, get interrupted by the shooting dummy, and hold past the maximum. Judge whether the slowdown feels fair, whether the orb reads its size, and whether a full Charge feels worth it without being automatic.
+
+## 12. Charging Arc Burst
+
+**Scope:** Arc Burst on Ticket 11's Charging system, with no duplicated Charging logic: range, width and damage scaling with the Reaction bonus unchanged, the lightning Telegraph, the full-Charge cue, and the caster-only ground preview, which expands with Charge and approximately follows the ground.
+
+**Acceptance checks:**
+
+- Arc Burst scales linearly to 28 studs, 120° and 16.1 damage, and the Reaction bonus stays 16.
+- The preview shows the same Sector the server uses at the current Charge, and only the caster sees it.
+- The server's Charge decides the Cast, for the caster and for everyone else.
+- The burst limits hold at every Rank: about 42 for Rank 1 taps, and at most about 60 for full Charges at Rank 3.
+
+**Test in Studio:** Charge Arc Burst near ledges and the raised area. Judge whether the preview matches what gets hit, whether the lightning reads without hiding Wet, and whether a 28-stud Arc Burst undercuts closing distance.
+
+## 13. Test readiness for the combat changes
+
+**Scope:** Stage 1 and Stage 2 re-run against the changed loop, then a publish by the developer and a recorded checkpoint, with version 26 kept as the fallback.
+
+**Acceptance checks**, verified on 2+ clients where it involves another player:
+
+- the melee Basic Attack, the flat Sector Arc Burst and Tidal Bolt's line of sight
+- tap determinism, Charging, and the slowdown starting and ending
+- Movement Validation across slowdown transitions
+- Charge interrupts, a rejected Dash while Charging, stale releases and expiry
+- both Telegraphs, the full-Charge cues and the ground preview
+- the server's Charge value agreeing across clients
+- kills, deaths and respawns still working
+- the forged and flooded request checks still holding, now including `ChargeStart` and release messages
+
+**Test in Studio:** the multi-client run with the developer watching each client, then the developer publishes and the checkpoint is recorded above.
