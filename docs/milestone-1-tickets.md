@@ -11,13 +11,15 @@ Work stops after each ticket until the developer gives the go-ahead. Game feel i
 | 2026-11-06 | `Riftfall Arena.rbxl` at git commit `806f524` (saved, not published) | Empty baseplate, spawn and default lighting, with no scripts |
 | 2026-11-06 | Published place `134091394433436`, version 2 | Ticket 1: the skeleton, `Config`, `Rules`, `Protocol` and tests |
 | 2026-11-06 | Published place `134091394433436`, version 9 (private) | Tickets 2 and 3: the test space and the Basic Attack against a static dummy |
-| 2026-11-07 | Published place `134091394433436`, version 10 (private) | Ticket 4: Dash, Evade, Movement Validation and the moving dummies |
-| 2026-11-07 | Published place `134091394433436`, version 11 (private) | Ticket 5: Tidal Bolt, Wet, Knockback and the Ability input and cooldown display |
-| 2026-11-07 | Published place `134091394433436`, version 12 (private) | Ticket 6: Arc Burst, the shared Reaction system and the Wet Reaction's payoff feedback |
-| 2026-11-07 | Published place `134091394433436`, version 13 (private) | Ticket 7: health, Natural Recovery, Kill Recovery, death and respawn, kill and low-health feedback, session logs and the shooting dummy |
+| 2026-11-07 | No publish of its own, first published in version 20 | Ticket 4: Dash, Evade, Movement Validation and the moving dummies |
+| 2026-11-07 | No publish of its own, first published in version 20 | Ticket 5: Tidal Bolt, Wet, Knockback and the Ability input and cooldown display |
+| 2026-11-07 | Published place `134091394433436`, version 20 (private) | Ticket 6: Arc Burst, the shared Reaction system and the Wet Reaction's payoff feedback |
+| 2026-11-07 | Published place `134091394433436`, version 24 (private) | Ticket 7: health, Natural Recovery, Kill Recovery, death and respawn, kill and low-health feedback, session logs and the shooting dummy |
 | 2026-11-07 | Published place `134091394433436`, version 26 (private) | Ticket 8's Stage 2 fixes: the prototype spawn rule, and kill notices naming test players |
 
 Roblox version history for the published place is the code's history, as set out in [ADR-0005](adr/0005-game-code-lives-in-studio-edited-through-mcp.md). Code edits only reach it when Studio publishes, so publish at the end of each accepted ticket. The `.rbxl` in this repo is a snapshot from the same point, and it goes stale between checkpoints.
+
+Autosaves also take version numbers, so a version only counts as a checkpoint if Version History marks it Published. On 2026-11-07 that was versions 2, 9, 20, 24 and 26, and the earlier numbers recorded here for Tickets 4–7 (10, 11, 12 and 13) were autosaves from 2026-11-06. Tickets were matched to publishes by comparing Version History's times with the commit times, without opening the versions' contents.
 
 ## 1. Foundation
 
