@@ -108,6 +108,20 @@ Past the window, the Ability enters visible Charging, and the slowdown and Teleg
 
 The server decides between a tap and a Charge using its own timing, and never trusts a client's Charge percentage. Timing very close to the window may fall on either side under jitter, but the Charge at stake is too small to matter. The client uses the same configured window for its presentation, so an ordinary tap doesn't flash the Telegraph or slowdown.
 
+### Charging Telegraphs
+
+Both Chargeable Abilities have a Telegraph that starts when the Tap Window passes, which the caster also sees.
+
+- **Tidal Bolt:** a water orb in front of the caster, growing continuously with Charge. Its size corresponds closely to the projectile radius that would fire at that Charge, so it shows how large the bolt will be and roughly how hard it'll be to dodge. It has no ground preview.
+- **Arc Burst:** lightning around the caster whose intensity grows with Charge, with a charging sound that develops over the Charge. Only the caster sees the ground preview. Others read the threat from the Telegraph, the caster's position and facing, and the full-Charge cue.
+- **Full-Charge cue:** one distinct visual and one distinct audio cue, for the caster and nearby opponents, once when an Ability first reaches 100%. It doesn't repeat during the hold.
+
+There is no HUD Charge bar in the first prototype, so players read Charging through the world. Telegraphs must not hide a player's silhouette, Status visuals, nearby attacks or aim direction, because readability outranks spectacle.
+
+Once the Tap Window has passed, the server exposes through replicated state, using the existing tag or attribute approach, that the character is Charging, which Ability, and enough timing for clients to drive the Telegraph consistently. It clears that state when Charging ends. Clients build the progression locally, and Charge percentage is never streamed.
+
+A remote Telegraph may lag the real Charge slightly because of latency, and that's accepted. When a Cast is replicated, its cosmetic visuals use the server's Charge value, not whatever the observing client's Telegraph had reached.
+
 ### Input rules
 
 Combat actions are explicit rather than queued: a fresh press leads to a visible action, and nothing buffered starts later.
