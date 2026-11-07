@@ -12,6 +12,7 @@ Work stops after each ticket until the developer gives the go-ahead. Game feel i
 | 2026-11-06 | Published place `134091394433436`, version 2 | Ticket 1: the skeleton, `Config`, `Rules`, `Protocol` and tests |
 | 2026-11-06 | Published place `134091394433436`, version 9 (private) | Tickets 2 and 3: the test space and the Basic Attack against a static dummy |
 | 2026-11-07 | Published place `134091394433436`, version 10 (private) | Ticket 4: Dash, Evade, Movement Validation and the moving dummies |
+| 2026-11-07 | Published place `134091394433436`, version 11 (private) | Ticket 5: Tidal Bolt, Wet, Knockback and the Ability input and cooldown display |
 
 Roblox version history for the published place is the code's history, as set out in [ADR-0005](adr/0005-game-code-lives-in-studio-edited-through-mcp.md). Code edits only reach it when Studio publishes, so publish at the end of each accepted ticket. The `.rbxl` in this repo is a snapshot from the same point, and it goes stale between checkpoints.
 
