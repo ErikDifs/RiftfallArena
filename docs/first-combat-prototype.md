@@ -95,6 +95,24 @@ After a lost Charge, holding the key does nothing. The player must release it an
 
 There is no lockout, partial cooldown or minimum delay in this first version. If playtesting shows interrupts are too weak, add the smallest possible lockout then.
 
+### Holding and expiry
+
+The server may decide whether a Cast is valid, but it must not invent where the player aimed.
+
+| Item | Starting value, configurable |
+|---|---|
+| Maximum Charge | 1.25 s |
+| Maximum hold at full Charge | 0.5 s |
+| Client auto-release | About 1.75 s after Charging starts |
+| Server grace | 0.5 s |
+| Server expiry | About 2.25 s after Charging starts |
+
+Reaching maximum Charge doesn't Cast. When the hold runs out, the client sends the same release as a manual one, with its current Aim Point, so auto-release has no separate trust model. The server checks that the player is still Charging, derives and clamps the Charge duration from its own time, validates the Aim Point, performs the Cast and starts the cooldown.
+
+The server tracks the Charging state's lifetime independently. If no valid release arrives by expiry, Charging ends with no Cast and no cooldown, normal speed returns, the Telegraph ends, and a fresh press is needed to start again. A late release within the accepted window is clamped to maximum Charge. One arriving after expiry is ignored, and an attempt identifier stops it applying to a newer Charging attempt.
+
+Session logs count `Expired` alongside the other causes. If it occurs for normal players, investigate latency and reliability, or increase the grace period.
+
 ## Casting Styles
 
 Not every Ability is Chargeable, and an Ability's Casting Style is data-driven where practical. Charging stays a distinctive tactical mechanic, not the default for every spell.
@@ -183,7 +201,7 @@ Balance from measured combat, not only spreadsheet DPS. Track at least:
 - percentage of attacks that land
 - how often players successfully disengage
 - how often kills happen immediately after another fight
-- how often Charging is cancelled or interrupted, by cause: Dash, Knockback, Stun, Frozen or death
+- how often Charging ends without a Cast, by cause: Dash, Knockback, Stun, Frozen, death or `Expired`
 
 If fights run too long mainly because players miss, prefer increasing damage or adjusting Ability cadence before making Hit Tolerance more generous.
 
