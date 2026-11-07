@@ -43,7 +43,7 @@ Everything a player can use at a given moment: their Basic Attack, Dash and Abil
 _Avoid_: Loadout, class
 
 **Basic Attack**:
-The untyped, non-Reactive projectile every player always has, which cannot be replaced.
+The untyped, non-Reactive, short-range melee attack every player always has, which cannot be replaced.
 _Avoid_: Auto attack, primary
 
 **Ability**:
