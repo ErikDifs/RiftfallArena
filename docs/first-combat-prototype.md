@@ -85,6 +85,16 @@ This makes Tidal Bolt a deliberate Charging counter. If a player Charging Arc Bu
 
 Skilled players may fish for these interrupts, which isn't being solved in advance. Session logs count interrupted Charging by cause. If Tidal Bolt interrupts too much in playtesting, tune the Knockback of its tap and low-charge Casts first, before adding any more complicated rule.
 
+### Cooldowns and lost Charges
+
+An Ability's cooldown starts only when Charging becomes a Cast, whether that's a tap, a partial Charge or a full one. The server rejects any attempt to start Charging while the Ability is on cooldown.
+
+A Charge lost to Dash, Knockback, Stun, Frozen or death puts the Ability on no cooldown. The player loses the time invested and the opportunity they committed to, and a Dash also spends its normal Dash charge.
+
+After a lost Charge, holding the key does nothing. The player must release it and press again, which the client enforces, while the server validates every new start independently. A fresh press can tap-cast straight away if the Ability is otherwise available. That's intentional: Tidal Bolt's reward is removing the stronger Cast and displacing the opponent, not disabling Arc Burst for several seconds.
+
+There is no lockout, partial cooldown or minimum delay in this first version. If playtesting shows interrupts are too weak, add the smallest possible lockout then.
+
 ## Casting Styles
 
 Not every Ability is Chargeable, and an Ability's Casting Style is data-driven where practical. Charging stays a distinctive tactical mechanic, not the default for every spell.
