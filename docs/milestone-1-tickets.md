@@ -111,6 +111,12 @@ Roblox version history for the published place is the code's history, as set out
 
 **Test in Studio:** apply Wet, close the distance and fire Arc Burst. Judge whether the payoff feels strong, whether a watcher can tell what happened, whether the VFX hides the next decision, and whether the cone's size and range feel fair.
 
+**Left for later tickets:**
+
+- A cone is decided from the server's positions when the Cast arrives, with no rewind, as ADR-0001 sets out. How that feels under latency, and a real player's Arc Burst on a real player, belong to Ticket 8's Stage 2 run.
+- Applied By only travels in the `CombatResult` as `reactionAppliedBy`, and `killed` with `attackerId` names the kill's credit. Nothing reads them yet: Ticket 7's session logs and Kill Recovery should.
+- `RemoveStack`, `Replace` and `Leave` are only tested in specs, because no Reaction's data uses them yet.
+
 ## 7. Fight loop
 
 **Scope:** health, Natural Recovery, Kill Recovery, death and respawn, the remaining feedback (Kill, low health, killer identification, directional damage indicator) and session logs.

@@ -31,6 +31,7 @@ ServerScriptService
     ├── Dummies
     ├── Casts
     ├── Projectiles
+    ├── Cones
     ├── Combat
     ├── Statuses
     ├── Movement
@@ -47,7 +48,9 @@ StarterPlayer
         ├── ForcedMovement
         ├── Casting
         ├── CosmeticProjectiles
+        ├── CosmeticCones
         ├── StatusVisuals
+        ├── ReactionVisuals
         ├── Feedback
         └── Hud
 
