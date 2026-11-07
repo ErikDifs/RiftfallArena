@@ -97,7 +97,7 @@ The single, uniform appearance every player uses in the first combat prototype.
 _Avoid_: Default avatar, test rig
 
 **Hit Tolerance**:
-The small, deliberate margin that covers projectile radius, character capsule size and simulation differences. It never changes an attack's path or turns clear misses into hits.
+The small, deliberate margin that covers character capsule size and simulation differences. It never grows to make an attack more forgiving, never changes an attack's path and never turns clear misses into hits.
 _Avoid_: Aim assist, soft lock, lag compensation
 
 **Cast**:

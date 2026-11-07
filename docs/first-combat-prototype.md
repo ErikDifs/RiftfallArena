@@ -39,27 +39,32 @@ The Basic Attack is untyped and non-Reactive, so that the combo rules stay easy 
 
 ## Basic Attack
 
-The Basic Attack keeps players aiming, moving, applying pressure and finishing weakened opponents while Abilities are on cooldown. Staying at maximum range and spamming it should not become the optimal strategy.
+The Basic Attack is close-range filler and pressure, which keeps players moving and finishing weakened opponents while Abilities are on cooldown. Its range is short so that closing distance matters.
 
-| Item | Starting rule |
+| Item | Starting rule, all configurable |
 |---|---|
-| Form | A ranged projectile with visible travel time, not hitscan |
-| Firing | Hold the input to fire about once every 0.4 s, with no repeated clicking |
-| Damage | About 6, with no damage falloff initially |
-| Speed | About twice the projectile speed of Tidal Bolt, so it needs some leading but is considerably easier to land |
-| Range | About 60 studs, after which it disappears harmlessly |
-| Movement | Players move and aim normally while firing, with no slowdown, and Dash under the Dash compatibility rules |
-| Presentation | Lighter than an Ability: a small muzzle or cast effect, a light trail and a lighter firing sound, with normal confirmed-hit feedback |
+| Form | A quick forward melee swing, using the same flat horizontal sector approach as Arc Burst, so camera pitch doesn't make a swing miss |
+| Range | 8 studs |
+| Width | 120° |
+| Height allowance | ±5 studs |
+| Firing | Hold the input to swing about once every 0.4 s, with no repeated clicking |
+| Damage | About 6 |
+| Targets | Every valid target in the sector that cover doesn't hide, so it can cleave in free-for-all fights |
+| Knockback | None, so it can't push targets out of range, interrupt Charging or act as a rapid control tool |
+| Movement | Players move and aim normally while swinging, with no slowdown, and Dash under the Dash compatibility rules |
+| Presentation | Lighter than an Ability: a swing effect and a lighter sound, with normal confirmed-hit feedback |
 
-It uses the same authoritative projectile model as Abilities, with no separate trust model. Local firing presentation starts immediately, the server validates cadence and state and owns the hit, other clients reconstruct the visual, and damage waits for Server Confirmation. Holding the input never lets the client choose the actual fire rate.
+The server resolves a swing when it receives and validates it, with no wind-up. The client plays the swing immediately, and the server owns the cadence, the hit and the damage. Holding the input never lets the client choose the actual rate.
 
-If playtesting shows players avoid closing distance and just poke from range, tune in this order:
+Forgiveness comes from the attack's own range and width. Hit Tolerance doesn't grow for melee. If multi-target swings prove too strong or chaotic, consider hitting only the first valid target, rather than changing the sector's geometry.
 
-1. projectile speed
-2. range
-3. Basic Attack damage
-4. Arc Burst and close-range reward
-5. only then, consider damage falloff
+### Melee and latency
+
+There's no rewind or lag compensation, and melee exposes that trade-off more strongly than projectiles do. Don't compensate in advance with more Hit Tolerance, client-authoritative hits or rewind. Stage 3 specifically observes whether swings near the edge of range feel unfair under real latency. If that becomes a repeated complaint, revisit the lag compensation option in [ADR-0001](adr/0001-server-authoritative-hits-with-cosmetic-client-projectiles.md), rather than hiding it with oversized tolerance.
+
+### Melee and disengaging
+
+Replacing a ranged Basic Attack with melee makes disengaging more valuable, which is accepted. Don't compensate yet with more Tidal Bolt uptime, faster movement, more melee range or another ranged filler attack. If fights consistently exceed the 6–9 second target, or players disengage too easily, tune from Stage 3's evidence.
 
 ## Charging
 
@@ -242,6 +247,9 @@ Balance from measured combat, not only spreadsheet DPS. Track at least:
 - Dashes used per fight
 - percentage of attacks that land
 - how often players successfully disengage
+- how often Natural Recovery starts
+- Dash usage while chasing
+- how often fights end because neither player can reconnect
 - how often kills happen immediately after another fight
 - how often Charging ends without a Cast, by cause: Dash, Knockback, Stun, Frozen, death or `Expired`
 

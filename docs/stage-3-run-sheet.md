@@ -45,6 +45,12 @@ Rough goals, not pass or fail:
 
 Stage 2 left one thing for you to judge here: whether cones feel fair under latency. Also watch for spawn killing, since the spawn rule only changes if this stage shows it's still a problem.
 
+The melee Basic Attack adds more to judge:
+
+- whether swings near the edge of range feel unfair under real latency
+- whether fights exceed the 6–9 second target, or end because neither player can reconnect
+- whether players disengage too easily
+
 ## Comments to record
 
 Write these down in the tester's own words, with who said it and in which session:
