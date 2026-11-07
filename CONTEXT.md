@@ -124,6 +124,10 @@ _Avoid_: Hold-to-fire, which is how the Basic Attack repeats
 The exclusive state of holding a Chargeable Ability's input to build a stronger Cast, with slower walking and a Telegraph. Its Cast happens on release.
 _Avoid_: Channelling, wind-up, Dash charges
 
+**Tap Window**:
+The short time after pressing a Chargeable Ability's input within which a release is an exact tap, with no Charge, slowdown or Telegraph.
+_Avoid_: Dead zone, minimum Charge
+
 **Authoritative Projectile**:
 The server's simulation of a projectile, and the only version that can hit anything.
 _Avoid_: Real projectile, server bullet

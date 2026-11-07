@@ -100,6 +100,14 @@ After a lost Charge, holding the key does nothing. The player must release it an
 
 There is no lockout, partial cooldown or minimum delay in this first version. If playtesting shows interrupts are too weak, add the smallest possible lockout then.
 
+### Tap Window
+
+A press released within the Tap Window, starting at 0.12 s, is an exact tap: 0% Charge and the exact tap values, with no slowdown or Telegraph. The one-action rule still applies from the press itself. This keeps quick Casts deterministic, visually clean and free of meaningless Charge caused by network timing.
+
+Past the window, the Ability enters visible Charging, and the slowdown and Telegraph begin. Charge rises linearly from 0% at 0.12 s to 100% at 1.25 s, both configurable.
+
+The server decides between a tap and a Charge using its own timing, and never trusts a client's Charge percentage. Timing very close to the window may fall on either side under jitter, but the Charge at stake is too small to matter. The client uses the same configured window for its presentation, so an ordinary tap doesn't flash the Telegraph or slowdown.
+
 ### Input rules
 
 Combat actions are explicit rather than queued: a fresh press leads to a visible action, and nothing buffered starts later.
