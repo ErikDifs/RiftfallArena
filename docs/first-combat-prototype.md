@@ -178,6 +178,12 @@ A tap is smaller and faster, so it's better for catching or interrupting someone
 
 Charging Arc Burst mainly increases its coverage and the likelihood of landing the payoff, not the payoff itself. The cooldown starts on release, so a full Charge never wins on damage over time.
 
+If players routinely stand at range and full-Charge Arc Burst rather than engaging with positioning and Dash, tune in this order, and don't raise damage to compensate:
+
+1. full-Charge Arc Burst range
+2. width growth
+3. the commitment or cost of Charging, only if necessary
+
 ### Tidal Bolt and cover
 
 A projectile's centre path decides whether it strikes world geometry, and its radius isn't swept against cover, so large Charged bolts don't unexpectedly collide with nearby walls and corners. A big bolt may visually overlap the edge of cover if its centre path clears it.
@@ -197,12 +203,6 @@ Targets outside the vertical allowance aren't hit, even if the player aims direc
 ### Arc Burst ground preview
 
 While Charging Arc Burst, the local player sees the same sector projected on the ground, following their aim direction and expanding with Charge from the tap geometry. Presentation raycasts make it approximately follow nearby ground, rather than float across obvious changes in height. It is presentation only, and the server decides all hits, but what it shows should closely match what the server can hit. There is no hidden 3D cone behind it.
-
-If players routinely stand at range and full-Charge Arc Burst rather than engaging with positioning and Dash, tune in this order, and don't raise damage to compensate:
-
-1. full-Charge Arc Burst range
-2. width growth
-3. the commitment or cost of Charging, only if necessary
 
 ## Casting Styles
 
