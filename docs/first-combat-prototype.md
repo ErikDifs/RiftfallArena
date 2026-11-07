@@ -31,7 +31,7 @@ The Basic Attack is untyped and non-Reactive, so that the combo rules stay easy 
 | Ability | Type | Behaviour |
 |---|---|---|
 | Tidal Bolt | Water projectile, on Q | Applies Wet and pushes lightly. Applying Wet again restarts it, and the latest character becomes its Applied By. |
-| Arc Burst | Lightning, short-range cone, on E | Hits everyone in the cone that cover doesn't hide, and triggers the Wet Reaction. |
+| Arc Burst | Lightning, short-range flat sector, on E | Hits everyone in the sector that cover doesn't hide, and triggers the Wet Reaction. |
 | Frost Lance | Frost projectile | Two successful applications within the window cause Frozen. |
 | Seismic Slam | Physical, close-range heavy AoE | Knockback and Shatter-capable. |
 | Rift Wall | Space control | Temporary barrier that blocks movement and projectiles from both sides. |
@@ -134,6 +134,20 @@ A tap is smaller and faster, so it's better for catching or interrupting someone
 | Wet Reaction bonus | 16 | 16 |
 
 Charging Arc Burst mainly increases its coverage and the likelihood of landing the payoff, not the payoff itself. The cooldown starts on release, so a full Charge never wins on damage over time.
+
+### Arc Burst's hit area
+
+Arc Burst is a readable close and mid-range area Ability, not a precision anti-air attack, so it uses a flat horizontal sector rather than a 3D cone. Camera pitch doesn't tilt it. A target is hit when:
+
+- its Hitbox falls within the sector, from the caster's horizontal aim direction, range and width
+- it is within a vertical allowance of the Cast's origin, starting at ±8 studs and configurable
+- line of sight and cover checks pass
+
+Targets outside the vertical allowance aren't hit, even if the player aims directly at them. If common elevation changes make it feel unable to connect, adjust the allowance rather than returning to a 3D cone. Its cosmetic presentation stays level to match.
+
+### Arc Burst ground preview
+
+While Charging Arc Burst, the local player sees the same sector projected on the ground, following their aim direction and expanding with Charge from the tap geometry. Presentation raycasts make it approximately follow nearby ground, rather than float across obvious changes in height. It is presentation only, and the server decides all hits, but what it shows should closely match what the server can hit. There is no hidden 3D cone behind it.
 
 If players routinely stand at range and full-Charge Arc Burst rather than engaging with positioning and Dash, tune in this order, and don't raise damage to compensate:
 
