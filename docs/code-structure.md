@@ -20,7 +20,9 @@ ReplicatedStorage
     │   ├── DashRules
     │   ├── MovementRules
     │   ├── StatusRules
-    │   └── KnockbackRules
+    │   ├── KnockbackRules
+    │   ├── HealthRules
+    │   └── SessionRules
     └── Net
         └── Protocol
 
@@ -35,9 +37,12 @@ ServerScriptService
     ├── Combat
     ├── Statuses
     ├── Movement
+    ├── Recovery
     └── Session
 
 StarterPlayer
+├── StarterCharacterScripts
+│   └── Health (deliberately empty, turning off Roblox's default healing)
 └── StarterPlayerScripts
     └── Client
         ├── Main
@@ -52,6 +57,7 @@ StarterPlayer
         ├── StatusVisuals
         ├── ReactionVisuals
         ├── Feedback
+        ├── HealthDisplay
         └── Hud
 
 ServerStorage

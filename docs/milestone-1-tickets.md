@@ -96,7 +96,7 @@ Roblox version history for the published place is the code's history, as set out
 
 - Being pushed and made Wet can't be felt solo, because no dummy shoots back. A real player hitting a player belongs to Ticket 8's Stage 2 run.
 - A client that ignores a Knockback isn't noticed yet. ADR-0002 calls that suspicious, but Movement Validation only catches moving too far, not too little.
-- The Roblox default `Health` script still runs on characters and heals them from the first moment. Ticket 7's Natural Recovery must replace it.
+- The Roblox default `Health` script still runs on characters and heals them from the first moment. Ticket 7's Natural Recovery must replace it. Done in Ticket 7, with an empty script of that name in `StarterCharacterScripts`.
 
 ## 6. Arc Burst
 
@@ -131,6 +131,12 @@ Roblox version history for the published place is the code's history, as set out
 - Low-health and screen effects have configurable intensity, and do not pulse excessively.
 
 **Test in Studio:** fight dummies through several deaths. Judge how long a fight takes against the 6–9 second target, whether a disengage resets it, whether you can tell what killed you, and whether the low-health state helps.
+
+**Left for later tickets:**
+
+- Dummies count as players for Kill Recovery through `Tuning.dummy.grantsKillRecovery`, so that it can be felt solo. Monsters must not, and real player-on-player kills belong to Ticket 8's Stage 2 run.
+- A player can reset their character from the Esc menu to deny a kill and clear their cooldowns. The session log records it as `cause=NotCombat`, but nothing prevents it yet.
+- Session logs print to the server console. Reading them from a real server, and how much survives a server shutting down, belongs to Ticket 8.
 
 ## 8. Test readiness
 

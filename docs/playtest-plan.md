@@ -8,7 +8,7 @@ Only Stage 3 can pass the prototype. Stages 1 and 2 can show that it works techn
 
 ### Stage 1: Solo in Studio
 
-Use a static target dummy, a strafing dummy, a dummy capable of occasional Dash and Evade, and simulated latency where useful.
+Use a static target dummy, a strafing dummy, a dummy capable of occasional Dash and Evade, a dummy that shoots back so that a solo player can be hurt and killed, and simulated latency where useful.
 
 Validate aiming, projectile feel, cast responsiveness, hit feedback, Wet readability, Arc Burst Reaction readability, Dash and Evade timing, and obvious networking bugs.
 
@@ -69,6 +69,8 @@ After sessions, record comments like these, which show whether the networking an
 ## Instrumentation
 
 Server and session logs are enough, and no telemetry backend is needed. Record fight duration, attack attempts, confirmed hits, Ability usage, Reactions, Dash count, Evade count, and kills and deaths. The first prototype doc lists the fuller metrics to derive from these.
+
+Lines starting `[Riftfall][Session]` in the server console hold these: one for each kill, non-combat death and fight, and a JSON summary per player when they leave or the server closes. A player's fight starts with the first damage they deal or take, and ends when someone dies or after 7 seconds with no damage either way. A lone hit that nothing followed isn't counted as a fight. A hit rate counts Casts that landed against Casts accepted, so a cone hitting two targets can't push it past 100%.
 
 ## If the loop does not feel good
 
