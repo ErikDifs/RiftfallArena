@@ -159,7 +159,11 @@ Roblox version history for the published place is the code's history, as set out
 - Fixed: the kill notice showed Studio's negative test ids as "Killed by -1".
 - Fixed: Roblox's random spawns could put players on the same pad. The [spawn rule](first-combat-prototype.md#spawn-rule) replaces them, so `Characters` now loads every character itself, with `CharacterAutoLoads` off.
 
+**Real client, 2026-11-07:** the developer joined the published place from the Roblox app, through its direct link, as private experiences aren't listed anywhere. Session logs read correctly from the real server through F9 → Log → Server, with no errors or warnings at about 58 ms ping. That console can't be copied from, so take a screenshot.
+
 **Written down, not fixed:**
+
+- A player's JSON summary only prints when they leave or the server closes, and hasn't been read from a real server. Whoever's still in the server can read it, but once the last player leaves, its console is gone. In Stage 3, the developer should stay in until the others have left, and read the per-fight lines as they go.
 
 - `IncomingReplicationLag` delayed remote events by the full amount, but other players' movement by only about 30 ms. So this run understates how far behind a laggy player sees targets, and whether cones feel fair under latency, as ADR-0001 asks, is for Stage 3 to show.
 - Each client ran at about 15 fps with its window in the background, and judging feel by hand in this setup isn't reliable.
