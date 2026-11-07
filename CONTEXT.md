@@ -104,8 +104,24 @@ _Avoid_: Aim assist, soft lock, lag compensation
 A player's single use of an Ability or Basic Attack, sent once with its Aim Point. The server either accepts or rejects it.
 _Avoid_: Shot, fire event
 
+**Casting Style**:
+How an Ability's input becomes a Cast: Instant, Committed Cast or Chargeable.
+_Avoid_: Cast type
+
+**Instant**:
+A Casting Style where pressing the input Casts immediately.
+_Avoid_: Reaction, for a quick defensive response
+
+**Committed Cast**:
+A Casting Style with a fixed, Telegraphed wind-up the player doesn't control, which may commit them depending on the Ability.
+_Avoid_: Charged cast, channel
+
+**Chargeable**:
+A Casting Style where holding the input is Charging, and releasing it Casts.
+_Avoid_: Hold-to-fire, which is how the Basic Attack repeats
+
 **Charging**:
-The exclusive state of holding an Ability's input to build a stronger Cast, with slower walking and a Telegraph. Its Cast happens on release.
+The exclusive state of holding a Chargeable Ability's input to build a stronger Cast, with slower walking and a Telegraph. Its Cast happens on release.
 _Avoid_: Channelling, wind-up, Dash charges
 
 **Authoritative Projectile**:

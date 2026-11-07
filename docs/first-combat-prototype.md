@@ -79,6 +79,24 @@ Charging costs a player three things, but doesn't leave them helpless:
 | Root | Prevents movement under its normal rules, without cancelling Charging |
 | Ordinary damage | Does not interrupt Charging, so rapid Basic Attacks and incidental monster hits can't suppress it |
 
+**Any Knockback interrupts Charging, and ordinary damage does not.** There is no strength threshold, no exception for any Ability and no per-Ability interrupt logic.
+
+This makes Tidal Bolt a deliberate Charging counter. If a player Charging Arc Burst is hit by Tidal Bolt, they take its normal damage, Wet and Knockback, and the Knockback interrupts their Charging. That's acceptable because the bolt has to land on a moving target, it has a meaningful cooldown, and the Charging player can see it coming and Dash, at the cost of their own Charge.
+
+Skilled players may fish for these interrupts, which isn't being solved in advance. Session logs count interrupted Charging by cause. If Tidal Bolt interrupts too much in playtesting, tune the Knockback of its tap and low-charge Casts first, before adding any more complicated rule.
+
+## Casting Styles
+
+Not every Ability is Chargeable, and an Ability's Casting Style is data-driven where practical. Charging stays a distinctive tactical mechanic, not the default for every spell.
+
+| Casting Style | How it works | First loop |
+|---|---|---|
+| Instant | Press, and it happens immediately | The Basic Attack is the same in spirit, but repeats while held |
+| Committed Cast | A fixed wind-up the player doesn't control, which may commit them depending on the Ability | None |
+| Chargeable | Hold to Charge, and release to Cast using the server's Charge duration. Charging changes meaningful geometry or behaviour, not just raw damage | Tidal Bolt and Arc Burst |
+
+[Future Abilities](future-abilities.md) holds candidates for each style. They don't change this milestone's scope.
+
 ## Prototype Character
 
 Everyone uses the same controlled appearance, backed by the fixed Hitbox from [ADR-0004](adr/0004-fixed-gameplay-hitbox-independent-of-appearance.md). This removes variability from silhouette, animation, proportions, accessories, Status readability and perceived hit accuracy.
@@ -155,6 +173,7 @@ Balance from measured combat, not only spreadsheet DPS. Track at least:
 - percentage of attacks that land
 - how often players successfully disengage
 - how often kills happen immediately after another fight
+- how often Charging is cancelled or interrupted, by cause: Dash, Knockback, Stun, Frozen or death
 
 If fights run too long mainly because players miss, prefer increasing damage or adjusting Ability cadence before making Hit Tolerance more generous.
 
