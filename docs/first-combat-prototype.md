@@ -100,6 +100,22 @@ After a lost Charge, holding the key does nothing. The player must release it an
 
 There is no lockout, partial cooldown or minimum delay in this first version. If playtesting shows interrupts are too weak, add the smallest possible lockout then.
 
+### Input rules
+
+Combat actions are explicit rather than queued: a fresh press leads to a visible action, and nothing buffered starts later.
+
+| Case | Result |
+|---|---|
+| Pressing Q or E during a Dash | Allowed, and Charging begins. Only a new Dash that starts while Charging cancels it |
+| Releasing during a Dash | Casts normally, under normal server validation |
+| Pressing Dash while Charging with no Dash charges | No Dash, Charging continues, and no time is lost or cancellation logged |
+| A Dash the client started but the server rejects | Charging stays cancelled and is logged under `Dash`, because recreating a Charge the player has visibly lost would be more confusing. The Dash itself reconciles under the normal rules |
+| Holding the Basic Attack, then starting Charging | Charging takes priority and swings stop. If the input is still held when Charging ends in any way, swings resume |
+| Pressing another Ability while Charging | Ignored and not queued, and the current Charge continues |
+| Holding Q and E, with only Q Charging | Releasing Q follows the normal rules, and E needs a release and a fresh press |
+
+If swings resuming after an interrupt prove unwanted, revisit that one behaviour.
+
 ### Holding and expiry
 
 The server may decide whether a Cast is valid, but it must not invent where the player aimed.
