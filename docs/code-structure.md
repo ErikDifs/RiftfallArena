@@ -18,7 +18,9 @@ ReplicatedStorage
     │   ├── HitboxRules
     │   ├── CastRules
     │   ├── DashRules
-    │   └── MovementRules
+    │   ├── MovementRules
+    │   ├── StatusRules
+    │   └── KnockbackRules
     └── Net
         └── Protocol
 
@@ -41,8 +43,11 @@ StarterPlayer
         ├── Input
         ├── Camera
         ├── Dash
+        ├── Knockback
+        ├── ForcedMovement
         ├── Casting
         ├── CosmeticProjectiles
+        ├── StatusVisuals
         ├── Feedback
         └── Hud
 

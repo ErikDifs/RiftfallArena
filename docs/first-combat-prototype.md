@@ -30,7 +30,7 @@ The Basic Attack is untyped and non-Reactive, so that the combo rules stay easy 
 
 | Ability | Type | Behaviour |
 |---|---|---|
-| Tidal Bolt | Water projectile | Applies Wet and pushes lightly. |
+| Tidal Bolt | Water projectile, on Q | Applies Wet and pushes lightly. Applying Wet again restarts it, and the latest character becomes its Applied By. |
 | Arc Burst | Lightning, short-range cone | Triggers the Wet Reaction. |
 | Frost Lance | Frost projectile | Two successful applications within the window cause Frozen. |
 | Seismic Slam | Physical, close-range heavy AoE | Knockback and Shatter-capable. |

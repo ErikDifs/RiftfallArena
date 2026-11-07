@@ -84,11 +84,17 @@ Roblox version history for the published place is the code's history, as set out
 - Wet appears only after Server Confirmation, and expires at its configured duration.
 - The server enforces the cooldown, and a Rejected Cast restores the cooldown display.
 - Knockback direction and strength come from the server, and Movement Validation allows for it through `Movement.allowDisplacement`.
-- Knockback interrupts an active Dash, which the Dash client doesn't do yet.
+- Knockback interrupts an active Dash.
 - Evade prevents damage, Wet and Knockback, but does not remove an existing Wet.
 - Adding the Ability needed data and only small generic changes, not a separate projectile path.
 
 **Test in Studio:** hit moving dummies. Judge whether Wet is readable at combat distance without any UI, how the push feels, the bolt's speed relative to the Basic Attack, and whether the cooldown suits the fight's rhythm.
+
+**Left for later tickets:**
+
+- Being pushed and made Wet can't be felt solo, because no dummy shoots back. A real player hitting a player belongs to Ticket 8's Stage 2 run.
+- A client that ignores a Knockback isn't noticed yet. ADR-0002 calls that suspicious, but Movement Validation only catches moving too far, not too little.
+- The Roblox default `Health` script still runs on characters and heals them from the first moment. Ticket 7's Natural Recovery must replace it.
 
 ## 6. Arc Burst
 
