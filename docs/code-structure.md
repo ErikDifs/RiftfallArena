@@ -22,7 +22,8 @@ ReplicatedStorage
     │   ├── StatusRules
     │   ├── KnockbackRules
     │   ├── HealthRules
-    │   └── SessionRules
+    │   ├── SessionRules
+    │   └── SpawnRules
     └── Net
         └── Protocol
 

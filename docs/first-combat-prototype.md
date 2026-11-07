@@ -186,6 +186,17 @@ Fast, light Abilities can allow a Dash during their wind-up. Committed, heavy Ab
 
 If Evade becomes too dominant, shorten its duration before changing Hit Tolerance. If apparently clean Dashes still result in frequent unfair-feeling hits, revisit lag compensation as described in [ADR-0001](adr/0001-server-authoritative-hits-with-cosmetic-client-projectiles.md).
 
+## Spawn rule
+
+A lightweight prototype rule rather than a spawn-safety system. On every spawn and respawn, the server chooses among the existing Spawn pads:
+
+- the pad with the greatest distance to its nearest living player
+- never a pad that is occupied or immediately adjacent to another player, about 12 studs, if a safe one exists
+- at random between pads about as far as each other, within about 5 studs
+- the farthest pad even if none is safe, rather than delaying the respawn
+
+Do not add temporary spawn invulnerability, hidden respawn areas, dynamic spawn creation or complex line-of-sight scoring unless Stage 3 shows spawn killing is still a problem. Each choice is logged with its pad and distance, so that testing can show whether it behaves sensibly.
+
 ## Frozen rules
 
 The goal is a strong setup opportunity without long periods where the victim cannot play.
