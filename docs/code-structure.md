@@ -18,6 +18,7 @@ ReplicatedStorage
     │   ├── ReactionRules
     │   ├── RankRules
     │   ├── KitRules
+    │   ├── PickupRules
     │   ├── HitboxRules
     │   ├── CastRules
     │   ├── ChargeRules
@@ -36,6 +37,7 @@ ServerScriptService
     ├── Main
     ├── Characters
     ├── Kits
+    ├── Pickups
     ├── Dummies
     ├── Casts
     ├── Charging
@@ -64,6 +66,8 @@ StarterPlayer
         ├── ChargeTelegraphs
         ├── CosmeticProjectiles
         ├── CosmeticSectors
+        ├── PickupVisuals
+        ├── Replacing
         ├── StatusVisuals
         ├── ReactionVisuals
         ├── Feedback
@@ -71,12 +75,13 @@ StarterPlayer
         └── Hud
 
 ServerStorage
+├── PickupPlacements (hand-placed test markers, used only with an Empty Starting Kit)
 └── Tests
     ├── RunAll
     └── <Name>Spec
 ```
 
-The server creates a `Remotes` folder under `Shared/Net` at startup, from the events defined in `Protocol`. Avoid dots in instance names, because the MCP reads them as path separators.
+The server creates a `Remotes` folder under `Shared/Net` at startup, from the events defined in `Protocol`, and a `Pickups` folder in the workspace for the Pickups' Parts. Each client draws Pickups into its own `PickupVisuals` folder. Avoid dots in instance names, because the MCP reads them as path separators.
 
 ## Rules for each part
 
@@ -89,10 +94,18 @@ The server creates a `Remotes` folder under `Shared/Net` at startup, from the ev
 
 From [Ticket 15](milestone-2-tickets.md#15-per-player-kit), each player's Kit is owned by the server.
 
-- **`KitRules`** is the pure logic: building the Starting Kit, finding an Ability's slot, the first free slot, equipping into an empty slot with the Equip Lock and the Rank cap, whether a Cast is allowed, and encoding the Kit as attributes and back. Ticket 16 adds fits, Upgrades and replacement here.
-- **`Kits`** (server) holds each player's Kit, gives each new character the Starting Kit from `Tuning.kit`, and is the only writer of the `KitSlot<n>Ability`, `KitSlot<n>Rank` and `KitSlot<n>LockedUntil` attributes on the `Player`. `Kits.canCast` is the only gameplay source of an Ability's slot, Rank and whether it may be Cast, and `Casts` asks it for every request. `Kits.grant` puts an Ability into the first free slot, for tests now and Pickups later.
+- **`KitRules`** is the pure logic: building the Starting Kit, finding an Ability's slot, the first free slot, equipping into an empty slot with the Equip Lock and the Rank cap, whether a Cast is allowed, and encoding the Kit as attributes and back. From Ticket 16 it also decides fits (`fit`: Equip, Upgrade, AtCap or NeedsReplace), `upgrade` and `replace`. It is the only place that enforces the gameplay Rank cap, `Tuning.kit.maxRank`, while `RankRules.MAX_RANK` is only what the Ability data supports.
+- **`Kits`** (server) holds each player's Kit, gives each new character the Starting Kit from `Tuning.kit`, and is the only writer of the `KitSlot<n>Ability`, `KitSlot<n>Rank` and `KitSlot<n>LockedUntil` attributes on the `Player`. `Kits.canCast` is the only gameplay source of an Ability's slot, Rank and whether it may be Cast, and `Casts` asks it for every request. `Kits.grant` puts an Ability into the first free slot, for tests. `Kits.collect` and `Kits.replace` are how Pickups change a Kit, and each decides the fit again from the Kit as it is then.
 - **Clients** rebuild a copy of their Kit from the attributes with `KitRules.fromAttributes`, for the HUD, local prediction and drawing only. `Input` reports slots, and `Casting` maps them to the Abilities in the copy. Other players' Telegraphs read the `ChargingRank` character attribute that `Charging` sets. No Rank from a client is ever used.
 - **Cooldowns** stay in `Casts`, per Ability per life, separate from the Kit, so swapping an Ability out and back in never resets one.
+
+## Pickups
+
+From [Ticket 16](milestone-2-tickets.md#16-pickups-and-replacement), Ability Pickups are owned by the server.
+
+- **`PickupRules`** is the pure logic: who collects a Pickup (`chooseCollector`), the checks on a replacement before the Kit's own (`validateReplace`), which Pickup a full Kit is offered (`chooseReplaceTarget`), the token bucket that guards `ReplaceRequest`, where a dropped Ability lands, and the supported Pickup shapes.
+- **`Pickups`** (server) keeps each Pickup's record and gives it an invisible, tagged Part in `workspace.Pickups` carrying `PickupId`, `PickupAbility`, `PickupRank` and `PickupSpawnedAt`. About 10 times a second it gives each Pickup, in ascending id order, to the nearest living, unblocked player it fits, through `Kits.collect`. It handles `ReplaceRequest` in one synchronous step, so the first valid request wins, and drops the replaced Ability at the player's feet as a new Pickup. Either way it fires `PickupCollected` and removes the Part. With an Empty Starting Kit it turns the markers in `ServerStorage.PickupPlacements` into Pickups at startup.
+- **Clients** draw Pickups in `PickupVisuals`, from the tag and attributes only. `Replacing` keeps its own copy of the Kit, offers the nearest Pickup a full Kit could take only by replacing, shows the prompt, and sends `ReplaceRequest` when the player holds the modifier and presses a slot. `Input` sends a slot's press to `Replacing` instead of `Casting` while the modifier is held. Nothing on the client predicts a Kit change.
 
 ## Dependencies
 
@@ -117,6 +130,8 @@ The exact events can change, but the first loop will likely cover:
 - `DashRequest`
 - `DashRejected`
 - `CastStarted`, for cosmetic replication
+- `ReplaceRequest`, a Pickup and a slot only, never an Ability or Rank
+- `PickupCollected`, which drives everyone's feedback for a Pickup taken
 - `CombatResult`, which drives local feedback from one authoritative result
 
 Do not create a new RemoteEvent for each visual effect.
@@ -130,6 +145,7 @@ Small deterministic tests are enough, without an elaborate framework. They cover
 - Reaction ownership and credit
 - Rank progression
 - Kit building, equipping, the Equip Lock and the Kit's attributes
+- Fits, Upgrades and replacement, who collects a Pickup, and the checks on a replacement
 
 They never run in the game by themselves. During Play, run `require(game.ServerStorage.Tests.RunAll).run()` on the Server DataModel, which returns a pass and fail summary.
 

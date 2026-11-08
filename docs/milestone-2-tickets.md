@@ -427,6 +427,91 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - **C, Empty, solo, with TestShard:** the prompt and target, F+Q and F+E, the drop, swapping back, cooldowns, the F input behaviours, forged refusals, and the 100-request flood (5 handled, 95 dropped by the guard, one replacement and one drop).
   - **D, Player1 and Player2:** first a short Reference Kit check (both Kits, one Tidal Bolt into Arc Burst exchange, the remote Telegraph's Rank, no Pickup visuals), then Empty with TestShard: contested collection, the dropped Ability collected by the other player, the same Pickup requested at once, and the prompt and outline seen only locally.
 
+**Built and tested 2026-11-08. All checks pass.**
+
+- **Server side:**
+  - `KitRules` gained `fit`, `upgrade`, `replace` and `isValidRank`.
+  - The new `PickupRules` is pure logic: `chooseCollector`, `validateReplace`, `chooseReplaceTarget`, the token bucket and `dropPosition`.
+  - The new `Pickups` server system handles records, spawning, the 10 Hz collection check, `ReplaceRequest`, the throttled warnings and placements.
+  - `Kits` gained `get`, `collect` and `replace`. `Session` counts and logs Pickups.
+  - `Protocol` gained `ReplaceRequest`, `PickupCollected` and the Pickup attribute names. The Tuning values are in `kit.replaceModifier` and `pickups`.
+- **Client side:**
+  - `Input` gained the F modifier, and `Casting` gained `isCharging`.
+  - The new `Replacing` module drives the prompt, the target and the request.
+  - `studio-implementer` built the new `PickupVisuals`, the Hud prompt and slot pulse, the Feedback burst, sound and Upgrade text, the `pickupShape` values and the specs. All of it was reviewed before acceptance.
+- **Placements:** six markers in `ServerStorage.PickupPlacements`.
+- **Specs:** 249 passed, 0 failed, run on the Server in Play.
+- **Test setup:** a TEMPORARY TestShard, two shard markers and a TEMPORARY hook (grant, spawn, Kit read). All were removed after the runs, a search for `TestShard` and `TEMPORARY` finds nothing, and `startingKit` is back to `"Reference"`. After the clean-up, specs passed 249 of 249 again, with the Reference Kit and no Pickups.
+
+**A, Reference Kit, solo:**
+
+| # | Check | Result |
+|---|---|---|
+| A1 | Specs | 249 passed, 0 failed |
+| A2 | Kit and prompt | Tidal Bolt/1 and Arc Burst/1, no `LockedUntil`, `ReplacePrompt` hidden |
+| A3 | No Pickups | `Workspace.Pickups` and the client's `PickupVisuals` were both empty |
+| A4 | Tap Q, then E | 12.037, then 30.021 (Wet Reaction) |
+| A5 | Q held 0.65 s | Walking 16 → 12, `ChargingRank` 1, cleared on release, 13.45 |
+| A6 | Cooldown | A second Q tap 0.8 s later gave no second hit |
+| A7 | Death and respawn | Kit unchanged, and a charged Q hit for 13.45 straight away |
+| A8 | Forged requests | A `CastRequest` with `rank` was dropped as malformed. `ReplaceRequest {1, 1}` was refused as `Gone`. Kit and Pickups unchanged |
+| A9 | F held with other inputs | The Basic Attack still hit, 4 hits each for 6, and LeftShift still Dashed about 21 studs |
+
+**B, Empty Kit, solo, with the markers:**
+
+| # | Check | Result |
+|---|---|---|
+| B1 | Visuals | Six Pickups at the right places, Abilities and Ranks. Tidal Bolt: a Neon sphere of 1.6, label, pips, beam 0.25 × 30 at 0.7. Arc Burst Rank 2: a diamond of 1.3, both pips filled, and the base ring (1.4/1.2). In a capture the ring reads clearly as a ring, so the fallback wasn't needed |
+| B2 | Equip into Q | Tidal Bolt into Q with a 0.83 s Equip Lock shown on the slot, which pulsed to 1.15. No text. The Pickup and its visual were gone, and Session logged `Equip` |
+| B3 | Equip into E | Arc Burst/1 into E with a lock and pulse |
+| B4 | Upgrade Q | Rank 1 → 2, `LockedUntil` unchanged, "Upgrade → Rank 2" at 24 px in blue. Session logged `Upgrade` |
+| B5 | Upgrade E | Arc Burst Rank 2 with the pulse and yellow text |
+| B6 | At the cap | Standing on Marker5 at Rank 2 for 2.2 s changed nothing |
+| B7 | Upgrade during a Charge | Collected 0.4 s into a Q hold. `ChargingRank` stayed 1, and the release hit for 15.91, Rank 2's 13 × 1.224. Rank 1 would be 14.69 |
+| B8 | Stunned | The Pickup stayed for 1 s, then was collected 0.03 s after the Stun cleared |
+| B9 | Sound | `PickupCollect` is `rbxasset://sounds/snap.mp3`, at speed 1.8. It reports `IsLoaded` with a length of 0.418 s |
+| B10 | Full Kit with F at a capped Pickup | No prompt, no outline |
+
+**C, Empty Kit, solo, with TestShard:**
+
+| # | Check | Result |
+|---|---|---|
+| C1 | Prompt and target | "F + Q — Replace Tidal Bolt with Test Shard" and the E line, at 0.4 transparency, opaque while F was held. The outline moved to the nearer Pickup, and both were gone at 8.5 studs |
+| C2 | F+Q | Q became Test Shard with a 0.85 s lock. The server got one `{pickupId, slot}`. Tidal Bolt R1 dropped at (21, -5, 40), 3 above the floor, and wasn't collected over 2 s. Session logged `Replace dropped=TidalBolt`. No Charging started |
+| C3 | Swap back | Q became Tidal Bolt with a fresh lock, and a Test Shard dropped |
+| C4 | F+E | E became Test Shard, and Arc Burst R1 dropped |
+| C5 | Cooldowns per Ability per life | After a tap, then swapping out and back in, a `ChargeStart` once the lock ended was refused as `OnCooldown` with 1.55 s left |
+| C6 | F input behaviours | F then Q held: no Charge. Q held, then F, then Q released: Cast normally. Releasing F with Q still held: no Charge. A fresh Q press then Charged. F+Q and F+E with no target sent nothing |
+| C7 | Forged refusals | Extra `rank` or `abilityId`: malformed. Unknown id: `Gone`. 7 studs: `TooFar`. While Charging: `Charging`, and the Charge kept going. Slot 3: `NoSuchSlot`. Own Rank 1 Ability: `Fits`. Own Rank 2: `AtCap`. Nothing changed each time |
+| C8 | 100-request flood | One replacement, one drop and one Session line. One warning, then "(98 more held back)": 3 `Gone` and 95 dropped by the guard |
+| C9 | Stunned | Refused as `Stunned`, Kit unchanged |
+
+**D, Player1 and Player2:**
+
+| # | Check | Result |
+|---|---|---|
+| D0–D6 | Reference Kit | 249 specs passed. Both Kits replicated, with no Pickups or prompt. Tidal Bolt then Arc Burst did 12, then 30 with Wet, on both clients. Player2 saw Player1's `ChargingRank` 1, and `CastStarted` had rank 1. E's hold showed `ChargingRank` 1. No errors |
+| D7 | Empty start | Both Kits empty. 8 Pickups, and 8 visuals on each client |
+| D8 | Contested collection at Marker6 | Both landed in the same server tick, at 2.0 and 3.5 studs. The nearer Player1 got Arc Burst with a lock and the slot pulse. Player2's Kit stayed empty, and Player2 heard the sound at (30, -5, 30). One Session `Equip` line, and the visual was gone on both clients |
+| D9 | The drop goes to the other player | With real input, Player1 pressed F+E. E became Test Shard, and Tidal Bolt R1 dropped under Player1, visible on both clients. Player2 walked onto it and equipped it |
+| D10 | Same Pickup at once | Both sent `{pickupId = 11, slot = 1}` 5 ms apart. Exactly one replacement (Player2's) and one drop. Player1 was unchanged and refused as `Gone`. One Session `Replace` line |
+| D11 | Prompt and outline local only | Player1 saw both. Player2, far away or 5 studs away with a Kit that wasn't full, saw neither |
+| D12 | Consoles | No errors on the server or either client |
+
+**Accepted with notes:**
+
+- **Starting values.** The look, the arrow glyph and the sound are starting values. The ring and "Upgrade → Rank 2" both rendered cleanly, so neither fallback was used. The `PickupCollect` sound is the built-in `snap.mp3` at speed 1.8, a placeholder, and no asset was uploaded.
+- **Telegraph during an Upgrade.** An Upgrade during a Charge resolves the new Rank on release (B7), while the Telegraph keeps the Rank it started with, as settled.
+- **Session log names.** Session lines name players by UserId (`player:-1`), not by name.
+- **Test setup, not bugs:**
+  - The developer's own input in Studio stopped Play twice and added Casts during the first solo run.
+  - The ShootingDummy hit the tester on the way to markers.
+  - A test hop collected the Rank 2 TestShard on its way past, so a few C7 refusals used an Arc Burst Pickup as the target.
+  - Specs called from Edit mode show false failures from stale module copies.
+  - All of these are in the quirks doc.
+
+**Not yet published.**
+
 ### 17. One-life Match
 
 - **Scope:**
