@@ -33,6 +33,7 @@ ServerScriptService
     ├── Characters
     ├── Dummies
     ├── Casts
+    ├── Cover
     ├── Projectiles
     ├── Sectors
     ├── Combat

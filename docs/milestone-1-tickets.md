@@ -224,6 +224,44 @@ On 2026-11-07, after Ticket 8, the developer changed the first loop before any S
 
 **Test in Studio:** stand just behind thin cover while the shooting dummy fires, then lean out past its edge.
 
+**Built 2026-11-08, not yet checked by the developer or published.** A new server module, `Cover`, owns the arena's cover. `Cover:strike` is the centre-path wall raycast, and `Cover:canSee` is the sight-point check that used to be a local `hasLineOfSight` in `Sectors`. `Main` builds one from `workspace.Arena` and passes it to both `Projectiles` and `Sectors`, so cover means the same to both. Every projectile goes through `Projectiles`, so the fix covers players, the shooting dummy and future projectiles. `Projectiles.start` also takes an optional `heartbeat` signal, so specs can step it. 164 specs pass, including a new `ProjectilesSpec` that runs a copy of the real module against temporary walls.
+
+**How a projectile hit is decided now:** a step's path must still come within the projectile's radius, plus the Hitbox radius, plus Hit Tolerance (still 0.3), of the Hitbox. Wall collision still uses only the centre path. On top of that, from some position on that step where the projectile is within that reach, at least one of `HitboxRules.sightPoints` must be clear of cover. It tries the closest position to the Hitbox first, then positions at most 1 stud apart. Two details make this more than "check from the projectile's position":
+
+- Checking only from where a step starts missed real hits when a frame was slow: one step could start hidden behind a corner and end past the target it rounded the corner to reach. With Studio in the background this happened in the real arena. Checking along the step keeps the module's promise that speed can't cause tunnelling.
+- When a step ends on a wall, sight is checked from 0.1 studs short of its face, because a ray starting on a part's surface misses that part. Without the gap, both blocked-by-cover specs fail.
+
+`HitboxRules.closestShare` is new: a pure helper that gives how far along a path it comes closest to a Hitbox.
+
+**Reproduced before the fix**, with a copy of the unchanged `Projectiles` in the real arena:
+
+- A tap bolt (radius 0.6) into a temporary 0.5-thick wall hit a target pressed behind it, because its reach of 2.4 extends 0.4 past the wall. Into a 1-thick wall it missed.
+- A full-size bolt (radius 1.8, set directly) into a 1-thick wall hit a target pressed behind it, because its reach of 3.6 extends 1.1 past the wall.
+- Every cover part in the arena is at least 3 studs thick, so neither bolt reaches through one face-on. Through-cover hits there are a corner problem. A full-size bolt flying past `CoverCentre`'s end came within reach of a target hidden behind it about 2 studs before rounding the corner. A tap bolt's reach is too short for that at this arena's cover.
+
+**Checked in Studio through the MCP after the fix:**
+
+- The same copy, against the same walls, gave no hit through either wall and still hit with no wall.
+- `ProjectilesSpec` covers a tap bolt blocked by thin cover, a full-size bolt blocked by cover, both sizes hitting an exposed target, a head above low cover, a shoulder past a wall's end, a target hidden the whole time it's in reach, a slow server frame, and cover beside a full-size bolt's path not stopping it.
+- Mutation checks: with no sight check, the three blocked specs fail. Checking only from a step's start fails the slow-frame spec. Checking only the closest position fails the shoulder spec. Removing the 0.1-stud wall gap fails both blocked-by-cover specs.
+- Live bolts from the running game's `Projectiles`, fired at the real player through a temporary hook, since removed:
+
+  | Case | Result |
+  |---|---|
+  | Tap bolt, exposed | Hit for 12 |
+  | Tap bolt, 0.5-thick wall pressed in front | No damage |
+  | Full-size bolt, 1-thick wall pressed in front | No damage |
+  | Full-size bolt, shoulder showing past a wall's end | Hit for 12 |
+  | Full-size bolt, hidden behind a wall the whole time it was in reach | No damage |
+
+- On `RampRaised`, the shooting dummy still hit the player every 3 s for 12.
+
+**Left for the developer and later tickets:**
+
+- The arena has no thin cover, and tap bolts couldn't hit through its 3-stud cover before this fix. So the Studio test can confirm that leaning out still gets you hit and that nothing feels off, but it can't show the fix itself. That needs a full Charge from Ticket 11 at a corner, or a temporary thin wall.
+- The shooting dummy only fires when it can see the target's middle, with its own raycast. It doesn't use `Cover` or the sight points, so it won't fire at a player showing only a head or a shoulder, though its bolt could hit them. That is cover-respecting, so it was left alone.
+- A projectile with its centre path just past a wall's edge can still hit someone partly behind it, if a sight point is clear from where it is. The design intends this: "a genuinely exposed part of them still counts".
+
 ## 11. Charging foundation and Tidal Bolt
 
 **Scope:** Charging as a reusable mechanism for any Chargeable Ability, built through Tidal Bolt: the ADR-0006 start and release protocol with attempt identifiers, server-derived Charge, the Tap Window, the exclusive combat state, slowdown, cancels and interrupts, the input rules, the fresh-press rule, auto-release, expiry, session logging of end causes, Tidal Bolt's scaling, its orb Telegraph, the full-Charge cue, the caster's local estimate for immediate visuals, and the server's Charge in replicated Casts. No Arc Burst-specific presentation.
