@@ -447,7 +447,7 @@ The server's session summary gave Arc Burst 1 tap and 2 full Charges.
 
 ## 14. Cast from the hands
 
-Planned 2026-11-08 at the developer's request, as a separate follow-up after Ticket 13. Not started.
+Planned 2026-11-08 at the developer's request, as a separate follow-up after Ticket 13.
 
 **Scope:** projectiles start from the caster's hands rather than above the root, with placeholder animations for holding a Charge and for releasing it.
 
@@ -469,3 +469,18 @@ Planned 2026-11-08 at the developer's request, as a separate follow-up after Tic
 - **Arc Burst's lightning is drawn from the hand**, while its Sector and preview stay at the body. The few studs between them are an accepted visual mismatch.
 - **Placeholder animations are keyed by Claude** as R15 KeyframeSequences, previewed by the developer in the Animation Editor, and uploaded only with their approval.
 - **Starting offset:** 1.5 studs right, 0.5 up and 1.5 forward from the root, tuned in Studio to the pose.
+
+**Built 2026-11-08, not yet checked by the developer or published.** 198 specs pass, 8 of them new, for the hand origin.
+
+- `CastRules.handOrigin` and `CastRules.originFor` hold the shared rule. The cover raycast is passed in, so the rule stays pure: the server uses `Cover`, and the client a raycast against the same `Arena` folder. `Casts` takes `cover` as a new dependency.
+- `Casts.castFromServer` now takes the caster's root position rather than an origin, so the ShootingDummy starts its shots where a player's would.
+- Arc Burst's lightning is drawn from a hand origin that each client rebuilds from the body origin in `CastStarted`, so nothing new goes over the network.
+- The orb's near side sits at the hand, following the body's facing, which other players can see.
+- A new client module, `CastAnimations`, plays a looping hold once Charging shows and a release on every Chargeable Cast, taps included. Ids come from `Tuning.animations`. Until they're uploaded, Studio plays the drafts in `ReplicatedStorage.AnimationDrafts` through `KeyframeSequenceProvider`. Only the local client can load those ids, so other players don't see the pose in multi-client tests until the upload.
+- **Offset tuned to the pose:** 1 stud right, 0.7 up and 2 forward, where the hold puts the real right hand (measured at 0.99, 0.70, −2.00).
+
+**Checked through the MCP, solo:** a tap bolt's first cosmetic part appeared at the hand offset. During a held Q the hand stayed within 0.05 studs of the offset, the orb's near side stayed at the hand while it grew to 4.2, and the release pushed the hand forward and then faded back to rest within about 0.7 s. No errors on either side.
+
+**Not yet checked:** casting pressed against cover and at point-blank in Play, the server's origin agreeing with the client's on 2 clients, and the ShootingDummy's shots.
+
+**For the developer:** the full-Charge orb now sits close to the camera's line, so it partly covers the Crosshair. Judge whether that matters in play.
