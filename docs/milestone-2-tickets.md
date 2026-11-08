@@ -803,6 +803,247 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - The shuffled Ability bag, the early-variety adjustment, and central Caches' two drops set apart.
 - **Starts after** the Match lifecycle works in the existing arena.
 
+**Settled 2026-11-09, before building.**
+
+- **The map.**
+  - **`Workspace.MatchMap`** is centred at about (0, 0, −450): a greybox floor of about 250 × 250 at y = 0, with perimeter walls about 20 studs high and no route to the arena or the Hub. The size is starting tuning, not a fixed dimension.
+  - `Workspace.Arena` stays unchanged for the Reference Kit and Stage 3, and `Workspace.Hub` stays as it is.
+  - **Spawns.** Six pads on a ring of about r = 105, in a new `"Map"` spawn area rather than `"Arena"`. In an Empty-Kit Match, `Match` deals them through the existing `MatchRules.assignSpawns`, so 2–6 players never share a pad, and Ticket 17's four-pad wrapping no longer applies at the intended player counts.
+  - **A risk gradient, by ring:**
+    - the edge: the six pads
+    - the outer ring: 10 unguarded Caches, reachable early from the spawns
+    - the middle: scattered cover at about r = 50, breaking long sight lines
+    - the centre: a solid core of about r = 10 with three radial walls making three bays. Each bay has one central Cache toward the front and one Sentry behind it on a low pedestal. The walls stop all three Sentries acquiring the same player, so a player committing to one central Cache normally faces one Sentry.
+  - **10 outer Caches, not 12,** so a Match still holds exactly 16 Ability drops (10 × 1 + 3 × 2) and four Abilities can have exactly four copies each. Pads don't need two Caches of their own: each has about two reasonable early routes, and some Caches are shared between neighbouring pads, which may give light early contest. A first check, with Caches every 36° on r ≈ 80, put every pad within about 27–54 studs of two Caches, with the Caches at 90° and 270° shared. If the coordinate pass can't give every pad reasonable early access, report it before changing the loot total. The equal bag is never broken silently.
+  - **Central value** is two drops, a choice between them, Sentry risk and PvP convergence. No higher-Rank central loot.
+  - **Ticket 16's placement path is removed:** the six `PickupPlacements` markers, `Pickups.placeMarkers` and its spec. Caches are the source of world Ability loot, and replacement and elimination drops stay normal loose Pickups.
+- **Environment roots.**
+  - `Workspace.Arena` was hardcoded as the only environment in nine places: server cover, the client's aim cover check, camera collision, cosmetic projectile and Sector impacts, the dummy's sight line, the floor raycasts in `Pickups` and `Match`, and `Characters`' areas.
+  - One small neutral shared module, `ReplicatedStorage.Shared.Environment`, is the single source of the folders that are static environment geometry: `Arena`, `MatchMap` and `Hub`. It sits beside `Config`, `Rules` and `Net`, not in `Protocol`, which describes network contracts. Every environment query uses it, and the list isn't repeated at call sites. It isn't a world-query framework.
+  - Having `MatchMap` and `Hub` in the list changes nothing in the arena, because no ray from the arena can reach them.
+- **Rift Caches.**
+  - **In code,** a Cache is a registered combat target: an anchored greybox model with a hidden Humanoid for health, a `HumanoidRootPart` and the existing fixed Hitbox. The visible Cache is sized to match the Hitbox, about 3.4 × 5 × 3.4.
+  - Runtime Caches live in `Workspace.Caches`, never in the environment roots. Their markers, `CacheOuter01`–`10` and `CacheCentral1`–`3`, are invisible, non-colliding, non-queryable setup data in `MatchMap`.
+  - **A damageable object, not a combat actor.** Player attacks damage it at the attacker's authoritative Rank: the Basic Attack, Tidal Bolt, Arc Burst, and later Rift Hook if its projectile should normally damage objects. A Cache hit takes no part in Statuses, Reactions, Knockback, Evade, Kill Recovery, player fight tracking, damage-dealt Match stats or Reaction counters, so a Wet Cache hit by Arc Burst can't make a fake Reaction. It's a narrow extension of the existing Combat path, not a separate Cache combat implementation.
+  - **Who can damage one.** Only a player who is Alive while the Match is Running, **checked at impact**. So an attack still in flight from a player eliminated since doesn't damage a Cache, though Ticket 17 lets such attacks still hit players. Sentry attacks never damage a Cache.
+  - **Feedback.** The attacker gets the normal hit confirm, with no kill marker when the Cache breaks. The break has its own world feedback and log: `CacheBroken match= cache= kind= by= ability= seconds= drops=`.
+  - **Health,** as tuning: **outer 75**, about 5 s of Basic Attack alone, and **central 120**, about 8 s.
+  - **A known tuning hypothesis:** spawns are about 2–3.5 s from their nearest Caches, so a solo player's first Ability is expected at about 8–10 s, and with only two Abilities and early variety a full Kit at about 25 s. That's well ahead of the 30–45 s and 1.5–2 minute targets. Health isn't raised to force the old targets before the map has been played. Ticket 20's measurements decide whether Cache health, distance, number or placement change. What matters here: opening loot takes commitment, melee exposes the player, and a central Cache costs materially more time than an outer one.
+  - **Readability.** `CacheStage` is 0 when intact, 1 below about 66% and 2 below about 33%, plus `CacheBroken`. Clients draw a darker, damaged look with glowing crack lines that grow. No health bar. Every unopened Cache looks the same, and its contents never show in attributes or visuals. Being central and guarded may signal risk, but never what's inside.
+  - **The break.** A visible burst and a loud sound. The Cache stops being a target, and a low, non-colliding stump stays for the rest of the Match, only to show it's been opened. The stump is neither a target nor meaningful cover.
+  - **Cover.** An unopened Cache intercepts projectiles that hit it, whoever fired them. A projectile stops there, damaging the Cache if the attacker may, and never continues to a player behind. This comes from the target and projectile interaction, not from putting Caches in the environment roots.
+  - **Drops,** normal Rank 1 Pickups through `Pickups.spawn`, placed with the established floor logic:
+    - **Outer:** one, at or near the broken Cache.
+    - **Central:** two different Abilities, either side of the Cache across the bay's direction, at `centralDropSpreadStuds = 5` each side, about 10 studs apart. At 8 apart, the midpoint would sit exactly 4 studs from both, the collection radius, so a boundary case could collect both. Breaking a central Cache should give a real spatial choice, with no selection UI.
+  - **Lifecycle.**
+    - Match start: all Caches built fresh, intact, with their hidden contents assigned.
+    - Running: they can be damaged and broken, and none comes back.
+    - Results: the models stay for continuity, but the gates are closed.
+    - Results end: removed as part of the Match clean-up.
+    - Waiting, the Countdown and the Reference Kit: none exist.
+- **Sentries.**
+  - **In code,** a Sentry is a stationary registered target: an anchored greybox body with a hidden Humanoid, a `HumanoidRootPart`, the fixed Hitbox, a silhouette clearly unlike a Cache, and a visible firing point near the top.
+  - Runtime Sentries live in `Workspace.Sentries`, and their markers `Sentry1`–`3` belong to `MatchMap`.
+  - One small `Sentries` server system drives all three from one loop at about 5 Hz. No pathfinding, patrol, Threat, Home Territory, Monster Families, Elites or scheduler framework.
+  - **Targeting.** The nearest valid player, Alive in a Running Match, within about **45 studs**, with a clear authoritative sight line through the environment roots. Caches and Sentries don't need to be opaque to acquisition. Fired projectiles still follow the normal collision rules below.
+  - **The cycle.**
+    - Acquire a target, Telegraph for about **0.5 s**, then fire.
+    - Recover for about **2.5 s** before the next Telegraph, so shots come about **3 s** apart.
+    - With no valid target, idle.
+    - If the target becomes invalid or goes out of sight before the shot, cancel it and return to idle. It never fires without a full Telegraph.
+  - **The aim locks when the Telegraph starts.**
+    - The Sentry records an authoritative aim point from the target's Hitbox then, Telegraphs toward it, and fires at that point.
+    - The target can avoid it by moving, sidestepping, Dashing or breaking line of sight. That's intended: readable PvE pressure, not unavoidable attrition.
+    - If a locked aim proves too easy to avoid, a visible tracking Telegraph or a later lock can be tested then.
+  - **The Telegraph.**
+    - The server sets `SentryTelegraphEndsAt` in server time, and clients draw a growing orb in Tidal Bolt's colour at the firing point, related to its Charging look.
+    - It isn't real Charging: no Charge percentage, scaling, interruption rules or full-Charge behaviour.
+    - The bolt starts at that visible firing point.
+  - **The shot.** A Rank 1 tap Tidal Bolt through `Casts.castFromServer`: about 12 damage, Wet, the normal ~25 Knockback, which ends a Charge, and normal authoritative projectile behaviour. No Sentry-specific damage path.
+  - **Caches block Sentry bolts too.** A bolt never passes through an intact Cache. Each bay's Sentry, firing point and Cache are placed so the guard has a useful line on a player breaking that Cache without passing through it: a sideways offset, a raised firing point, a moved Cache, or changes to the bay. If the first layout can't do that cleanly, the greybox changes, never the collision rules for Sentries.
+  - **Health: 80,** as tuning, so killing the guard is a real but optional commitment.
+  - **Combat.** A Sentry is a real actor in the shared interaction system: it takes normal damage, can be made Wet, and Reactions can trigger on it, along with future Statuses. It doesn't Evade or recover health naturally, and Knockback doesn't move it, with no special forced movement.
+  - **Killing one** gives **no Kill Recovery**, which stays a player-kill reward, so PvE can't become a healing source. It drops nothing, so all world loot stays in the 16-drop bag.
+  - **Stats.** Hits, kills and Reactions on a Sentry don't count toward PvP kills, PvP damage, player fights or Match-result Reactions. They're logged on their own: `SentryKilled match= sentry= by= ability= seconds=`. A Sentry's hits on players stay real combat damage, with Wet and Knockback, which is the intended PvE → PvP interaction.
+  - **Death.** It becomes a dark wreck that can't be targeted, with no more Telegraphs or shots, for the rest of the Match.
+  - **Lifecycle.** Built fresh at Match start and cleared when Results end. None exist while Waiting, in the Countdown, or with the Reference Kit.
+  - **A player eliminated by a Sentry** sees the generic `Eliminated`. `PlayerEliminated` isn't widened into a non-player killer model. The server log names the source, `Eliminated ... cause=Died by=sentry:2`, to answer whether Sentries end too many runs. It never counts as a player kill.
+- **The Ability bag and early variety.**
+  - **`Tuning.loot.pool`** is `TidalBolt` and `ArcBurst` in this ticket, and Ticket 19 adds `RiftHook` and `StoneGuard`. The total is 16 world drops, all at Rank 1.
+  - **The new pure `LootRules`:**
+    - **`buildBag(pool, total)`** makes equal copies: 8 / 8 now, and 4 / 4 / 4 / 4 after Ticket 19. Equal counts are a strict invariant.
+    - **`nearestPairs(pads, outerCaches)`** finds each pad's two nearest outer Caches from positions, with ties broken by Cache name. There are no hand-kept pairing tables, so moving a marker updates early variety by itself.
+    - **`deal(bag, caches, pairs, random)`**:
+      1. Shuffle with `Match`'s injected random source, with no other randomness, so tests and Matches are reproducible.
+      2. Deal the central Caches first, each getting two **different** Abilities, never a duplicate just because it was next. With two Abilities, every central Cache gets one Tidal Bolt and one Arc Burst.
+      3. Deal the rest across the 10 outer Caches, then run a bounded, deterministic repair. Where a pad's two nearest Caches match, it tries a swap with another outer Cache, accepted only if it fixes that pair without breaking a valid pair. It's not a general constraint solver.
+  - **Equal counts are strict, and early variety is a best effort.** If the repair can't fix every pair, the equal deal stands, the Match starts, and the log says `variety=partial`.
+  - **When the invariant breaks:**
+    - Specs and config checks fail loudly in development.
+    - At runtime, `Match` checks the pool and total once at server start. If they don't divide evenly, it logs one high-severity error, for example `[Riftfall] Matches disabled: loot pool 3 doesn't divide 16`. It stays in Waiting for the rest of that server session, with no Countdown, retries or repeated logs, and players stay safely in the Hub.
+    - A defensive check also runs when dealing, before anything in the world changes. If it fails, the start is cancelled before any Cache, Sentry or loot exists, `Match` stays in Waiting, and Matches are disabled the same way, logged once.
+    - An unequal fallback bag is never dealt.
+  - **Hidden contents.** Each Cache's contents live only in its server record, as a generic list of `{ abilityId, rank }`. Nothing replicates until the break makes real Pickups. Weighted Drop Tables, rarity, and event or Elite loot can later replace `buildBag` and the equal deal without changing how Caches hold loot. No weights now.
+  - **Logs.**
+    - **`LootDeal match=3 total=16 counts=ArcBurst:8,TidalBolt:8 variety=ok`** is one line per Match, with names in a fixed order.
+    - **`LootContents match=3 ...`** is a developer-only line listing each Cache's contents, for Play checks, debugging early variety and pacing analysis. It's never sent to clients. If it grows too long with more content, it moves behind a debug flag.
+- **Ownership.**
+  - **New pure Rules, with specs.** Line of sight and other world queries are passed in as functions, following `CastRules.originFor`.
+    - `LootRules`, as above.
+    - `CacheRules`: the stage from health, the central drop spots, whether an attack may damage the Cache, and other deterministic Cache decisions.
+    - `SentryRules`: the Idle → Telegraph → Recover cycle as plain data. It covers picking the nearest eligible target, starting the Telegraph, locking the aim, cancelling, when to fire and the cadence. It doesn't become a monster AI framework.
+  - **The new `Caches` server system** owns the runtime records and their hidden loot, building them from the markers, damage and health, `CacheStage` and `CacheBroken`, the drops, and the `LootDeal`, `LootContents` and `CacheBroken` logs. Its lifecycle is `setup(random, ...)` and `clear()`.
+  - **The new `Sentries` server system** owns the three records, acquiring targets, Telegraph timing, the locked aim, firing and cancelling, health and death, and the `SentryKilled` log. Its lifecycle is `setup()` and `clear()`.
+  - **Target kinds.**
+    - Registered targets gain an explicit `kind`: `player`, `dummy`, `sentry` or `cache`. It's never inferred from names or folders.
+    - **`Combat.applyHit`** has one narrow early branch for a Cache. It goes to the Cache's handler, which applies valid damage only, then sends the normal Hit result and stops. The Combat pipeline isn't forked.
+    - Sentries take the normal path. Their Knockback handler moves nothing, and they give no Kill Recovery.
+  - **`Session`** leaves Cache and Sentry targets out of player fights, PvP damage, PvP kills and Match-result Reactions, with dummies unchanged. It records a Sentry killer for the `Eliminated` log only. `Match` passes `PlayerEliminated`, the rows and Spectate a killer only when it's a player.
+  - **`Casts.castFromServer`** gains an optional `options.origin`, trusted because only server code calls it. Sentries use it so the bolt starts at the Telegraph's firing point. No client payload carries it, player Casts keep the hand-origin rules, and all other validation and scaling stay as they are.
+  - **`Match`.**
+    - **Start, in this order:**
+      1. clear loose Pickups
+      2. check and deal the loot
+      3. `Caches.setup(random)`
+      4. `Sentries.setup()`
+      5. spawn the players on the `"Map"` pads
+    - Players never become active in a partly built PvE world.
+    - **The end of Results** clears the Caches, Sentries and Pickups before returning to Waiting.
+    - `placeMarkers` goes, and `Match`'s fallback spawn and grounded-position raycasts move to the map.
+  - **Clients.** A new `PveVisuals` draws the crack stages, the break burst and sound, the stump, the Sentry Telegraph orb and the wreck, from tags and attributes only. No new remotes, unless building shows that an attribute can't carry a particular transient effect cleanly.
+  - **Dormant with the Reference Kit.** `Match` returns early as before. So there's no Cache or Sentry setup, no loot deal, no Cache or Sentry logs, no Sentry loop doing work, no use of the map's pads and no world Ability loot. `MatchMap` and the Hub may sit in the workspace, and the `kind` branches leave players and dummies on their current paths. Ticket 17's Run A is repeated as the regression check.
+  - **Who builds what.**
+    - **The main session** builds the Rules, `Caches`, `Sentries`, the `Combat`, `Session`, `Casts` and `Match` changes, the environment roots, and the exact coordinate list.
+    - **`studio-implementer`** builds the `MatchMap` geometry and markers, and `PveVisuals`, from exact briefs.
+    - The main session reviews both before accepting them.
+- **Specs.**
+  - **The new `LootRulesSpec`:**
+    - **`buildBag`:** 8 / 8, and 4 / 4 / 4 / 4 using the future ids as plain strings, with an uneven split refused.
+    - **`nearestPairs`:** the real coordinates, deterministic order, and ties broken by name.
+    - **`deal`,** over about 200 seeds for both pools:
+      - the counts stay exact, and nothing is invented or lost
+      - every central Cache gets two different Abilities
+      - every bag entry goes to exactly one Cache, and every Cache gets the right number
+      - the repair ends
+      - `variety` matches the actual result
+      - the same seed and inputs give the same deal
+    - Nothing depends on the shuffle order beyond its determinism.
+  - **The new `CacheRulesSpec`:**
+    - the stages either side of 66% and of 33%, so `<` against `<=` is pinned
+    - the central spots: ±5 across the given vector, about 10 apart and symmetric about the Cache
+    - **the attacker gate:** it allows an Alive player while Running. It refuses the same player once eliminated, a Sentry, anything outside Running, and other kinds, using authoritative state and kind, never names
+  - **The new `SentryRulesSpec`.** Assertions use the configured values rather than fuzzy wall-clock timing.
+    - **Targeting:** the nearest visible valid player wins, and players beyond 45 studs, out of sight or not Alive are skipped. Equal distances resolve deterministically.
+    - **The locked aim:**
+      - the point is taken when the Telegraph starts, and later movement doesn't change it
+      - no shot comes before the full Telegraph, and the shot goes to the locked point after it
+    - **Cancelling:**
+      - an invalid target or lost sight cancels the shot, with no projectile
+      - the next shot needs a fresh full Telegraph
+    - **Cadence:**
+      - a 2.5 s recovery and about 3 s between shots
+      - no double shot, and no shot from Idle or while Recovering
+      - a dead Sentry never starts another cycle
+  - **The new `CachesSpec`, on fakes:**
+    - **Setup:** 13 Caches, 10 outer and 3 central, with server-side loot records and no attribute exposing contents.
+    - **Damage:**
+      - valid player attacks lower health, and the stages change at the thresholds
+      - the Cache breaks once, and later hits do nothing
+      - an outer Cache makes one Pickup, and a central one makes two at ±5
+    - **When broken:** the Cache is no longer a target, and the stump is presentation only.
+    - **Refused:** any attack outside Running, and Sentry attacks. **Refusing a Sentry's damage doesn't mean its projectile passes through.** Collision belongs to the projectile path, and whether it does damage to `CacheRules` and `Combat`. Play checks this too.
+    - **Clean-up:** `clear` removes everything, the break log appears once, and contents never reach attributes.
+  - **The new `SentriesSpec`, on fakes:**
+    - setup makes all three, and the Telegraph attribute follows the authoritative cycle
+    - **`castFromServer`** gets the trusted firing origin, the locked aim and a Rank 1 Tidal Bolt
+    - a cancelled Telegraph makes no Cast
+    - death stops that Sentry's activity and leaves a wreck that can't be targeted, and `clear` resets everything
+    - its Casts can't target or damage another Sentry
+  - **The new `CombatSpec`, on fakes:**
+    - **A Cache hit** gives valid damage and the Hit result only: no Statuses, Reactions, Knockback, Evade, Kill Recovery or PvP Session accounting. A Sentry-fired hit that reaches a Cache is refused damage, with nothing else happening either.
+    - **A Sentry hit:** normal damage, Wet and Reactions, with no displacement, no Kill Recovery and no PvP counters.
+    - **Players and dummies:** unchanged-path cases, without rewriting existing assertions.
+  - **The new `MatchMapSpec`, in Play against the real map:**
+    - **The markers:** 6 Map pads, 10 outer and 3 central Cache markers, and 3 Sentry markers, all inside the walls.
+    - **The routes:** each pad has two nearby outer Caches, consistent with the layout.
+    - **Out of Sentry range:** every pad and outer Cache lies beyond 45 studs of a Sentry.
+    - **For each bay,** at the representative spots where a player stands to break its Cache:
+      - its Sentry has a clear line of fire past its intact Cache's Hitbox
+      - the bay's static geometry doesn't block that line
+      - the other two Sentries can't see those spots
+    - It checks the positions that matter for play, without trying to prove a Sentry can never see any point in another bay.
+  - **`MatchSpec`, updated:**
+    - **The start order above,** with nobody active in a partly built PvE world.
+    - **Results end:** the Caches, Sentries and Pickups are cleared, and the next Match gets fresh PvE.
+    - **Bad config at startup:** one error, Matches disabled, Waiting kept, no Countdown and no repeated errors.
+    - **A failure at deal time:** it fails before anything in the world changes, with no partial Caches or Sentries and no spawns. `Match` stays safely in Waiting, and Matches are disabled.
+  - **`SessionRulesSpec`:**
+    - Cache and Sentry targets don't add to PvP damage, kills, fights or Match-result Reactions, and dummies behave exactly as now.
+    - A Sentry's Wet on a player doesn't count, by itself, as any player's Reaction or damage.
+  - **`PickupsSpec`:** the `placeMarkers` test goes. Cache drops, replacement drops, elimination drops and `clearAll` stay on the one normal Pickup path, with no second Pickup type.
+  - **Config checks:**
+    - the pool isn't empty, the total is above 0, and the pool divides the total evenly
+    - the central spread per side is more than the collection radius, so the two collection spheres can't touch at the midpoint: `2 × spread > 2 × collectRadius`, which reduces to `spread > collectRadius`
+    - the Telegraph is above 0 and shorter than the full cadence
+    - sight range, Cache health and Sentry health are above 0
+    - every environment folder resolves
+- **Play checks,** run by `studio-tester`, checking rendering and state before each group of input:
+  - **A, Reference solo:** Ticket 17's Run A again, with no Match lifecycle, runtime Caches, Sentries or `LootDeal`. The dummies are there, and arena respawns, Q, E, Charging, cover, camera collision and projectile and Sector impacts all behave as before. The distant `MatchMap` and Hub make no visible difference in the arena.
+  - **B, Empty solo:**
+    - **B1, Match start:** a `"Map"` spawn, 13 Caches, 3 Sentries, and no loose Pickups before a Cache breaks. `LootDeal` shows `ArcBurst:8,TidalBolt:8` and the expected variety, and no Cache attribute holds its Abilities.
+    - **B2, an outer Cache with the Basic Attack:**
+      - the stages appear, and it breaks at 75 after about 5 s of uninterrupted attacks
+      - ordinary hit confirms and no kill marker
+      - exactly one Pickup, the burst and sound, and a correct `CacheBroken`
+      - the stump can't be hit and doesn't meaningfully block a projectile
+      - **recorded as measurements, not a pass or fail:** the time from Running to the first Ability, and to the first full two-slot Kit
+    - **B3, Tidal Bolt into a Cache:** it does damage and stops on the Cache. The Cache doesn't become Wet, with no Status or Reaction accounting.
+    - **B4, a Sentry:**
+      - **Timing:** a visible Telegraph of about 0.5 s, and shots about 3 s apart.
+      - **The hit:** about 12 damage, Wet and Knockback, which ends a Charge.
+      - **Dodging:** a clear sideways move during the Telegraph makes the shot go to the old point and miss.
+      - **Breaking sight:** doing it before the Telegraph ends means no projectile.
+      - **Cache cover, the explicit regression:** with the player behind an intact Cache from the Sentry, the bolt stops at the Cache. The Cache takes **no damage**, because Sentry attackers are refused, and the player takes none either. The bolt doesn't pass through. This proves collision and damage eligibility are separate.
+    - **B5, a central Cache:**
+      - two different Pickups about 10 studs apart
+      - standing at the Cache's centre after the break collects neither
+      - walking to one collects only that one, the other stays, and it can be collected later if the Kit allows
+    - **B6, killing a Sentry:**
+      - Wet, then Arc Burst, makes a real Reaction on it
+      - it dies at the expected health, with no Kill Recovery and no loot
+      - `SentryKilled`, the wreck, and no more Telegraphs or shots
+      - no PvP kill, PvP damage or Match-result Reaction added
+    - **B7, a Sentry eliminating the player:** the aid lowers the player's health, then a real Sentry bolt finishes them.
+      - The server log has `by=sentry:N`.
+      - The client shows the generic `Eliminated`, with no player killer.
+      - Spectate doesn't try to follow a Sentry.
+      - The whole-Kit drops land on the map's floor.
+    - **B8, the next Match:** when Results end, the old Caches, Sentries and loose Pickups are gone. The next Match builds fresh Caches and Sentries with a fresh hidden deal, and no broken or dead PvE state carries over.
+  - **C, two clients, narrow:**
+    - **C1, PvE setting up a PvP Reaction.** A Sentry's Tidal Bolt hits A, so A is Wet with the **Sentry as its Applied By**. B hits A with Arc Burst, and the Lightning and Wet Reaction triggers.
+      - **B is the Reaction's Triggered By** and gets the PvP Reaction credit.
+      - The consumed Wet may still name the Sentry as Applied By.
+      - The Sentry gets no player credit, and damage and results follow the existing Reaction rules.
+      - These are two separate roles, and the record names both.
+    - **C2, a Cache as PvP cover.** B's Tidal Bolt at A, with an intact Cache between them: the Cache intercepts it **and takes B's damage**, and A isn't hit. It's the counterpart to B4, where the Cache intercepts a Sentry bolt but can't be damaged by it.
+    - **C3, results:** after real PvP, the results have only PvP counters. B's Reaction on A is valid PvP and counts, and PvE adds no kills, damage or Reactions.
+  - **The TEMPORARY aid.**
+    - **Its operations:** one server helper, `TEMPORARYMatchHook`, offering `hit` through `Combat.applyHit`, `grant` through `Kits.grant` and `setHealth`. It's for setup and control, never fake outcomes: a Sentry elimination comes from a real Sentry Cast, and Cache damage from real attacks where that's practical.
+    - **Removing it:**
+      - It's removed before completion, and never committed.
+      - The proof is that no script named `TEMPORARYMatchHook` exists, and that no runtime code references the hook or its test-only operations.
+      - This isn't a repository-wide search for `TEMPORARY`, because the docs may describe the procedure.
+- **Done when:**
+  - every new and updated spec passes
+  - Runs A, B and C pass
+  - the map matches the reviewed coordinate brief, and the bay line-of-fire checks pass
+  - the `LootDeal` counts and variety match what's expected
+  - the first-Ability and full-Kit times are recorded for Ticket 20
+  - the aid is gone, and no production code references it
+  - the record, `code-structure.md` and any new reusable quirk are written
+  - the main session has reviewed the map and `PveVisuals`
+- **No Ticket 19 work** starts automatically.
+
 ### 19. Rift Hook and Stone Guard
 
 - **Scope:**
