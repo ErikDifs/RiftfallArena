@@ -334,6 +334,47 @@ The server's session summary for that run gave 2 taps, 1 partial and 1 full, mat
 
 **Test in Studio:** Charge Arc Burst near ledges and the raised area. Judge whether the preview matches what gets hit, whether the lightning reads without hiding Wet, and whether a 28-stud Arc Burst undercuts closing distance.
 
+**Built 2026-11-08, not yet checked by the developer or published.** 190 specs pass.
+
+**Inspection before building:** the generic Charging system needed no change for Arc Burst, and no new server code. `Casts` already scales stats by the server's Charge before delivery, and `Sectors` reads `range` and `widthDegrees` from those stats. Charge never scales `reactionDamageMultiplier`, so the Wet Reaction's bonus can't grow with Charge. Three small, generic gaps on the client were filled:
+
+- `CosmeticSectors.spawn` now draws at the Cast's Charge, as `CosmeticProjectiles` already did.
+- `ChargeTelegraphs` styles now have create and update hooks, with cleanup of everything they make. An Ability's `charge.sound` adds a looped sound to the caster that builds over the Charge.
+- The ground preview belongs to the Sector form, not to Arc Burst: any Chargeable Sector Ability shows one to its caster. `Casting` drives it each frame, because it has the aim and the local Charge.
+
+**What changed:**
+
+- **Data:** Arc Burst has `castingStyle = "Chargeable"` and `charge = { full = { range = 28, widthDegrees = 120, damageMultiplier = 1.15 }, telegraph = "Lightning", sound = "ArcCharging" }`. `ArcCharging` is a placeholder in `Tuning.feedback.sounds`: `action_falling.mp3` looped, with its pitch rising from 0.8 to 1.6 and its volume from 0.25 to 0.6.
+- **Lightning Telegraph:** every 0.08 s, 1 to 4 thin bolts, 0.8 to 2.2 studs long, flicker around the caster, and a light brightens from 0.5 to 3. The bolts stop at cover. The full-Charge cue is the same flash and sound as Tidal Bolt's, played at the caster.
+- **Ground preview:** a level outline of the Sector, with its left edge, a 16-segment arc and its right edge. It uses the same Cast origin, the same flat direction from `HitboxRules.flatDirection`, and the same range and width the server uses at the caster's current Charge. Each point is dropped onto the ground found from 2 studs above to 12 below the origin, so it follows the floor beside the raised area. It's created locally, so it never replicates to anyone else, and it shows only while Charging shows.
+
+**Checked with real keyboard input**, with the StaticDummy 22 studs straight ahead:
+
+| Check | Result |
+|---|---|
+| A tap | No damage. 22 studs is past a tap's 18 plus the Hitbox radius and Hit Tolerance |
+| A 2.6 s hold | At the Tap Window, walking dropped to 12, and the preview (24 segments), the light and the charging sound appeared. The preview's reach grew smoothly from 18 to 28 while the light brightened and the pitch rose |
+| Auto-release | About 1.75 s after the press. Everything cleared and speed went back to 16 |
+| Damage | Exactly 16.1 to the StaticDummy, and 16.1 to the DashingDummy inside the wider Sector |
+| A second full Charge | Hit again, with the camera pitched 36° down by then, so pitch didn't affect it |
+| A Dash 0.6 s into a Charge | Charging ended with no Cast, and the preview, light and sound cleared, logged as `Dash` |
+
+The server's session summary gave Arc Burst 1 tap and 2 full Charges.
+
+**Covered by specs:**
+
+- Tap and full values (18, 90°, 14 and 28, 120°, 16.1). Charge doesn't change the height allowance or cooldown.
+- The Wet Reaction bonus stays 16 at 0, 0.5 and full Charge, through the real `ReactionRules`.
+- A Rank 1 tap sequence is exactly 42. A full Charge sequence is 59.45 at Rank 3 and at most 60 at every Rank.
+- In `SectorsSpec`, a full Charge hits a target 24 studs out and one 55° off the aim, and a tap misses both.
+
+**Left for the developer and later tickets:**
+
+- The full-Charge Reaction wasn't triggered live. The Tidal Bolt meant to set up Wet went into the floor, because the camera had been pitched down and the MCP can't drive mouse-look. Its bonus is covered by a spec, and the Arc Burst Reaction was checked live in Tickets 6 and 9.
+- Other players' view hasn't been seen: the lightning drawn from the replicated attributes, and their Arc Burst drawn at the server's Charge from `CastStarted`. That needs a multi-client session.
+- The preview shows the Sector's range and width. The server also counts a target whose Hitbox edge reaches inside, so a target up to about 1.8 studs beyond the outline (Hitbox radius plus Hit Tolerance) can still be hit.
+- Whether the lightning reads without hiding Wet, and whether the placeholder charging sound works, are for a person to judge.
+
 ## 13. Test readiness for the combat changes
 
 **Scope:** Stage 1 and Stage 2 re-run against the changed loop, then a publish by the developer and a recorded checkpoint, with version 26 kept as the fallback.
