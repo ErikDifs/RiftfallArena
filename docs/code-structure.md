@@ -17,6 +17,7 @@ ReplicatedStorage
     │   ├── RankRules
     │   ├── HitboxRules
     │   ├── CastRules
+    │   ├── ChargeRules
     │   ├── DashRules
     │   ├── MovementRules
     │   ├── StatusRules
@@ -33,6 +34,7 @@ ServerScriptService
     ├── Characters
     ├── Dummies
     ├── Casts
+    ├── Charging
     ├── Cover
     ├── Projectiles
     ├── Sectors
@@ -54,6 +56,7 @@ StarterPlayer
         ├── Knockback
         ├── ForcedMovement
         ├── Casting
+        ├── ChargeTelegraphs
         ├── CosmeticProjectiles
         ├── CosmeticSectors
         ├── StatusVisuals
@@ -95,7 +98,7 @@ Combat.start({
 The exact events can change, but the first loop will likely cover:
 
 - `CastRequest`
-- `ChargeStart` and a release message for Chargeable Abilities, as set out in [ADR-0006](adr/0006-server-timed-charging-with-a-two-stage-cast.md)
+- `ChargeStart`, `ChargeRelease` and `ChargeCancel` for Chargeable Abilities, as set out in [ADR-0006](adr/0006-server-timed-charging-with-a-two-stage-cast.md)
 - `CastRejected`
 - `DashRequest`
 - `DashRejected`

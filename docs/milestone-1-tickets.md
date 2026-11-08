@@ -282,6 +282,45 @@ On 2026-11-07, after Ticket 8, the developer changed the first loop before any S
 
 **Test in Studio:** tap, partly Charge and fully Charge Tidal Bolt at the dummies, Dash out of a Charge, get interrupted by the shooting dummy, and hold past the maximum. Judge whether the slowdown feels fair, whether the orb reads its size, and whether a full Charge feels worth it without being automatic.
 
+**Built and closed 2026-11-08, not published.** The developer has seen the orb in Studio and was happy with it. Real keyboard input passed the checks below. 183 specs pass, including a new `ChargeRulesSpec`.
+
+**How it's built:**
+
+- **Data:** every Ability has a `castingStyle`, `"Instant"` or `"Chargeable"`. A Chargeable one has a `charge` block: `full` holds a full Charge's values, and `telegraph` names how Charging is drawn. Tidal Bolt is the only Chargeable Ability so far. `Tuning.charging` holds the timings, the slowdown and the orb's transparency.
+- **`ChargeRules`** (pure): Charge from the held time, the Tap Window, auto-release (1.75 s) and expiry (2.25 s), stats scaled linearly towards `charge.full` (with `damageMultiplier` applied on top of the Rank's damage), tap, partial and full bands, and the start and release checks on attempt identifiers.
+- **Protocol:** `ChargeStart { attemptId, abilityId }`, then `ChargeRelease { attemptId, abilityId, aimPoint }`, which is the Cast request, and `ChargeCancel { attemptId }` for causes only the client knows, such as losing focus. Attempt ids come from the same sequence as cast ids, and the Cast takes its attempt's id. A refusal is a `CastRejected` with the attempt id. `CastStarted` carries the server's `charge`. Two character attributes, `ChargingAbility` and `ChargingSince` (the server time of the press), drive other players' Telegraphs, so Charge is never streamed.
+- **Server:** the new `Charging` module owns each attempt on the server's own clock. After the Tap Window it slows walking to 12 and sets the attributes, and it ends the attempt on release, `Dash` (any `DashRequest`), `Knockback`, `Stun`, `Frozen`, `Death`, `Expired` or `ClientCancelled`, logging each cause. `Casts` handles the three messages, refuses a Chargeable Ability through `CastRequest`, and refuses any Cast while Charging. The cooldown starts only on a Cast. `Movement` ends Charging on any `DashRequest` and any Knockback. `Session` counts Charges lost by cause, Chargeable Casts by band, and Dashes while chasing.
+- **Client:** `Casting` runs the client side: press, release, auto-release, the slowdown, pausing the Basic Attack while Charging, and ignoring other Abilities. A Charge is lost on Dash, Knockback, Stun, Frozen, death or losing focus, and holding the key never starts another. A release with no usable aim gives up rather than letting the server guess. The new `ChargeTelegraphs` module draws the orb for everyone, sized like the bolt that would fire, along with the one full-Charge flash and sound. `CosmeticProjectiles` draws a bolt at its Charge, from the caster's estimate or the server's value for other players, with its size in proportion to its radius.
+
+**Checked with real keyboard input** (`user_keyboard_input`, rendering at 15 fps):
+
+| Check | Result |
+|---|---|
+| A tap (0.04 s) | Bolt drawn at tap size 1.40, with no slowdown and no orb |
+| A 0.65 s hold | Walking dropped to 12 at the Tap Window, the orb showed, and the server's attribute followed 0.05 s later. Release restored 16 and drew a bolt for about 43% Charge |
+| Dash at 0.5 s | Charging ended with no bolt, logged as `Dash` |
+| Holding Q 0.8 s after the Dash | Nothing restarted |
+| A fresh press straight after | Tapped at once, with no cooldown |
+| Holding 2.6 s | Released by itself about 1.75 s after the press, at full size, and the later key-up did nothing |
+
+The server's session summary for that run gave 2 taps, 1 partial and 1 full, matching the client.
+
+**Checked through the remotes:**
+
+- A tap did exactly 12 damage, a full Charge exactly 15, and a 0.6 s hold 13.2.
+- Mid-Charge, a Basic Attack and a second start were refused as `Charging`. A stale release was refused as `StaleAttempt`, a Tidal Bolt `CastRequest` as `NotInstant`, and a start on cooldown as `OnCooldown`.
+- Expiry, Dash, cancel, Stun (by setting `Stunned` from the server) and death each ended Charging with no Cast and logged their cause.
+- The shooting dummy's Knockback interrupted Charging three times out of three.
+- Walked with `Humanoid:Move` through 12 slowdown transitions, the character moved at a median of 12.0 slowed and 15.8 normal, and Movement Validation made no corrections.
+
+**Left for the developer and later tickets:**
+
+- The full-Charge cue (a flash and a re-pitched `electronicpingshort.wav`) wasn't heard or seen by a person.
+- Bolts start 1 stud above the root, from the shared `CastRules.origin`, which reads as casting from the head. The developer wants them cast from the hands, with an animation. That's a separate follow-up ticket after the Charging milestone, because moving the shared start point affects walls and close-range casting. Arc Burst's Sector stays independent of the visible pose.
+- The slowdown is set on both the client and the server. A release very soon after the Tap Window can briefly reapply the server's 12 for about a round trip, after the client has gone back to 16.
+- One remote-driven full Charge was refused as `Expired` in an early run, and didn't happen again when rerun with timing recorded. The likely cause is that the test script's waits overshot while Studio was unfocused.
+- A release that matched but then failed the Cast's own checks is logged as `Refused` plus the reason, such as `RefusedInvalidAim`.
+
 ## 12. Charging Arc Burst
 
 **Scope:** Arc Burst on Ticket 11's Charging system, with no duplicated Charging logic: range, width and damage scaling with the Reaction bonus unchanged, the lightning Telegraph, the full-Charge cue, and the caster-only ground preview, which expands with Charge and approximately follows the ground.
