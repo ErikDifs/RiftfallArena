@@ -4,6 +4,14 @@ The ordered work for the second milestone: the **run progression loop**, **explo
 
 Being settled from 2026-11-08, before any building. Work stops after each ticket until the developer gives the go-ahead, as in [Milestone 1](milestone-1-tickets.md).
 
+## Checkpoints
+
+| Date | Checkpoint | Contents |
+|---|---|---|
+| 2026-11-08 | Published place `134091394433436`, version 51 (private) | Ticket 15: the per-player Kit, its attributes and HUD, the Equip Lock, `ChargingRank` and the Starting Kit setting, Reference by default |
+
+Roblox version history is the code's history, as [Milestone 1's checkpoints](milestone-1-tickets.md#checkpoints) set out, and only versions marked Published count.
+
 ## Settled for the whole milestone
 
 **Stage 3 and the run test are separate gates (2026-11-08).**
@@ -311,7 +319,7 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **The Telegraph's Rank comes from when Charging starts,** while the Cast's Rank is resolved at release. An Upgrade during a Charge, possible from Ticket 16, would draw the old Rank until release. That's presentation only and accepted.
 - **Test setup, not bugs:** the camera's yaw and pitch drifted in the solo run and were pinned with a TEMPORARY `BindToRenderStep`. A server-side `PivotTo` was reverted by Movement Validation. A first Q then E from about 30 studs was pushed out of Arc Burst's range. All three are in the quirks doc.
 
-**Not yet published.** Waiting for the developer's go-ahead and publish, to be recorded as a checkpoint.
+**Published by the developer on 2026-11-08 as version 51**, recorded in the checkpoints above.
 
 ### 16. Pickups and replacement
 
