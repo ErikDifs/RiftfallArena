@@ -334,7 +334,7 @@ The server's session summary for that run gave 2 taps, 1 partial and 1 full, mat
 
 **Test in Studio:** Charge Arc Burst near ledges and the raised area. Judge whether the preview matches what gets hit, whether the lightning reads without hiding Wet, and whether a 28-stud Arc Burst undercuts closing distance.
 
-**Built 2026-11-08, not yet checked by the developer or published.** 190 specs pass.
+**Built 2026-11-08, not published.** 190 specs pass. The developer checked the ground preview in Studio, approved it, and wants it reused as the cast area for future Sector spells. It already belongs to the Sector form, so a new Chargeable Sector Ability gets it from its data.
 
 **Inspection before building:** the generic Charging system needed no change for Arc Burst, and no new server code. `Casts` already scales stats by the server's Charge before delivery, and `Sectors` reads `range` and `widthDegrees` from those stats. Charge never scales `reactionDamageMultiplier`, so the Wet Reaction's bonus can't grow with Charge. Three small, generic gaps on the client were filled:
 
@@ -391,3 +391,19 @@ The server's session summary gave Arc Burst 1 tap and 2 full Charges.
 - the forged and flooded request checks still holding, now including `ChargeStart` and release messages
 
 **Test in Studio:** the multi-client run with the developer watching each client, then the developer publishes and the checkpoint is recorded above.
+
+## 14. Cast from the hands
+
+Planned 2026-11-08 at the developer's request, as a separate follow-up after Ticket 13. Not started.
+
+**Scope:** projectiles start from the caster's hands rather than above the root, with placeholder animations for holding a Charge and for releasing it.
+
+**Settled so far:**
+
+- The shared Cast origin in `CastRules` becomes a fixed offset at hand height, slightly forward and to the right of the caster's facing, used by both client and server. It never comes from the animated hand's real position, which the server sees late and which ADR-0004 keeps out of gameplay.
+- The origin must stay on the caster's side of any cover they are pressed against, for example by raycasting from the root and pulling it back.
+- The Tidal Bolt orb moves to the same point.
+- Arc Burst's authoritative Sector stays independent of the visible pose and the hand.
+- Two placeholder animations, uploaded to the developer's account only with their approval: a looping hold while Charging, and a short release.
+
+**Open:** how the new origin changes close-range casting and casting with your back to a wall, and the exact offset, which is tuned to the pose.
