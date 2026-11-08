@@ -9,6 +9,7 @@ Being settled from 2026-11-08, before any building. Work stops after each ticket
 | Date | Checkpoint | Contents |
 |---|---|---|
 | 2026-11-08 | Published place `134091394433436`, version 51 (private) | Ticket 15: the per-player Kit, its attributes and HUD, the Equip Lock, `ChargingRank` and the Starting Kit setting, Reference by default |
+| 2026-11-09 | Published place `134091394433436`, version 70 | Tickets 16 and 17: Pickups and replacement, and the one-life Match with its Hub, Spectate, HUD and results, dormant behind the Reference Kit by default |
 
 Roblox version history is the code's history, as [Milestone 1's checkpoints](milestone-1-tickets.md#checkpoints) set out, and only versions marked Published count.
 
@@ -510,7 +511,7 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - Specs called from Edit mode show false failures from stale module copies.
   - All of these are in the quirks doc.
 
-**Not yet published.**
+**Published by the developer on 2026-11-09 as version 70**, recorded in the checkpoints above.
 
 ### 17. One-life Match
 
@@ -791,7 +792,7 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **The body view** during the first 3 s looks steeply down at the body. It's a starting value.
 - **The body's removal** at 3 s was bracketed in Play (there at 1.3 s, gone by 6.4 s) and is pinned on fakes in `MatchSpec`.
 
-**Not yet published.**
+**Published by the developer on 2026-11-09 as version 70**, recorded in the checkpoints above.
 
 ### 18. Match map, Caches and Sentries
 
