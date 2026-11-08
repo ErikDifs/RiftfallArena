@@ -15,7 +15,8 @@ Work stops after each ticket until the developer gives the go-ahead. Game feel i
 | 2026-11-07 | No publish of its own, first published in version 20 | Ticket 5: Tidal Bolt, Wet, Knockback and the Ability input and cooldown display |
 | 2026-11-07 | Published place `134091394433436`, version 20 (private) | Ticket 6: Arc Burst, the shared Reaction system and the Wet Reaction's payoff feedback |
 | 2026-11-07 | Published place `134091394433436`, version 24 (private) | Ticket 7: health, Natural Recovery, Kill Recovery, death and respawn, kill and low-health feedback, session logs and the shooting dummy |
-| 2026-11-07 | Published place `134091394433436`, version 26 (private) | Ticket 8's Stage 2 fixes: the prototype spawn rule, and kill notices naming test players |
+| 2026-11-07 | Published place `134091394433436`, version 26 (private) | Ticket 8's Stage 2 fixes: the prototype spawn rule, and kill notices naming test players. The fallback from before the combat changes |
+| 2026-11-08 | Published place `134091394433436`, version 37 (private) | Tickets 9–13: flat Sectors and the melee Basic Attack, projectile line of sight, Charging for Tidal Bolt and Arc Burst, with the ground preview, verified by Ticket 13's Stage 1 and 2 run |
 
 Roblox version history for the published place is the code's history, as set out in [ADR-0005](adr/0005-game-code-lives-in-studio-edited-through-mcp.md). Code edits only reach it when Studio publishes, so publish at the end of each accepted ticket. The `.rbxl` in this repo is a snapshot from the same point, and it goes stale between checkpoints.
 
@@ -391,6 +392,58 @@ The server's session summary gave Arc Burst 1 tap and 2 full Charges.
 - the forged and flooded request checks still holding, now including `ChargeStart` and release messages
 
 **Test in Studio:** the multi-client run with the developer watching each client, then the developer publishes and the checkpoint is recorded above.
+
+**Published by the developer on 2026-11-08 as version 37**, recorded in the checkpoints above, with version 26 kept as the fallback. Tickets 9–12 had no publishes of their own, so version 37 is the first to include them.
+
+**Run 2026-11-08 through the MCP, solo and then on 2 clients. Every check passed, and no bugs were found, so no code changed.** 190 specs pass. Client behaviour used real input (`user_keyboard_input` and `user_mouse_input`) with rendering at 15 fps and the camera pitch at 0°. Only the forged and stale requests went through the remotes. Positions were set with 7–8-stud test hops, and each client logged remotes, attributes, walking speed, Telegraph and preview instances, cosmetic parts and sounds frame by frame.
+
+**Stage 1, solo:**
+
+| Check | Result |
+|---|---|
+| Melee Basic Attack, held 2 s | 6 hits of 6 on the StaticDummy, 0.4 s apart, with no Knockback |
+| Tap Q, then tap E | 12, then 30 with the Wet Reaction: 42 in total |
+| Q held 0.65 s | Walking dropped to 12 at the Tap Window and the attribute followed. Release restored 16 and did 13.45 (about 48% Charge) |
+| Q held 2.6 s | Auto-released at full Charge for 15. The later key-up did nothing |
+| Tap Q, then E held 2.2 s | Full-Charge Wet Reaction for 32.1: 16.1 plus the bonus, still 16 |
+| Dash 0.5 s into a Charge | Charging ended with no bolt, logged `Dash`. Holding Q afterwards did nothing, and a fresh press tapped for exactly 12 |
+| ShootingDummy Knockback mid-Charge | Charging ended in the same frame, logged `Knockback`, with no Cast or cooldown. Holding Q afterwards did nothing, and a fresh press Charged |
+| Strafing with D and A through three slowdown cycles | Measured 12.0–12.2 slowed and 16.0 otherwise, with no Movement Validation corrections. Presses during cooldown were ignored |
+| Melee alone on the StaticDummy | Killed it on the 17th swing |
+| Death to the ShootingDummy, with the server holding health at 10 | Kill credited to the dummy. Respawned 3.0 s later on another pad at full health, and Charging worked straight away |
+| Below the raised area's edge | Hidden (x = −15): no shots in 7 s. Head showing (x = −9): no shots, the known dummy behaviour from Ticket 10. Exposed (x = −3): hit every 3 s |
+
+**Stage 2, Player1 and Player2:**
+
+| Check | Result |
+|---|---|
+| Player1 fully Charges Q | Player2 saw the orb from the attributes, growing at the same rate to 4.2. It heard the full-Charge cue as a positional sound and got `CastStarted` with `charge = 1.000`. The bolt hit Player2 for 15 |
+| Player2 fully Charges E at 25.5 studs | Player1 saw the lightning light rise to 3, heard the charging sound and the positional full-Charge cue, and never saw a `SectorPreview` part. Player2's own preview had 24 segments. Player1 took 16.1 |
+| Player1's partial Q | The server's Charge was 0.543, giving exactly 13.628 damage. Player2 drew the bolt from it at 2.92, and Player1's own estimate drew it at 2.92 too |
+| Player1's Knockback during Player2's Charge | Ended it, logged `Knockback`, and the held key did nothing afterwards |
+| Three of Player1's melee hits during Player2's Arc Burst Charge | The Charge carried on to full and auto-released for 16.1 |
+| Player2's real Shift mid-Charge, with its server Dash charges used up by forged requests | The client ended Charging at once, the server refused the Dash as `NoCharge` and logged the Charge end as `Dash`, and Player2 was put back where it started |
+| Player1's tap Q, then full-Charge E on Player2 | The Wet Reaction did 32.1, so its bonus is still 16 between players |
+| Player1 kills Player2 with melee, a tap Q and a full-Charge Reaction | `killed=true`, logged with the Reaction and Applied By. Player2's notice read "Killed by Player1", and they respawned 3.05 s later on the pad farthest from Player1 |
+| Player1's full Q, with Player2 pressed behind `CoverNorthEast` | No damage. The bolt hit the cover |
+| The same shot, with Player2 in the open on its line | Hit for 15 |
+
+**Forged and flooded requests** (solo, and from Player2 during Player1's real Charge):
+
+- Malformed `ChargeStart`, `ChargeRelease` and `ChargeCancel` were each dropped with a warning. That included fractional, NaN, too-long and missing fields, non-table payloads, out-of-range aim, and extra `charge` and `heldSeconds` fields.
+- Wrong ability ids were refused: an unknown one as `NotInKit`, a Basic Attack start as `NotChargeable`, and either Chargeable Ability through `CastRequest` as `NotInstant`.
+- These were all refused as `StaleAttempt`: a release with no start, a reused id, a lower id, a stale release mid-Charge, a wrong-ability release, and a release after expiry or cancel. The active Charge survived each one. A Basic Attack and a second start mid-Charge were refused as `Charging`.
+- A withheld release expired between 2.15 and 2.55 s, logged `Expired`. A cancel with the wrong id did nothing, and the matching one logged `ClientCancelled`.
+- Floods: 500 rising starts gave one Charge and 499 `Charging`. 300 starts on the same id gave one Charge, and of the 300 releases, one Cast and 299 `StaleAttempt`. Starts on cooldown were refused as `OnCooldown`. No errors, and the server held 60 Hz.
+- Player2's forged cancels and releases using Player1's possible attempt ids didn't touch Player1's Charge, which released normally. Player2's flooded start showed Player1 a Telegraph until it expired, logged `Expired`.
+
+**Open points:**
+
+- **Tap Window at low frame rates (a feel point for Stage 3):** the MCP's `keyPress` at 15 fps twice ran past the 0.12 s Tap Window, so a meant tap counted as a 1% Charge (12.035 instead of 12). Client and server agreed both times. A real player at a normal frame rate should land inside it. But the server measures from when the two messages arrive, so jitter could turn a quick real tap into a tiny Charge. Watch for it in Stage 3, as no tuning changed.
+- **Charge-log flooding:** a modified client can send start and cancel pairs off cooldown. 300 pairs printed 300 `ChargeEnded … ClientCancelled` lines and inflated only its own counts. This is like Ticket 8's malformed-request warnings, and left alone for now.
+- **Forged Charging:** a forged `ChargeStart` shows other players a real Telegraph and slows the sender on the server, even though its own client never Charged. ADR-0006 accepts this.
+- **Not checked live:** death during a Charge between players, which was checked through the remotes in Ticket 11, and simulated latency, as nothing in these changes touched it since Ticket 8. The orb, the lightning, the cues and the preview were checked as instances and sounds, not seen or heard by a person.
+- **Test setup, not bugs:** two test-hop artifacts. One run of 8-stud hops at exactly walking speed triggered one Movement Validation correction, with none during real-input movement. A hop that landed half a stud from `CoverCentre` was pushed out by physics.
 
 ## 14. Cast from the hands
 
