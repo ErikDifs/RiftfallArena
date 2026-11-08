@@ -56,6 +56,7 @@ StarterPlayer
         ├── Knockback
         ├── ForcedMovement
         ├── Casting
+        ├── CastAnimations
         ├── ChargeTelegraphs
         ├── CosmeticProjectiles
         ├── CosmeticSectors

@@ -12,7 +12,7 @@ Game code lives in the open Studio place and is edited through the `Roblox_Studi
 
 1. **Settle** the ticket's open points with the developer before building. Record what's settled in the ticket.
 2. **Build** in focused edits, one system at a time, with specs in `ServerStorage.Tests`.
-3. **Test** with `RunAll`, then the ticket's checks in Play.
+3. **Test** with `RunAll`, then the ticket's checks in Play. Read [`docs/testing/studio-mcp-quirks.md`](docs/testing/studio-mcp-quirks.md) first. It's the canonical testing reference, so record new quirks there.
 4. **Record** the result in the ticket, in the style of earlier tickets, and commit.
 5. **Stop.** Work waits for the developer's go-ahead after every ticket. The developer publishes; record the version in Checkpoints.
 
@@ -33,6 +33,7 @@ The main session holds the design context, so it does the work that needs judgme
 
 Rules for delegating:
 
+- **A subagent result is evidence, not approval.** The main session remains responsible for reviewing delegated work, accepting implementation, and deciding whether a ticket is complete.
 - **One agent drives Studio at a time.** Studio's Play state, camera and input are shared, so the main session doesn't touch Studio while `studio-tester` or `studio-implementer` runs, and they never run together.
 - **Hand over a complete brief:** exact scripts, the behaviour wanted, the checks and the expected results. A subagent starts with none of this conversation.
 - **Ask for compact reports:** a results table and anything unexpected, not raw logs.

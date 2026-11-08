@@ -484,3 +484,77 @@ Planned 2026-11-08 at the developer's request, as a separate follow-up after Tic
 **Not yet checked:** casting pressed against cover and at point-blank in Play, the server's origin agreeing with the client's on 2 clients, and the ShootingDummy's shots.
 
 **For the developer:** the full-Charge orb now sits close to the camera's line, so it partly covers the Crosshair. Judge whether that matters in play.
+
+**Developer review, 2026-11-08:** the hand-origin design was accepted as built. Projectile hits must never depend on the animation pose.
+
+- **Orb over the Crosshair: fixed.** The caster's own orb slides off the camera's aim line just enough to keep 1 stud of clearance (`CROSSHAIR_CLEARANCE` in `ChargeTelegraphs`). Only the drawing changes: the bolt's origin, radius and path don't, and other players still see the orb at the hand. At full Charge (radius 2.1, camera level) it measured 1.00 stud clear of the aim line and 0.44 studs from the hand. Smaller orbs don't reach the line, so they sit exactly at the hand. 198 specs pass. (Corrected by the final run: with the camera level, any orb above about 0.6 studs radius slides a little, by 0.09–0.23 studs at radii 0.8–1.3, because the hand is only about 1.6 studs from the aim line. That's the clearance rule working as built.)
+- **Animations: waiting for the developer's visual check, then upload.** The bar: ChargeHold reads as spell Charging, the silhouette stays readable, it doesn't look broken while moving, and ChargeRelease is short, responsive and implies no extra wind-up. If they pass, upload both to the developer's account (asking first), put the ids in `Tuning.animations`, and remove `ReplicatedStorage.AnimationDrafts`.
+- **Then `studio-tester` runs the remaining checks:**
+  1. a normal ranged Tidal Bolt starts from the hand origin
+  2. a point-blank Tidal Bolt uses the body fallback and still hits
+  3. pressed against cover, the authoritative bolt can't spawn through it
+  4. in those cover cases, the visible bolt and the authoritative path agree closely
+  5. two clients agree closely on the bolt's start and path
+  6. other clients see ChargeHold and ChargeRelease
+  7. the ShootingDummy's bolts follow the same safe-origin rules
+  8. the orb grows from the hand without materially covering the Crosshair at full Charge
+  9. Arc Burst's Sector and ground preview are unchanged
+  10. Arc Burst's lightning starts at the hand without changing what it hits
+
+  Run the specs again after any change. If everything passes, record Ticket 14, update the milestone docs and checkpoints, and stop before the next ticket. Don't publish unless the developer asks.
+
+**Animations uploaded, 2026-11-08.** The developer passed both drafts and uploaded them from Explorer: ChargeHold `110901927334042` (looping, Action, 0.8 s) and ChargeRelease `82405622737977` (once, Action2, 0.45 s). Loaded back from Roblox, both match the drafts keyframe for keyframe. The ids are in `Tuning.animations`. `ReplicatedStorage.AnimationDrafts` and `CastAnimations`' draft fallback are removed. 198 specs pass. Uploading needed the right-click **Save to Roblox** in Explorer, because the Animation Editor only lists animations saved under a rig's `AnimSaves`. The developer published version 41 mid-ticket, before the ids went in, so it isn't Ticket 14's checkpoint.
+
+**Added to the ticket, settled 2026-11-08: a placeholder melee swing.**
+
+- **Alternating slashes.** The right hand sweeps across to the left, then the left hand sweeps across to the right, and so on, so a held Basic Attack reads as a combo. Each slash lasts about 0.3 s, so it finishes inside the 0.4 s cadence. Contact comes in the first 0.05–0.08 s, with no wind-up, because the arc is drawn the moment the client fires.
+- **Upper body only.** No keys on the root, hips or legs, so walking, strafing and Dash look the same as before. Priority is Action. It never overlaps ChargeHold or ChargeRelease, because Charging is exclusive.
+- **The sequence starts again from the right hand** after about 1 s without a swing.
+- **Presentation only.** `CastAnimations` plays it on each Basic Attack the client fires. Hits, range and cadence don't change.
+- **Same workflow as the casting animations.** Claude keys the drafts, the developer previews them, and the developer uploads them only after approving.
+- **Further checks:**
+  11. a held Basic Attack alternates its slashes at the 0.4 s cadence, with no pop or gap between them
+  12. other clients see the swings
+  13. the Basic Attack's hits are unchanged: 6 damage, 8 studs, 120°
+
+**First 2-client run, 2026-11-08, cut short when the session closed.** `studio-tester` reached only checks 1 and 2.
+
+- **Check 1 passes.** A tap bolt's server origin was 0.006 studs from `originFor`, and both clients' cosmetic bolts started there.
+- **Check 2 is partial.** At 2.55 studs, the server origin was exactly the body origin. The bolt struck Player2 and knocked them back, but the damage wasn't measured.
+- **Checks 3–10 are still to do.** 198 specs pass afterwards.
+
+**Melee swing drafts built, 2026-11-08, waiting for the developer's preview.**
+
+- **The drafts.** `SwingRight` and `SwingLeft` are in `ReplicatedStorage.AnimationDrafts`, each 0.3 s at Action priority. They key only the upper torso, arms and head. The root and lower torso are at weight 0, so walking keeps its own pose.
+- **Measured in Play.** The leading hand starts out to its own side, passes in front of the chest at about 0.07 s and finishes across the body.
+- **The code.** `CastAnimations.playSwing` alternates the two, starting again from the right hand after 1 s without a swing (`SWING_RESET_SECONDS`). It stops any swing when a hold starts. `Casting` calls it for each Basic Attack the client fires. `Tuning.animations` has `swingRight` and `swingLeft` with empty ids, so Studio plays the drafts, and the draft fallback is back in `CastAnimations`.
+- **Checked solo with real input.** A 2 s held attack played 6 swings, right, left, right, left, right, left, 0.41–0.42 s apart. After a 1.5 s pause the next click started from the right again, and a click 0.74 s later went left. There were no errors, and 198 specs pass.
+
+**Swings uploaded, 2026-11-08.** The developer approved and uploaded them: SwingRight `101744656152689` and SwingLeft `128507514467293`. Loaded back from Roblox, both match the drafts pose for pose. The ids are in `Tuning.animations`, and `ReplicatedStorage.AnimationDrafts` is removed. The draft fallback stays in `CastAnimations` for trying future placeholders in Studio, as the Tuning comment says. In Play, a held attack played the uploaded ids, alternating from the right hand. 198 specs pass.
+
+**Final run 2026-11-08 by `studio-tester` on 2 clients, reviewed by the main session. Checks 2–13 all pass, and no code changed.** Both clients rendered at about 15 fps, so real input worked. The exception is check 3's clip case, which used forged requests, as explained below. 198 specs pass afterwards.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Ranged Tidal Bolt starts at the hand (earlier run) | The server origin was 0.006 studs from `originFor`. Both clients' cosmetic bolts started there |
+| 2 | Point-blank body fallback | Aim Point 2.44 studs away. The origin was exactly root + (0, 1, 0), on the server and on the client, and Player2 took exactly 12 |
+| 3 | Pressed against cover | The hand ray struck CoverEast and the origin stopped 0.50 short of it, at two angles, with a tap and a full Charge. The ray from the body to the origin was clear, and Player2 took no damage |
+| 4 | Visible bolt against the authoritative path at cover | In the fallback case the client and server origins agreed to 0.0002 studs, and the first cosmetic part sat on the cover face. In the clip cases, the client's own `originFor` with an `Arena` raycast matched the server to 0.000 |
+| 5 | Two clients agree | Tap, 0.78 and full Charge: Player1's cosmetic origin, the origin in Player2's `CastStarted` and Player2's cosmetic bolt were all within 0.005 studs, and the directions within 0.01° |
+| 6 | Others see ChargeHold and ChargeRelease | On Player2, Player1's Q and E holds played the hold and then the release, with the hold stopping. A Q tap played only the release |
+| 7 | ShootingDummy shots | 4 shots matched `originFor` exactly, with clear rays. With Player2 2.2 studs from the dummy, it used the body origin |
+| 8 | Orb against the Crosshair | Full orb: 1.00 stud clear of the aim line, near side 0.54 from the hand. On Player2 the orb sat at Player1's hand (0.05), not slid. Smaller orbs slide 0.09–0.23 (see the correction above) |
+| 9 | Sector and preview unchanged | The preview starts at the body origin on the ground, and Player2 never saw it. Full E did 16.1 at 24 studs, and 32.1 after a Q tap. The E origin in `CastStarted` is the body origin |
+| 10 | Lightning from the hand | Its nearest end was 0.04 studs from the hand origin on Player1 and 0.00 on Player2. Player2 was hit at 57° from the body (inside full Charge's 120°) but 82° from the hand, so the hit is still measured from the body |
+| 11 | Held swings alternate | Right, left, right and so on, 0.40–0.43 s apart, each playing 0.3 s with no overlap. After 1.7 s idle the next click went right again |
+| 12 | Others see the swings | Player2 saw the ids alternate 0.4 s apart |
+| 13 | Basic Attack hits unchanged | 5 hits of exactly 6.0, 0.40–0.42 s apart, with no Knockback |
+
+**Accepted with notes:**
+
+- **Real input pressed against cover never reaches the hand-clip case.** The camera's shoulder offset is clipped by the cover too, so the Aim Point lands on the cover face within 3 studs, and the body fallback applies. The bolt hits the cover either way. The clip case was checked with forged `ChargeStart` and `ChargeRelease` requests carrying an Aim Point beyond the cover. Spots where real input could reach it were found only near `RampRaised`.
+- **Swing fade tail.** As each swing ends by itself, its weight fades over about 0.27 s, past the 0.05 s `fadeSeconds`. That overlaps the start of the next swing. The tail is the rest pose, so nothing shows. The hands' largest per-frame step was 2.49 studs at 15 fps, recurring with each swing, which is the swing's own speed, not a pop.
+- **Not run:** the 10.5-stud melee miss, because this ticket's client-only animation code can't change range and the specs cover it. Also not run: screenshots from Player2, because Player1 was out of frame, and a capture of the full-Charge orb, which auto-released first.
+- **Seen but outside the ticket:** one Q tap 3 s after a Charged Q didn't Cast, probably its cooldown. The ShootingDummy held fire at Player2 at (-8, -32), the known ledge line-of-sight behaviour from Ticket 9.
+
+**Ticket 14 is complete and waiting for the developer's publish.** Version 41 predates the animation ids, so the checkpoint is the next publish.
