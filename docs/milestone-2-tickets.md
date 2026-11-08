@@ -523,6 +523,189 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - **17A, Match lifecycle:** the temporary Hub, countdown, fixed roster, spawning, Alive and Eliminated, whole-Kit drops, win and timeout.
   - **17B, Spectate and results:** Spectate, cycling between living players, Return to Hub, results and intermission.
 
+**Settled 2026-11-08, before building.**
+
+- **Switch and split.**
+  - The Match runs only when `Tuning.kit.startingKit == "Empty"`. There's no second flag and no mode framework.
+  - With the Reference Kit, Ticket 17 stays dormant: no Hub, Match, Spectate or results. `Characters` respawns on the arena pads after about 3 s, the Reference Kit is granted, and the dummies stay.
+  - It stays one ticket, built in two stages:
+    - **17A:** the Hub, phases, roster, spawning, elimination, whole-Kit drops, the end grace, the endings and clean-up, with its specs and a solo Play check.
+    - **17B:** Spectate, Return to Hub, and the HUD, feed, banner and results.
+  - If 17A proves materially larger or riskier, it's recorded as its own ticket, and 17B is settled again before it's built. Neither half gets broader.
+  - **Pickups belong to the Match.** There are none while Waiting. At Match start, `Pickups.clearAll()` runs, then `Pickups.placeMarkers()` places Ticket 16's six markers fresh. At Match end every Pickup is cleared, including replacement and elimination drops.
+  - **Not in this ticket:** the final Hub, `TeleportService`, batching Matches, Caches, Sentries, shuffled loot, the Rift Collapse and new Abilities.
+- **Who owns what.**
+  - **The new pure `MatchRules`** has `step`, `buildRoster`, `assignSpawns`, `eliminate`, `checkEnd`, `stateOf`, `canAct` and `minPlayers`. It uses no Roblox objects.
+    - `checkEnd` is the only place that decides an ending, and `step` uses its result.
+  - **The new `Match` server system** is the only owner of participation. It runs a 0.25 s loop for phases. Eliminations happen when they arrive, not on the loop.
+    - With the Reference Kit, `Match.start` returns at once and publishes nothing.
+  - **`Characters` keeps the mechanics, and `Match` sets the policy.**
+    - New functions: `setSpawnPolicy(fn)` (Hub, Arena or None), `spawnInArea(player, area, pad?)`, `removeCharacter(player)`, `onDeath(callback)` and `lastPosition(player)`.
+    - `onDeath` reports `Died` or `Removed` (destroyed without dying), with the last root position.
+    - Administrative removals and reloads go through the existing expected-removal mechanism and never call back. **Replacing a character as part of the Match lifecycle is not a death.**
+    - Without a policy, `Characters` behaves exactly as it does today.
+  - **`Kits`** gains three things:
+    - `takeAll(player)`: a transfer. It empties the Kit, publishes it, and returns `{ abilityId, rank }` in slot order.
+    - `resetForMatch(player)`: an explicit empty Kit, owned by Match entry rather than left to a `CharacterAdded` side effect.
+    - `onPlayerLeaving(fn)`: a handler `Kits` calls in its own `PlayerRemoving`, before deleting the record. `Match` runs the `Left` elimination inside it, so the Kit is always transferred before it's destroyed. `Characters` doesn't report `Left`.
+  - **`Pickups`** gains `clearAll()` (no feedback), `placeMarkers()`, a `fromElimination` option that sets `PickupFromElimination`, and a `canCollect(player)` dependency.
+  - **Replicated state** is for presentation only. The server always asks `Match`.
+    - Workspace: `MatchPhase`, `MatchPhaseEndsAt` (server time), `MatchId`, `MatchAliveCount`.
+    - Player: `MatchState` (`Hub`, `Alive` or `Eliminated`).
+    - None of these are set with the Reference Kit.
+- **The temporary Hub.**
+  - `Workspace.Hub` is centred at (0, 0, 300). It's a 60 × 60 neutral greybox floor at y = 0 with 8-stud walls and the pads `HubSpawn1`–`HubSpawn4`. There's no route between it and the arena.
+  - It has no Pickups, dummies, signs, menus, queue UI or `TeleportService`.
+  - It sits unused with the Reference Kit, and its presence changes nothing there.
+  - **Spawning there.** `spawnInArea(player, "Hub")` picks a pad with `SpawnRules.choose`. It's used when a player joins, after Return to Hub, after the results, and on a death in the Hub, after the usual 3 s.
+  - A Hub character has full health and an empty Kit. A fresh character clears per-life state such as Charging and Statuses.
+  - The walls are only for containment. `MatchState` and the server gates are what keep Hub players out of the Match.
+  - This Hub is a test environment, not the target architecture.
+- **Phases and roster.**
+  - `Tuning.match` holds `minPlayers = 2`, `minPlayersInStudio = 1` (chosen with `RunService:IsStudio()`, and used for nothing else), `countdownSeconds = 15`, `maxSeconds = 480`, `resultsSeconds = 10`, `loopSeconds = 0.25`, `bodySeconds = 3` and `endResolutionSeconds = 0.25`.
+  - **Waiting.** Eligible players are those with `MatchState = Hub` and a living character. Countdown starts at the minimum.
+  - **Countdown** cancels below the minimum and restarts in full later. Anyone who arrives during it is in.
+  - **Match start** happens in one step:
+    1. Recount the eligible players. If there are fewer than the minimum, go back to Waiting.
+    2. Fix the roster.
+    3. `MatchId` + 1.
+    4. `clearAll`, then `placeMarkers`.
+    5. Deal the shuffled arena pads, one each. A roster bigger than four wraps around, as a limit of the current arena only.
+    6. For each player: Alive, `resetForMatch`, then a fresh character on their pad.
+    7. Running, with `MatchPhaseEndsAt = now + maxSeconds`.
+  - There's no spawn protection. Nobody joins late, and Hub players and returners wait for the next Match.
+  - **Results** lasts `resultsSeconds`, with no acting, collecting or being hit. Survivors can walk. At its end, in this order:
+    1. Participants are no longer in the Match.
+    2. `clearAll`.
+    3. Fresh Hub characters.
+    4. Waiting.
+  - There's no separate intermission phase. All deadlines use `workspace:GetServerTimeNow()`.
+- **Elimination.**
+  - `Match` acts only for an Alive player in a Running Match.
+    - `Died` covers combat, falls and resetting. A reset gives up the run.
+    - `Removed` covers falling below `FallenPartsDestroyHeight`.
+    - `Left` arrives through the `Kits` leave handler.
+    - A death in the Hub just respawns there. A death during Results eliminates no one. A repeat elimination is a no-op.
+  - **The killer** comes from a new `Session.killerOf(character)`, using the existing kill report. It's never invented for falls, resets or other deaths.
+  - **The steps,** synchronous:
+    1. `MatchRules.eliminate`.
+    2. Publish the state and alive count.
+    3. `takeAll`.
+    4. Spawn the drops.
+    5. The Session record.
+    6. `PlayerEliminated`.
+    7. `checkEnd`.
+  - **The drop.** Each Ability keeps its Rank, whatever its Equip Lock. Two Abilities sit 1.5 studs either side of the origin, each placed by `dropPosition`.
+    - The origin is the last root position. Without a floor under it, it's the last grounded position `Match` records every tick with a short downward raycast. If there's none, it's the safest fallback, logged.
+    - Drops last until the Match ends.
+  - **The body** stays `bodySeconds` (3), then is removed administratively. There's no respawn into the Match.
+  - Kill Recovery stays at 25%, for valid player kills only.
+- **Who can act,** in Match mode only. The server asks `Match` directly.
+  - **`canAct`:** Running, on the roster and Alive.
+    - `Casts` checks it for every `CastRequest` and `ChargeStart`, rejecting with `NotInMatch`. That covers the Basic Attack.
+    - `ChargeRelease` checks again.
+    - Leaving Running cancels every Charge with a new authoritative cause, `MatchEnded`.
+    - `ReplaceRequest` refuses `NotInMatch` before its other checks.
+  - **`canCollect`** has the same condition and goes to `Pickups`.
+  - **`canBeHit`** has the same condition and filters `Characters.getTargets`, so Hub players, bodies, Results and anyone in the wrong place can't be hit. Damage, Statuses, Reactions and Knockback all follow from it.
+  - **Attacks already in flight** from a player who has since been eliminated still resolve against targets that are valid at impact.
+  - **Dash** stays usable everywhere. It's movement only.
+  - **`Dummies.start`** returns early with an Empty Starting Kit.
+  - **On the client,** when Match attributes exist and the local player isn't Running and Alive, `Input` passes no slot, Basic Attack or replacement presses on, and the slots dim. That's presentation only.
+- **Ending.**
+  - **`Winner`:** exactly one Alive player left, from a roster of at least 2.
+  - **`NoSurvivors`:** none Alive.
+  - **`Timeout`:** `now >= endsAt` with 2 or more Alive. There's no winner and survivors are listed, never picked by a secondary score.
+  - **A solo roster** never wins. It ends as `NoSurvivors` or `Timeout`.
+  - **The end grace.** When a roster of 2 or more first reaches one Alive player, `pendingEndAt = now + endResolutionSeconds`. This is internal, not a phase.
+    - Nobody can act or collect during it, but Alive players can still be hit, so committed attacks land.
+    - When it ends, one Alive gives `Winner` and none gives `NoSurvivors`.
+    - `Match` schedules the resolution for that moment.
+  - **Precedence.** Zero Alive with no pending end ends at once. A pending end, and any elimination, take precedence over Timeout.
+  - **Running → Results:**
+    1. Set the phase and its deadline.
+    2. Cancel Charges with `MatchEnded`.
+    3. Publish the attributes.
+    4. `Session` logs the end.
+    5. `MatchEnded`.
+- **Spectate and Return to Hub,** 17B.
+  - **The new client `Spectating`** is presentation only. It's active for `MatchState = Eliminated`, or for a Hub player who chooses **Spectate Match** during a Running Match.
+  - **The camera.** `Camera.setSuspended(bool)`. Spectating uses the Custom camera on the target's Humanoid.
+  - **Targets.**
+    - During `bodySeconds` the camera stays on the player's own body.
+    - Then it moves to the killer if Alive, otherwise to the first Alive player by UserId. When the target goes, it moves to the next.
+    - With nobody Alive it holds the last view.
+    - Q and E switch to the previous and next Alive player, by UserId and wrapping. There are also ◀ and ▶ buttons. `Spectating` owns those presses while it's active, and F has no effect.
+  - **The Eliminated player's UI.**
+    - The banner reads `ELIMINATED`, or `Eliminated by <name>`.
+    - Below it, `Spectating <name> · <n> alive`.
+    - A **Return to Hub** button.
+    - No target Kit or cooldowns are shown.
+  - **A Hub spectator** sees `Spectating <name>` and **Back**. Their character stays in the Hub. They leave Spectating by themselves when `MatchPhase` leaves Running, `MatchId` changes, or no target is left. **No spectator camera stays attached to a Match that has ended.**
+  - **`ReturnToHub {}`** (ToServer) is accepted only from an Eliminated player in Running or Results.
+    - It sets `Hub` and spawns them in the Hub administratively.
+    - The elimination and the roster history stay as they were.
+    - Everything else is refused silently, with a throttled warning and no token bucket.
+- **Results and logs.**
+  - **Stats.** `Session.beginMatch(matchId, roster)` snapshots each roster player's counters. The new pure `SessionRules.matchStats(snapshot, record)` gives the differences in kills, damage dealt, Reactions triggered, Equip, Upgrade and Replace.
+  - **When rows are final.** At the elimination, including `Left`, or at the end for survivors. They're stored on the roster entry as history that nothing later changes.
+  - **Rows** have the name captured at the start, and an outcome of `Winner`, `Survived` (Timeout) or `Eliminated`.
+    - The place: the winner is 1st, and the Eliminated go in reverse order of elimination. Timeout survivors get "—".
+    - The counts, and the time survived from the start of Running.
+    - `Eliminated by <name>` only when there was a valid killer. `Left` may show as such. A `Died` with no killer shows just `Eliminated`, never a guessed "Fell" or "Reset".
+  - **Log lines,** in the existing `[Riftfall][Session]` style and in addition to the existing ones:
+    - `MatchStart` (match, players, roster)
+    - `Eliminated` (match, player, cause, by, alive, seconds, and the dropped Abilities with Ranks in slot order)
+    - `MatchEnd` (match, cause, winner, alive, seconds, eliminations): the key metric for timeouts
+    - one `MatchResult` per roster player
+    - `ReturnToHub`
+- **Protocol and HUD,** 17B except for the remotes.
+  - **Remotes:**
+    - `ReturnToHub {}`, where any field is malformed.
+    - `PlayerEliminated { matchId, playerId, killerId, cause, aliveCount, position }`, with an empty-string `killerId` for none.
+    - `MatchEnded { matchId, cause, winnerId, durationSeconds, rows }`, sent once to everyone. If `Protocol` can't validate nested rows cleanly, stop and report, and use the smallest strongly validated shape rather than weakening validation.
+  - **The status line,** top centre:
+    - Waiting: `Waiting for players — 1/2`
+    - Countdown: `Match starts in 12`, never counting up
+    - Running and Alive: `3 alive · 6:42 left`
+    - Running in the Hub: `Match in progress — 3 alive`, with **Spectate Match**
+    - Hidden in Results
+  - **The feed,** top right: `A eliminated B · 2 left`, or `B was eliminated · 2 left`. Each line lasts about 4 s, with at most 4 lines, and falls back safely for players who have left.
+  - **The banner,** for 3 s: `VICTORY`, `<name> wins`, `Time out — no winner` or `No survivors`. The results panel follows, with `Returning to Hub in 8`.
+  - A client that joins during Results may miss the rows.
+  - **The elimination drop** gets a 6-stud burst for 1.5 s, and a beam easing from 0.3 to 0.7 transparency over 2 s, with no sound. The values go in `Tuning.match.display`.
+  - **Out of scope:** Match sounds, music, streaks, a minimap, a live scoreboard, a final results screen and Match history.
+  - **Who builds what.** The main session builds `Protocol`, `Match`, `MatchRules`, the gates and `ReturnToHub`. `studio-implementer` builds, from exact briefs, the Hub geometry, the HUD, feed, banner and results, `Spectating`'s presentation and the drop flash. The main session reviews it.
+- **Specs.**
+  - **New `MatchRulesSpec`:** the minimums, the phases and the cancelled countdown, the roster, `assignSpawns`, `eliminate`, every `checkEnd` case including the grace and precedence, the three gates across every phase and state, the end of Results, history surviving Return to Hub, and places and outcomes.
+  - **New `MatchSpec`,** with fakes: the order of the start, elimination, leave, Return to Hub, grace and Results-end steps, administrative removals never eliminating, and Reference mode installing nothing.
+  - **Also:**
+    - `SessionRulesSpec`: `matchStats`, and the snapshot not being mutated.
+    - `PickupsSpec`: `clearAll`, `placeMarkers` and clearing every kind of Pickup.
+    - Kits: `takeAll` and `resetForMatch`.
+    - `ProtocolSpec`: the three new remotes.
+    - Config sanity: `minPlayersInStudio <= minPlayers`, and `0 < endResolutionSeconds < 0.5`.
+- **Play checks,** run by `studio-tester`, checking rendering before every group of input or visual checks:
+  - **A, Reference solo:** the Match stays dormant. There are no attributes and no Hub, the dummies are present, a death respawns on an arena pad after about 3 s, Q then E and a Charge, and a forged `ReturnToHub` is refused.
+  - **B, Empty solo,** once after 17A and again after 17B:
+    - the Hub, with `NotInMatch` for a forged `CastRequest`
+    - the countdown and start: a fresh arena spawn, six Pickups and no dummies
+    - collection
+    - elimination: the drops and their flash, the body for 3 s, `NoSurvivors`, the results and the Hub
+    - the next cycle
+    - a reset eliminating
+    - `ReturnToHub` accepted during Results and refused while Alive
+    - a Timeout, with a TEMPORARY `maxSeconds` of about 30
+  - **C, two clients:**
+    - a real kill: the feed, the drop, the body then the killer in Spectate, `VICTORY` and `<name> wins`, the rows, and the Hub
+    - Return to Hub, then **Spectate Match**, and the camera returning when the Match ends
+    - a leave: `Left` exactly once, the drop, the grace, then `Winner`
+    - a Timeout with two survivors
+    - trades through the normal Combat path: both within 0.25 s gives `NoSurvivors`, and 0.4 s apart gives `Winner` with the late damage refused
+  - **D, three clients, narrow:** one roster, cycling with Q, E and the buttons with wrapping, moving on automatically, `2 left`, a `Winner`, and a spectator who can't affect anything.
+  - **TEMPORARY aids:** a damage and kill hook through Combat, and a lowered `maxSeconds`. They're removed afterwards and confirmed with a search, and never committed.
+- **Done when** 17A and 17B both pass, Runs A–D all pass, the temporary aids are gone, and the docs and record are updated.
+
 ### 18. Match map, Caches and Sentries
 
 - **Scope:**
