@@ -227,6 +227,28 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **Authority:** the server-owned Kit is the only source for the equipped slot, Ability, Rank and whether a Cast is allowed. Any Rank sent to clients, for Telegraphs or anything else, is presentation only. No client-supplied Rank ever decides damage, geometry, cooldowns or any other gameplay.
 - **Done when:** Stage 1 and 2 checks with the Reference Kit behave exactly as version 46 does.
 
+**Settled 2026-11-08, before building.**
+
+- **Replication.** The server system `Kits` owns each player's Kit and writes it to the `Player` as attributes: `KitSlot1Ability`, `KitSlot1Rank` and `KitSlot1LockedUntil` (server time), and the same for slot 2. They reach every client, late joiners included, with no new remote. `Charging` also sets `ChargingRank` beside `ChargingAbility` and `ChargingSince`, from the Kit when Charging starts, and other players' Telegraphs read it. Both are presentation only: the Cast's Rank is still resolved on the server at release.
+- **Starting Kit.** `Tuning.kit` holds the slot keys `{ "Q", "E" }`, `startingKit = "Reference"` or `"Empty"`, the Reference Kit's Abilities, `maxRank = 2` and `equipLockSeconds`. `inputKey` and `slot` leave `Config.Abilities`, and `Tuning.prototypeKit` goes. The Starting Kit is applied on every spawn, at Rank 1 and with no Equip Lock, until Ticket 17 moves it to entering a Match. The Basic Attack is never a slot and is always available.
+- **HUD.** The Reference HUD keeps the coloured squares and key letters, and adds each Ability's name and Rank pips. An empty slot is a dark outlined square with its key and "Empty", and pressing it sends nothing.
+- **`KitRules` for this ticket.** Pure functions on a plain Kit table: `new`, `starting`, `find`, `firstFreeSlot`, `equip` (into an empty slot only, setting the Equip Lock, refusing a Rank over the cap), `canCast` (`NotInKit` or `EquipLocked`), and `toAttributes` and `fromAttributes`, which the client and server share. Fits, Upgrades, replacement, drops and `ReplaceRequest` wait for Ticket 16.
+- **Equip Lock.** `Casts` asks the Kit before the cooldown on `CastRequest`, `ChargeStart` and `ChargeRelease`, and rejects a locked Cast as `EquipLocked` with the time left. `equipLockSeconds` starts at 0.85. On the HUD a locked slot dims, gets a white outline, and a thin bar fills across its bottom, so it reads differently from the cooldown's vertical shade. The key letter stays.
+- **Granting before Pickups.** A server-only `Kits.grant(player, abilityId, rank)` puts an Ability into the first free slot with the Equip Lock, and Ticket 16 reuses it. Specs cover the logic through `KitRules`. Play tests call `grant` through a TEMPORARY BindableFunction, with `startingKit` set to Empty in Edit mode and reverted afterwards.
+- **Rank cap.** `RankRules.MAX_RANK = 3` stays as the range the Ability data supports, so the Rank 3 values stay valid. `Tuning.kit.maxRank = 2` is the gameplay cap that `KitRules` enforces. How Upgrades read it is Ticket 16's.
+- **Specs.**
+  - **Changed:**
+    - "Arc Burst is in the Kit, on E" becomes: the Reference Kit has Arc Burst in slot 2, and slot 2 is E.
+    - "no two share a key or slot" becomes: the slot keys are distinct, and none is LeftShift or F.
+    - The three `prototypeKit` loops cover every Ability in Config at every Rank up to the cap.
+  - **New `KitRulesSpec`:**
+    - the Reference and Empty Kits
+    - `firstFreeSlot` gives Q, then E, then none
+    - `equip` sets the lock, and refuses an occupied slot, an unknown Ability and a Rank over the cap
+    - `canCast` returns `NotInKit`, then `EquipLocked`, then OK once the lock ends
+    - the attributes round-trip
+    - the cap is at most `MAX_RANK`
+
 ### 16. Pickups and replacement
 
 - **Scope:** server-owned Ability Pickups, collection by proximity, Upgrades, F+Q and F+E replacement through `ReplaceRequest`, the replaced Ability dropping, and readability in the world and HUD.
