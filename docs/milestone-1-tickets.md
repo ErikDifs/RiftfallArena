@@ -459,4 +459,13 @@ Planned 2026-11-08 at the developer's request, as a separate follow-up after Tic
 - Arc Burst's authoritative Sector stays independent of the visible pose and the hand.
 - Two placeholder animations, uploaded to the developer's account only with their approval: a looping hold while Charging, and a short release.
 
-**Open:** how the new origin changes close-range casting and casting with your back to a wall, and the exact offset, which is tuned to the pose.
+**Settled 2026-11-08, before building:**
+
+- **Two origins.** The hand origin is for projectiles only: Tidal Bolt and the ShootingDummy's shots. Sectors, the melee Basic Attack and the ground preview keep the body origin, 1 stud above the root, so the approved preview still matches what gets hit.
+- **Facing comes from the aim.** The offset follows the flat direction from the root to the Aim Point, not the root's rotation, which the server sees late. Client and server then compute the same origin from the same root position.
+- **Close range falls back to the body.** When the Aim Point is within about 3 studs of the root across the ground, the bolt starts from the body origin, so point-blank shots still go where the player aims.
+- **Cover pull-back.** A ray from the body origin to the hand point against the arena's cover moves the origin to just short of anything it strikes, so a caster pressed against cover hits the cover. A wall behind the caster doesn't matter, because the offset only goes forward.
+- **The orb's near side sits at the hand**, so a full-Charge orb grows forward rather than over the arm.
+- **Arc Burst's lightning is drawn from the hand**, while its Sector and preview stay at the body. The few studs between them are an accepted visual mismatch.
+- **Placeholder animations are keyed by Claude** as R15 KeyframeSequences, previewed by the developer in the Animation Editor, and uploaded only with their approval.
+- **Starting offset:** 1.5 studs right, 0.5 up and 1.5 forward from the root, tuned in Studio to the pose.
