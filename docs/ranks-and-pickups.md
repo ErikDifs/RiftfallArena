@@ -2,6 +2,8 @@
 
 Ability Ranks are the only upgrade and rarity system for the first version. There is no separate Common, Rare or Epic layer.
 
+[Milestone 2](milestone-2-tickets.md) caps Ranks at 2 through a config value, with every world Pickup at Rank 1. Rank 3 and its behaviour changes come later.
+
 ## Ranks
 
 | Rank | What it adds |
@@ -47,13 +49,13 @@ Each family has recognizable territory or encounter locations and a themed, weig
 
 ### Rift Caches
 
-Rift Caches sit along useful routes, including routes a respawning player might naturally take. They are world objects available to everyone, not private rewards for losing players, so others can steal or contest them. This creates natural catch-up without explicit comeback buffs.
+Rift Caches sit along useful routes, including routes from the spawn points. They are world objects available to everyone, not private rewards for losing players, so others can steal or contest them. This creates natural catch-up without explicit comeback buffs.
 
 ### Starting state and fast opening
 
-Players begin each Match with a Basic Attack, a Dash and three empty Ability Slots, with no random starting Ability.
+Players begin each Match with a Basic Attack, a Dash and empty Ability Slots, with no random starting Ability. Milestone 2 has two slots, on Q and E. The long-term number is unresolved, with three kept as a likely test, as set out in [Milestone 2](milestone-2-tickets.md).
 
-While a player has at least one empty Ability Slot, their next eligible monster kill guarantees a Pickup from that family's Drop Table. Normal chance-based drops then resume. The rule is configurable, because playtesting may show that filling three slots needs to happen faster. It applies only to normal eligible monster rewards, so killing trivial or invalid targets cannot generate extra drops.
+While a player has at least one empty Ability Slot, their next eligible monster kill guarantees a Pickup from that family's Drop Table. Normal chance-based drops then resume. The rule is configurable, because playtesting may show that filling the slots needs to happen faster. It applies only to normal eligible monster rewards, so killing trivial or invalid targets cannot generate extra drops.
 
 ## Pickup readability and ownership
 
@@ -65,23 +67,15 @@ While a player has at least one empty Ability Slot, their next eligible monster 
 | Player's situation | Result |
 |---|---|
 | Does not own the Ability, has a free Ability Slot | Acquires it at the Pickup's Rank. |
-| Does not own the Ability, Kit is full | Can hold to replace an existing Ability, which drops at its current Rank. |
+| Does not own the Ability, Kit is full | Can deliberately replace a chosen Ability, which drops at its current Rank. Milestone 2 uses holding F and pressing Q or E, as set out in [Milestone 2](milestone-2-tickets.md). |
 | Owns the Ability below Rank 3 | `newRank = min(3, max(currentRank + 1, pickupRank))` |
 | Owns the Ability at Rank 3 | Cannot collect it, and the Pickup stays in the world. |
 
 The formula means duplicates always help, while a genuinely high-Rank Pickup is still exciting.
 
-## Death before the Rift Collapse
+## Death
 
-1. Find one of the player's highest-Rank Abilities, choosing randomly if several are tied.
-2. If it is above Rank 1, reduce it by one Rank.
-3. Drop a Rank 1 Pickup of that Ability at the death location.
-
-The player keeps the Ability Slot, so they always respawn with a functional Kit. If every Ability is already at Rank 1, the Kit is not reduced further, but a Rank 1 Pickup copy of one owned Ability still drops. This duplication is intentional, because PvP kills should produce something worth contesting. A player who owns no Abilities drops no Ability Pickup, which also reduces spawn farming.
-
-### Anti-farming
-
-A player who dies again within a short post-respawn protection window does not generate another Ability Pickup. The duration is configurable. Tracking repeated killer and victim pairs is left out for now, and can be added later if needed.
+Superseded by one life per Match ([ADR-0007](adr/0007-one-life-arena-match.md)). The old rule, where the highest-Rank Ability lost a Rank and a Rank 1 copy dropped while the player respawned with their slots, is kept in that ADR as the rejected alternative. An Eliminated player drops their whole Kit, each Ability as its own Pickup at its current Rank, as settled in [Milestone 2](milestone-2-tickets.md).
 
 ## Architecture rule
 

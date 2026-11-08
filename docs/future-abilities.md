@@ -76,6 +76,6 @@ The goal is to expand Riftfall from character Status interactions into battlefie
 
 ## To settle before building these
 
-- **Pulls and Charging:** the glossary's Knockback is a forced push, and the Charging rule is written for Knockback. Rift Hook's pull needs either a wider definition of Knockback or its own place in that rule.
+- **Pulls and Charging:** settled 2026-11-08. Knockback now means forced displacement away from or toward its source, so Rift Hook's pull is Knockback and ends a Charge under the existing rule. Rift Hook and Stone Guard are being built in [Milestone 2](milestone-2-tickets.md).
 - **Oil and movement:** [ADR-0003](adr/0003-statuses-and-reactions-as-the-shared-interaction-model.md) has a typed effect meeting a Status. Movement or Knockback isn't a typed effect, so "Oil + movement" doesn't fit that model yet.
 - **Fire:** no Fire effect type exists yet.

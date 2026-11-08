@@ -21,19 +21,31 @@ _Avoid_: Riftfall MMO
 ### Match
 
 **Match**:
-One free-for-all round of about 12 minutes, moving through Gather, Clash and the Rift Collapse. The last surviving player wins.
+One free-for-all round of about 12 minutes, moving through Gather, Clash and the Rift Collapse, in which each player has one life. The last surviving player wins.
 _Avoid_: Game, round, session
 
+**Eliminated**:
+The state of a player whose one life in a Match has ended. They never respawn into that Match, and can only Spectate or Return to Hub.
+_Avoid_: Dead, knocked out, out
+
+**Spectate**:
+Watching the living players of a Match after being Eliminated, with no effect on play.
+_Avoid_: Ghost, observer mode
+
+**Hub**:
+The place outside any Match where players gather, respawn freely and enter Matches, and where Return to Hub takes an Eliminated player.
+_Avoid_: Lobby, menu
+
 **Gather**:
-The opening phase, where players explore, fight monsters and assemble a Build, with quick respawns.
+The opening, lower-pressure phase, where players explore, fight monsters and assemble a Build.
 _Avoid_: Early game, farming phase
 
 **Clash**:
-The middle phase, where stronger rewards pull players into contested areas and respawns get slower.
+The middle phase, where stronger rewards pull players into contested areas.
 _Avoid_: Mid game
 
 **Rift Collapse**:
-The final, time-driven phase, where unstable Rifts consume the playable area and death is permanent.
+The final, time-driven phase, where unstable Rifts consume the playable area so nobody can hide.
 _Avoid_: Storm, shrinking zone, circle
 
 ### Builds
@@ -41,6 +53,14 @@ _Avoid_: Storm, shrinking zone, circle
 **Kit**:
 Everything a player can use at a given moment: their Basic Attack, Dash and Ability Slots.
 _Avoid_: Loadout, class
+
+**Starting Kit**:
+The Kit a player has each time they enter play: either the Reference Kit, or an empty one that the run fills.
+_Avoid_: Default loadout, spawn kit
+
+**Reference Kit**:
+The fixed Kit of Tidal Bolt and Arc Burst used to validate the core combat, including in Stage 3. It stays available for testing after Kits start being found during a run.
+_Avoid_: Default class, starter build
 
 **Basic Attack**:
 The untyped, non-Reactive, short-range melee attack every player always has, which cannot be replaced.
@@ -51,12 +71,16 @@ A combat action found during a match that occupies an Ability Slot.
 _Avoid_: Spell, skill, power
 
 **Ability Slot**:
-One of three places in a Kit that can hold any Ability.
+One of the places in a Kit that can hold any Ability. Milestone 2 has two, on Q and E. The long-term number is unresolved, with three, on Q, E and R, kept as a likely test.
 _Avoid_: Hotbar slot, spell slot
 
 **Pickup**:
-An Ability of a specific Rank lying in the world that a player can collect. A full Kit needs a deliberate hold-to-replace, which drops the replaced Ability as a new Pickup at its current Rank.
+An Ability of a specific Rank lying in the world that a player can collect. A Pickup that fits, into a free slot or as an Upgrade, is collected just by coming near it. With a full Kit, the player has to choose a slot to replace, and the replaced Ability drops as a new Pickup at its current Rank.
 _Avoid_: Drop, loot item
+
+**Equip Lock**:
+The short time after an Ability enters a slot, by replacement or by being collected into a free slot, during which it can't be Cast. An Upgrade doesn't cause one.
+_Avoid_: Swap cooldown, equip delay
 
 **Rank**:
 An owned Ability's or Pickup's power level, from 1 to 3, which also serves as its rarity. Rank 2 improves numbers, and Rank 3 also adds one behaviour change.
@@ -179,8 +203,12 @@ The configurable, weighted list of Pickups and Ranks a reward source can produce
 _Avoid_: Loot table, drop pool
 
 **Rift Cache**:
-A world object along a useful route that gives at least a Rank 1 Pickup. Anyone can take or contest it.
+A breakable world object along a useful route that drops at least a Rank 1 Pickup when broken. Anyone can break it, and anyone can take or contest what it drops.
 _Avoid_: Chest, catch-up reward
+
+**Sentry**:
+A stationary hostile PvE enemy that fires at nearby players and guards valuable Rift Caches. It is the only hostile PvE until monsters are built.
+_Avoid_: Turret, tower, monster
 
 ### Interactions
 
@@ -230,8 +258,12 @@ A short server-owned window at the start of an accepted Dash during which incomi
 _Avoid_: I-frames, invulnerability, dodge
 
 **Knockback**:
-A forced push whose direction and strength are decided by the server.
-_Avoid_: Fling, displacement
+A forced displacement, away from or toward its source, whose direction and strength are decided by the server. Rift Hook's pull is Knockback.
+_Avoid_: Fling, pull state
+
+**Shield**:
+Temporary protection that absorbs damage before health for a short time. A Shielded hit still lands, with its Statuses, Knockback and Reactions, which separates it from Evade.
+_Avoid_: Armour, barrier, absorb
 
 **Root**:
 A server-owned state that prevents a character from moving.
