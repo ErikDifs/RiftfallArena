@@ -327,6 +327,106 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **Where the logic lives:** fit, Upgrade and replacement decisions go in `KitRules` where practical. World proximity, instance ownership and replication stay out of the pure Rules.
 - **Tested with** Pickups placed by hand in the current arena and an Empty Starting Kit.
 
+**Settled 2026-11-08, before building.**
+
+- **A Pickup in the world.**
+  - The server keeps each Pickup's record: id, Ability, Rank and anchor position.
+  - The world gets an anchored, invisible Part in `Workspace.Pickups`, with no collision, touch or query. It's tagged `Pickup` and carries `PickupId`, `PickupAbility`, `PickupRank` and `PickupSpawnedAt` (server time). Ids come from a counter that only goes up and are never reused.
+  - Clients draw everything else in a new `PickupVisuals`, and it's presentation only: it never affects collection, line of sight or collision.
+    - A shape for each Ability from `visual.pickupShape`: a sphere for Tidal Bolt (about 1.6 studs) and a cube on its corner as a diamond for Arc Burst (about 1.3). Cube is supported too, for later Abilities. Shapes are Neon in the Ability's colour, bob ±0.3 studs about every 2 s, turn 90° a second from one shared loop, and have a small light with a range of about 8.
+    - A BillboardGui 2.2 studs up, with the name in GothamBold at 18 px and Rank pips out of `maxRank` in the HUD's style. It's visible to 40 studs and not `AlwaysOnTop`.
+    - At Rank 2, a flat ring at the base in the Ability's colour brightened toward white, with an outer radius of about 1.4 and an inner one of about 1.2. If `CylinderHandleAdornment` doesn't give a clean ring, the simplest client-only equivalent will do.
+    - A beam 30 studs tall, 0.25 wide and 0.7 transparent, with no shadow or interaction, hidden beyond 150 studs.
+    - A 3-stud burst with no sound when a Pickup appears within `appearFlashSeconds` (1) of `PickupSpawnedAt`, so Pickups already there when a player joins don't flash.
+  - All of these values are starting tuning, in `Tuning.pickups.display`.
+- **KitRules' decisions.** `RankRules.MAX_RANK` is what the Ability data supports, `Tuning.kit.maxRank` is what the game mode permits, and only KitRules enforces the gameplay cap.
+  - `fit(kit, abilityId, rank, kitConfig)` gives `Equip` with the first free slot, `Upgrade` with the slot and new Rank, `AtCap`, or `NeedsReplace`.
+  - `upgrade` sets the Rank to `min(maxRank, RankRules.upgradedRank(...))`. It never sets an Equip Lock and leaves a running one as it is.
+  - `replace` works only for `NeedsReplace`. It puts in the new Ability with a fresh Equip Lock and returns the old one at its Rank. It refuses with `NoSuchSlot`, `SlotEmpty`, `UnknownAbility`, `InvalidRank`, `Fits` or `AtCap`.
+  - A Pickup above the cap can't be made.
+- **Collection.** A server `Pickups` system checks every `checkSeconds` (0.1), never with `Touched`.
+  - It measures 3D distance from the server's `HumanoidRootPart.Position` to the anchor, which sits about 3 studs above the floor. `collectRadius` is 4.
+  - Collectors must be alive and not `Stunned` or `Frozen`. Charging and Rooted players can collect.
+  - Pickups are handled in ascending id order. For each, `PickupRules.chooseCollector` picks the nearest eligible player for whom it fits as `Equip` or `Upgrade`, with exact ties going to the first in iteration order.
+  - `Kits.collect` reruns `fit` against the current Kit and applies only `Equip` or `Upgrade`. The Pickup is removed in the same step, and the Kit is up to date before the next Pickup is checked.
+  - `AtCap` and `NeedsReplace` Pickups stay in the world.
+  - An Upgrade during a Charge changes the Kit at once, and the release resolves the new Rank. The Charge isn't restarted or changed, and its Telegraph may keep showing the Rank it started with.
+  - Session counts `Equip`, `Upgrade` and `Replace`.
+- **ReplaceRequest `{ pickupId, slot }`.** The server reads the Ability and Rank only from its own record, so a request that adds `rank` or `abilityId` is malformed.
+  - **The guard.** Before anything else, a per-player token bucket (`replaceGuard`: a burst of 5, refilling 5 a second) drops excess requests. Nothing in the game had flood protection to reuse, and normal play can't hit this limit.
+  - **The checks,** in this order, against the server's state when the request is handled:
+    1. the payload's shape
+    2. `NoCharacter`
+    3. `Stunned`
+    4. `Frozen`
+    5. `Charging`, which leaves the Charge running
+    6. `Gone`
+    7. `TooFar`, beyond `replaceRadius` (6) in 3D
+    8. `Kits.replace`
+  - `PickupRules.validateReplace` holds checks 2–7 as pure logic.
+  - **On success,** in one synchronous step: the Pickup is removed, the slot is replaced, the old Ability drops as a new Pickup, the Kit is published, Session counts a `Replace`, and `PickupCollected` fires. The first valid request wins, and later ones see `Gone`.
+  - **What doesn't block it:** a Dash, a cooldown on either Ability, or an Equip Lock on the other slot. Cooldowns stay per Ability per life.
+  - **Refusals** change nothing and get no reply. The warning for refusals and dropped requests is throttled to about one a second per player.
+  - **The drop** lands from a raycast straight down from the server's root position, against `Workspace.Arena` only, up to 20 studs, with the anchor 3 studs above the hit, or at the root position with no hit. It gets a new id and keeps its Rank. The replacer, whose Kit is full, can't collect it automatically, but can swap back with F, which costs a fresh Equip Lock. Another player it fits can collect it on a later check.
+- **`PickupCollected { pickupId, abilityId, rank, collectorId, kind, slot, position }`,** sent to all clients.
+  - `kind` is `Equip`, `Upgrade` or `Replace`, and `rank` is the Rank afterwards, presentation only.
+  - The server publishes the Kit attributes, fires the event and destroys the Part, in that order. Clients remove a Pickup's visuals on the event or the tag's removal, whichever comes first, and doing it twice is harmless.
+  - The event is only for feedback. The client's Kit comes only from the attributes.
+  - There's no refusal event and no spawn event.
+- **The client's F modifier.** `Tuning.kit.replaceModifier = "F"`.
+  - `Input` counts F as held from a press the game hasn't already handled, until F comes up or the window loses focus.
+  - While F is held, Q and E presses go to `onReplacePressed(slot)` and never to Casting. Releases always reach `onSlotReleased`, so a Charge started before F releases normally.
+  - Letting go of F while Q is held doesn't start Charging, so a fresh press is needed. F alone affects nothing.
+  - A new client module, `Replacing`, keeps its own small copy of the Kit from the attributes, rather than sharing code with `Casting`.
+    - Each frame it targets the nearest `NeedsReplace` Pickup within `replaceRadius` with `PickupRules.chooseReplaceTarget`, with ties going to the lower id.
+    - It has no target while the player is dead, Stunned, Frozen or Charging, using a new read-only `Casting.isCharging()`.
+    - With a target, F with Q or E sends one `{ pickupId, slot }` and predicts nothing. Without one, it sends nothing.
+  - **The prompt.** Two lines above the slots, such as `F + Q — Replace Tidal Bolt with Arc Burst`, faded at about 0.4, and fully opaque while F is held. The target gets a local white outline that walls hide.
+- **Readability.**
+  - Everyone sees a 4-stud burst in the Ability's colour at `position`, and hears a new `PickupCollect` sound from there, up to about 90 studs. The collector hears it only flat.
+  - The slot pulses 1 → 1.15 → 1 over 0.25 s for Equip, Upgrade and Replace.
+  - An Upgrade shows `Upgrade → Rank 2` above the Crosshair in the Ability's colour at 24 px, or `Upgrade: Rank 2` if the font can't draw the arrow.
+  - Equip and Replace get no text.
+  - The sound is a built-in placeholder that isn't already used and reports `IsLoaded`. No asset is uploaded.
+  - Out of scope: an appear sound, marking a Pickup that's at the cap, rarity effects, minimap markers and icons.
+- **Placed for testing.**
+  - Marker Parts in `ServerStorage.PickupPlacements`, with `Ability` and `Rank` attributes, become Pickups at server start, but only when `startingKit == "Empty"`.
+  - Collected Pickups don't return until Play restarts. Ticket 17 moves placement to the start of each Match.
+  - The six markers, with anchors 3 studs above the floor:
+    1. Tidal Bolt, Rank 1, at (30, 3, -20)
+    2. Arc Burst, Rank 1, at (20, 3, -40)
+    3. Tidal Bolt, Rank 1, at (0, 3, -40)
+    4. Arc Burst, Rank 2, at (-12, 3, -40)
+    5. Tidal Bolt, Rank 2, at (-28, 3, 42)
+    6. Arc Burst, Rank 1, at (30, -5, 30)
+  - **Reaching a replacement in Play.** With only two Abilities, a full Kit can't meet a `NeedsReplace` Pickup. So for the Play checks only, `studio-tester` adds a TEMPORARY `TestShard` to `Config.Abilities`: Tidal Bolt's stats, a non-blue colour and `pickupShape = "Cube"`. It also adds TEMPORARY markers for it at Rank 1 at (20, -5, 40) and Rank 2 at (25, -5, 40). Everything is reverted afterwards and confirmed with a search. It's never committed. The TEMPORARY `Kits.grant` hook is still allowed.
+- **Specs.**
+  - **Changed:** the slot-key test reads `replaceModifier`.
+  - **New in KitRulesSpec:**
+    - every `fit` result
+    - the cap from config, at 2 and 3
+    - an Upgrade adds no Equip Lock and keeps a running one
+    - `replace`, with every refusal, using a fake third Ability
+  - **New PickupRulesSpec:**
+    - `chooseCollector`, including the ledge case and the next nearest
+    - `validateReplace`, every reason plus Stunned and TooFar together giving `Stunned`
+    - `chooseReplaceTarget`
+    - `takeToken`
+    - `dropPosition`
+  - **New PickupsSpec,** with fake dependencies:
+    - Pickups handled in ascending id order
+    - two collections in one check
+    - collecting and removing in one step
+    - a refused `Kits.collect` leaves the Pickup
+    - a Pickup over the cap can't be made
+  - **New ProtocolSpec cases:** a valid `ReplaceRequest`, an added `rank` or `abilityId`, and non-integer, NaN or infinite values; a complete `PickupCollected`.
+  - **New Config specs:** every slot Ability has a supported, unique `pickupShape`; `replaceRadius` is greater than `collectRadius`.
+- **Play checks,** run by `studio-tester`:
+  - **A, Reference Kit, solo:** Ticket 15's regression, plus no Pickups and a forged `ReplaceRequest` refused.
+  - **B, Empty, solo, with the markers:** visuals, Equip into Q and E, Upgrade during a Charge, at the cap, Stunned, the arrow glyph and the sound.
+  - **C, Empty, solo, with TestShard:** the prompt and target, F+Q and F+E, the drop, swapping back, cooldowns, the F input behaviours, forged refusals, and the 100-request flood (5 handled, 95 dropped by the guard, one replacement and one drop).
+  - **D, Player1 and Player2:** first a short Reference Kit check (both Kits, one Tidal Bolt into Arc Burst exchange, the remote Telegraph's Rank, no Pickup visuals), then Empty with TestShard: contested collection, the dropped Ability collected by the other player, the same Pickup requested at once, and the prompt and outline seen only locally.
+
 ### 17. One-life Match
 
 - **Scope:**
