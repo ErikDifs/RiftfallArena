@@ -706,6 +706,93 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - **TEMPORARY aids:** a damage and kill hook through Combat, and a lowered `maxSeconds`. They're removed afterwards and confirmed with a search, and never committed.
 - **Done when** 17A and 17B both pass, Runs A–D all pass, the temporary aids are gone, and the docs and record are updated.
 
+**Built and tested 2026-11-08 to 2026-11-09. All checks pass.** It stayed one ticket: 17A wasn't materially larger or riskier, so 17B was built straight after it.
+
+- **Server side:**
+  - The new pure `MatchRules` holds the phases, roster, eliminations, end, the gates, Return to Hub and the result rows.
+  - The new `Match` system runs it, installs the policy and gates, and handles `ReturnToHub`.
+  - `Characters` gained areas, the spawn policy, the target filter, `onDeath`, `spawnInArea`, `removeCharacter` and `lastPosition`.
+  - `Kits` gained `takeAll`, `resetForMatch` and `onPlayerLeaving`. `Pickups` gained `clearAll`, `placeMarkers`, `drop`, `findFloor`, the `fromElimination` mark and the `canCollect` gate. `Casts` gained the `canAct` gate. `Session` gained `killerOf`, the Match snapshot and the Match log lines. `SessionRules` gained `snapshot` and `matchStats`.
+  - `Dummies` returns early with an Empty Kit.
+  - `Protocol` gained the three remotes, the strongly validated `resultRows` type and the Match attributes. `Tuning.match` holds the settled values and its `display` table.
+- **Fixes made during review and testing:**
+  - **Session record on leave.** `Session` now forgets a leaving player only after the other `PlayerRemoving` handlers have run, so a `Left` elimination still reads their Match numbers, whatever order the handlers fire in.
+  - **Order at the end.** `Match` publishes the phase attributes before the Session log and `MatchEnded`, as settled.
+  - **Kit lost on leave.** `Kits.takeAll` now takes the Kit held for the life that ended, even when the character has already gone. Before, a leave dropped nothing, because `ensure` saw the missing character as a new one and handed over a fresh empty Kit. Run D found it, and `KitsSpec` covers it now.
+- **Client side,** built by `studio-implementer` from an exact brief and reviewed before acceptance:
+  - The new `MatchHud` shows the status line, the feed, the elimination title, the spectate bar, the end banner and the results, and dims the slots.
+  - The new `Spectating` drives the camera through `Camera.setSuspended`, and owns Q and E through `Input.setSlotOverride`.
+  - `Input` passes no slot, Basic Attack or replacement presses on unless the player is Running and Alive.
+  - `Feedback` skips the respawn-style "Killed by" notice in a Match.
+  - `PickupVisuals` gives elimination drops their 6-stud flash and the beam that eases from 0.3 to 0.7. `CosmeticProjectiles.burst` takes an optional duration for it.
+- **Specs:** 302 passed, 0 failed, run on the Server in Play. They include the new `MatchRulesSpec` (21, with the two Config checks), `MatchSpec` (13, on fakes around a clone of `Match`) and `KitsSpec` (3). The additions to `ProtocolSpec`, `SessionRulesSpec`, `KitRulesSpec` and `PickupsSpec` add 16.
+- **Test setup:** a TEMPORARY `TEMPORARYMatchHook` script, with `hit` through `Combat.applyHit` and `grant` through `Kits.grant`, plus a TEMPORARY `maxSeconds` of 30 for the solo runs and 90 for the multi-client runs. All were removed after the runs. A search for `TEMPORARY` finds nothing, Tuning is back to `startingKit = "Reference"` and `maxSeconds = 480`, and the specs passed 302 of 302 again afterwards.
+
+**A, Reference Kit, solo** (run after 17A and again after 17B):
+
+| # | Check | Result |
+|---|---|---|
+| A1 | Specs | 301 passed, then 302 after the `takeAll` fix |
+| A2 | Dormant | No Match attributes or `MatchState`. Spawned on an arena pad with 4 dummies and the Reference Kit. Every `MatchHud` element hidden and the slots not dimmed |
+| A3 | Q, E and a Charge | No `CastRejected`, and `ChargingRank` 1 during the hold |
+| A4 | Death | Respawned on an arena pad in 3.03 s with the Reference Kit, and the "Killed by" notice showed as before. No `Eliminated` line |
+| A5 | Forged `ReturnToHub {}` | Nothing happened |
+| A6 | Console | No errors |
+
+**B, Empty Kit, solo** (17A, then again with 17B):
+
+| # | Check | Result |
+|---|---|---|
+| B1 | Hub | `MatchState` Hub, in the Hub with an empty Kit, no dummies and no Pickups. `Match starts in N` counted down, and the slots were dimmed. A forged `CastRequest` got `NotInMatch`, a forged `ReplaceRequest` got the `NotInMatch` warning, and the hook found `NoTarget`. Real Q, E and clicks sent nothing |
+| B2 | Start | Running with `MatchId` 1, a new character on an arena pad at full health, an empty Kit, exactly 6 Pickups and `MatchStart match=1 players=1`. `1 alive · 7:50 left`, with the slots not dimmed |
+| B3 | Collection | Arc Burst and Tidal Bolt collected, and a Q tap was accepted |
+| B4 | Elimination | `Eliminated ... cause=Died by=none alive=0 dropped=ArcBurst:1,TidalBolt:1`. The two drops landed 1.5 studs either side of the death spot, flagged. The beam eased 0.35 → 0.70 over 2.2 s, with a 6-stud burst. Then `NoSurvivors` at once, `No survivors` for 3 s, and Results with one row (`—`, `Eliminated`, Pickups `2/0/0`). The camera stayed on the body for about 3.2 s, then held still. The mouse was free, with `0 alive` and Return to Hub |
+| B5 | Results end | Back in the Hub with a fresh character, an empty Kit and the Pickups cleared. The game camera returned, with the mouse locked. No extra `Eliminated` line |
+| B6 | Next cycle | `MatchId` 2, a fresh arena spawn and 6 Pickups |
+| B7 | Return to Hub while Alive | `refused, Alive`, with nothing changed |
+| B8 | A reset | `Eliminated ... cause=Died by=none`, then `NoSurvivors` |
+| B9 | Return to Hub during Results | A real click on the button put the player in the Hub with a new character, about 5 s before Results ended, with `ReturnToHub match=3`. A second request got `refused, InHub`, and `{x=1}` was malformed. The player wasn't respawned again at the end |
+| B10 | Hub death in the Countdown | A Hub respawn in 3.1 s with no `Eliminated` line. The Countdown cancelled and restarted in full |
+| B11 | Timeout (`maxSeconds` 30) | The status counted down to `0:00 left`. Then `Time out — no winner`, and Results with the row `Survived`, place `—`. Back to the Hub |
+| B12 | Consoles | No errors |
+
+**C, two clients:**
+
+| # | Check | Result |
+|---|---|---|
+| C1 | A real kill | `Kill`, then `Eliminated ... by=player:-1 alive=1`, then `MatchEnd cause=Winner` 0.26–0.28 s later. Both feeds read `Player1 eliminated Player2 · 1 left`. The victim saw `Eliminated by Player1`, the camera on their own body until +3 s and then on the killer with `Spectating Player1 · 1 alive`, and `Player1 wins`. The winner saw `VICTORY`. Rows: 1st `Winner` with 1 kill, and 2nd `Eliminated by Player1`. Both returned to the Hub with the game camera, and the Pickups were cleared |
+| C2 | A leave (kick) | `Eliminated ... cause=Left by=none alive=1` exactly once, then `Winner`. The other client saw `Player2 was eliminated · 1 left` and `VICTORY`, and the leaver's row was present |
+| C3 | Trades | Two hits 0.08 s apart: both Eliminated, then `NoSurvivors` with no places. Hits 0.4 s apart: the late one found `NoTarget`, the winner's health was unchanged, and the result was `Winner` |
+| C4 | Timeout with two survivors (`maxSeconds` 90) | `MatchEnd cause=Timeout winner=none alive=2`, with both rows `Survived`, place `—` |
+
+**D, three clients:**
+
+| # | Check | Result |
+|---|---|---|
+| D1 | One roster, a kill | `MatchStart players=3`. `Eliminated ... alive=2 dropped=ArcBurst:1,TidalBolt:1`, with the drops 1.5 studs either side. Every feed read `· 2 left`. The victim watched their body, then the killer, with `Spectating Player1 · 2 alive` |
+| D2 | A spectator can't affect anything | A `CastRequest` got `NotInMatch`, a `ReplaceRequest` got the `NotInMatch` warning, and the hook found `NoTarget`. Real Q and E changed the target and sent no Cast |
+| D3 | Cycling | E, E, Q, ▶ and ◀ wrapped by UserId, with real button clicks |
+| D4 | Moving on automatically | When the watched player was eliminated, the camera moved to the last one alive within 0.12 s. Rows: 1st, 2nd, 3rd in reverse order of elimination |
+| D5 | Return to Hub, then Spectate Match | Real clicks. From the Hub: `Match in progress — 2 alive`, then Spectate Match onto the first alive player, with `Back` and the character staying in the Hub. When Results began, the spectator dropped out within 0.12 s, back to the game camera. `Back` worked in a later Match |
+| D6 | A leave with a Kit | It failed first with `dropped=none`, which found the `takeAll` bug. Re-run after the fix: `Eliminated ... cause=Left by=none alive=1 dropped=ArcBurst:2`, the flagged drop at the last position, then `Winner` |
+| D7 | Spectate Match by key | After the fix below, a real G press from the Hub spectated the first alive player, and a second G backed out. G did nothing for an Alive player |
+| D8 | A fall out of the world with a Kit | `dropped=TidalBolt:2` at the last floor position, flagged. The cause was `Died`, not `Removed` (see below) |
+
+**Settled during testing (2026-11-09):** the Hub's mouse is locked to the centre, so a real player couldn't reach the Spectate Match button. The tester's clicks only landed because the MCP moves the cursor to the button directly. The developer chose a key: **G** toggles Hub spectating, and the buttons read `Spectate Match (G)` and `Back (G)`.
+
+**Accepted with notes:**
+
+- **`PlayerEliminated.killerId`** is optional and left out when there was no killer, rather than an empty string. This matches every other optional field in `Protocol`. A `shortString` can't be empty, so the empty-string version would have needed its own case.
+- **A row is final at its elimination.** In a trade, the second hit's kill is in the session log, but the player who made it had already been eliminated, so their row shows the kills they had then.
+- **A fall below the world** reports `Died`, because the engine kills the Humanoid before destroying the character. That's covered by the settled rule that `Died` covers falls. The `Removed` path stays for a character destroyed without dying, and `MatchSpec` covers it.
+- **A leaver's row** reads `Eliminated` with place and cause `Left`, and the panel doesn't spell out "Left". That's allowed by "Left may show as such".
+- **A Return to Hub during Results** leaves the results panel on screen in the Hub until Results end. Results go to everyone, and the panel doesn't block movement.
+- **`Waiting`** shows for about 0.5 s after Results and after a Hub death, before the Countdown restarts.
+- **The body view** during the first 3 s looks steeply down at the body. It's a starting value.
+- **The body's removal** at 3 s was bracketed in Play (there at 1.3 s, gone by 6.4 s) and is pinned on fakes in `MatchSpec`.
+
+**Not yet published.**
+
 ### 18. Match map, Caches and Sentries
 
 - **Scope:**

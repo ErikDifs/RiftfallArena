@@ -19,6 +19,7 @@ ReplicatedStorage
     │   ├── RankRules
     │   ├── KitRules
     │   ├── PickupRules
+    │   ├── MatchRules
     │   ├── HitboxRules
     │   ├── CastRules
     │   ├── ChargeRules
@@ -38,6 +39,7 @@ ServerScriptService
     ├── Characters
     ├── Kits
     ├── Pickups
+    ├── Match
     ├── Dummies
     ├── Casts
     ├── Charging
@@ -68,11 +70,13 @@ StarterPlayer
         ├── CosmeticSectors
         ├── PickupVisuals
         ├── Replacing
+        ├── Spectating
         ├── StatusVisuals
         ├── ReactionVisuals
         ├── Feedback
         ├── HealthDisplay
-        └── Hud
+        ├── Hud
+        └── MatchHud
 
 ServerStorage
 ├── PickupPlacements (hand-placed test markers, used only with an Empty Starting Kit)
@@ -81,7 +85,7 @@ ServerStorage
     └── <Name>Spec
 ```
 
-The server creates a `Remotes` folder under `Shared/Net` at startup, from the events defined in `Protocol`, and a `Pickups` folder in the workspace for the Pickups' Parts. Each client draws Pickups into its own `PickupVisuals` folder. Avoid dots in instance names, because the MCP reads them as path separators.
+The server creates a `Remotes` folder under `Shared/Net` at startup, from the events defined in `Protocol`, and a `Pickups` folder in the workspace for the Pickups' Parts. `Workspace.Hub` is the temporary Hub's greybox, with its own pads `HubSpawn1`–`HubSpawn4`, used only by the Match. Each client draws Pickups into its own `PickupVisuals` folder. Avoid dots in instance names, because the MCP reads them as path separators.
 
 ## Rules for each part
 
@@ -107,6 +111,31 @@ From [Ticket 16](milestone-2-tickets.md#16-pickups-and-replacement), Ability Pic
 - **`Pickups`** (server) keeps each Pickup's record and gives it an invisible, tagged Part in `workspace.Pickups` carrying `PickupId`, `PickupAbility`, `PickupRank` and `PickupSpawnedAt`. About 10 times a second it gives each Pickup, in ascending id order, to the nearest living, unblocked player it fits, through `Kits.collect`. It handles `ReplaceRequest` in one synchronous step, so the first valid request wins, and drops the replaced Ability at the player's feet as a new Pickup. Either way it fires `PickupCollected` and removes the Part. With an Empty Starting Kit it turns the markers in `ServerStorage.PickupPlacements` into Pickups at startup.
 - **Clients** draw Pickups in `PickupVisuals`, from the tag and attributes only. `Replacing` keeps its own copy of the Kit, offers the nearest Pickup a full Kit could take only by replacing, shows the prompt, and sends `ReplaceRequest` when the player holds the modifier and presses a slot. `Input` sends a slot's press to `Replacing` instead of `Casting` while the modifier is held. Nothing on the client predicts a Kit change.
 
+## Match
+
+From [Ticket 17](milestone-2-tickets.md#17-one-life-match), an Empty Starting Kit runs the one-life Match. With the Reference Kit none of this is installed, and the arena behaves as before.
+
+- **`MatchRules`** is the pure logic. It holds the Match's state as plain data: the phase (Waiting, Countdown, Running, Results), the roster with each player's Alive or Eliminated status and history, and the pending end. It also decides:
+  - the phase steps (`step`)
+  - the end (`checkEnd`, the only place that does, including the short end grace)
+  - eliminations, Return to Hub and spawn dealing
+  - the gates (`canAct`, `canCollect`, `canBeHit`)
+  - the result rows
+- **`Match`** (server) is the only owner of participation.
+  - It runs `MatchRules.step` on a short loop, and immediately on each elimination.
+  - It does what each step means in the world: clearing and placing Pickups, resetting Kits, loading characters into the arena or the Hub, the whole-Kit drop, removing bodies, and cancelling Charges at the end.
+  - It handles `ReturnToHub`.
+  - It installs its policy and gates into other systems at start:
+    - the spawn policy, death listener and target filter into `Characters`
+    - `canCollect` into `Pickups`
+    - `canAct` into `Casts`
+    - the leave handler into `Kits`
+  - It publishes the presentation attributes `MatchPhase`, `MatchPhaseEndsAt`, `MatchId`, `MatchAliveCount` and each player's `MatchState`. The server never reads these back.
+- **`Characters`** keeps the spawning mechanics: pads by area, `spawnInArea`, `removeCharacter` and `lastPosition`. Administrative replacements never count as deaths. It reports real deaths and losses through `onDeath`.
+- **`Kits`** gives the Match `takeAll` (a transfer, for the drop), `resetForMatch`, and `onPlayerLeaving`, which runs before a leaving player's Kit is forgotten.
+- **`Session`** snapshots counters at Match start, so a Match's own numbers are the difference (`SessionRules.matchStats`). It also logs `MatchStart`, `Eliminated`, `MatchEnd`, `MatchResult` and `ReturnToHub`.
+- **Clients** only present the Match, from its attributes and remotes. `MatchHud` shows the status line, the elimination feed, the player's own elimination banner, the end banner and the results, and dims the slots when the player can't act. `Input` passes no slot, Basic Attack or replacement presses on then. `Spectating` moves the camera onto living players, through `Camera.setSuspended`, and owns Q and E through `Input.setSlotOverride` while it's active. From the Hub, **G** (`Input.onSpectatePressed`) or the button starts and ends watching a Running Match, because the Hub's mouse is locked to the centre. The only thing it sends is `ReturnToHub`.
+
 ## Dependencies
 
 Systems receive their dependencies explicitly, rather than reaching around the DataModel for each other, and circular ModuleScript dependencies are avoided. No dependency-injection framework is needed. For example:
@@ -131,7 +160,9 @@ The exact events can change, but the first loop will likely cover:
 - `DashRejected`
 - `CastStarted`, for cosmetic replication
 - `ReplaceRequest`, a Pickup and a slot only, never an Ability or Rank
+- `ReturnToHub`, carrying nothing
 - `PickupCollected`, which drives everyone's feedback for a Pickup taken
+- `PlayerEliminated` and `MatchEnded`, the Match's feedback and results
 - `CombatResult`, which drives local feedback from one authoritative result
 
 Do not create a new RemoteEvent for each visual effect.
@@ -146,6 +177,7 @@ Small deterministic tests are enough, without an elaborate framework. They cover
 - Rank progression
 - Kit building, equipping, the Equip Lock and the Kit's attributes
 - Fits, Upgrades and replacement, who collects a Pickup, and the checks on a replacement
+- The Match's phases, roster, eliminations, end and gates, and its steps in the world on fakes
 
 They never run in the game by themselves. During Play, run `require(game.ServerStorage.Tests.RunAll).run()` on the Server DataModel, which returns a pass and fail summary.
 
