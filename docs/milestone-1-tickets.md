@@ -17,6 +17,7 @@ Work stops after each ticket until the developer gives the go-ahead. Game feel i
 | 2026-11-07 | Published place `134091394433436`, version 24 (private) | Ticket 7: health, Natural Recovery, Kill Recovery, death and respawn, kill and low-health feedback, session logs and the shooting dummy |
 | 2026-11-07 | Published place `134091394433436`, version 26 (private) | Ticket 8's Stage 2 fixes: the prototype spawn rule, and kill notices naming test players. The fallback from before the combat changes |
 | 2026-11-08 | Published place `134091394433436`, version 37 (private) | Tickets 9–13: flat Sectors and the melee Basic Attack, projectile line of sight, Charging for Tidal Bolt and Arc Burst, with the ground preview, verified by Ticket 13's Stage 1 and 2 run |
+| 2026-11-08 | Published place `134091394433436`, version 46 (private) | Ticket 14: projectiles cast from the hands, with the uploaded ChargeHold, ChargeRelease and alternating melee swing animations. Version 41 was a mid-ticket publish without the animation ids |
 
 Roblox version history for the published place is the code's history, as set out in [ADR-0005](adr/0005-game-code-lives-in-studio-edited-through-mcp.md). Code edits only reach it when Studio publishes, so publish at the end of each accepted ticket. The `.rbxl` in this repo is a snapshot from the same point, and it goes stale between checkpoints.
 
@@ -557,4 +558,4 @@ Planned 2026-11-08 at the developer's request, as a separate follow-up after Tic
 - **Not run:** the 10.5-stud melee miss, because this ticket's client-only animation code can't change range and the specs cover it. Also not run: screenshots from Player2, because Player1 was out of frame, and a capture of the full-Charge orb, which auto-released first.
 - **Seen but outside the ticket:** one Q tap 3 s after a Charged Q didn't Cast, probably its cooldown. The ShootingDummy held fire at Player2 at (-8, -32), the known ledge line-of-sight behaviour from Ticket 9.
 
-**Ticket 14 is complete and waiting for the developer's publish.** Version 41 predates the animation ids, so the checkpoint is the next publish.
+**Published by the developer on 2026-11-08 as version 46**, recorded in the checkpoints above. Version 41 was published mid-ticket, before the animation ids went in.
