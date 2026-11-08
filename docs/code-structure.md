@@ -17,6 +17,7 @@ ReplicatedStorage
     ├── Rules
     │   ├── ReactionRules
     │   ├── RankRules
+    │   ├── KitRules
     │   ├── HitboxRules
     │   ├── CastRules
     │   ├── ChargeRules
@@ -34,6 +35,7 @@ ServerScriptService
 └── Server
     ├── Main
     ├── Characters
+    ├── Kits
     ├── Dummies
     ├── Casts
     ├── Charging
@@ -83,6 +85,15 @@ The server creates a `Remotes` folder under `Shared/Net` at startup, from the ev
 - **`Main`** on each side only requires and starts systems, provides explicit dependencies and establishes startup order. It does not accumulate gameplay logic.
 - **Shared code** does not hold security-sensitive decisions. The server remains authoritative over outcomes.
 
+## Kits
+
+From [Ticket 15](milestone-2-tickets.md#15-per-player-kit), each player's Kit is owned by the server.
+
+- **`KitRules`** is the pure logic: building the Starting Kit, finding an Ability's slot, the first free slot, equipping into an empty slot with the Equip Lock and the Rank cap, whether a Cast is allowed, and encoding the Kit as attributes and back. Ticket 16 adds fits, Upgrades and replacement here.
+- **`Kits`** (server) holds each player's Kit, gives each new character the Starting Kit from `Tuning.kit`, and is the only writer of the `KitSlot<n>Ability`, `KitSlot<n>Rank` and `KitSlot<n>LockedUntil` attributes on the `Player`. `Kits.canCast` is the only gameplay source of an Ability's slot, Rank and whether it may be Cast, and `Casts` asks it for every request. `Kits.grant` puts an Ability into the first free slot, for tests now and Pickups later.
+- **Clients** rebuild a copy of their Kit from the attributes with `KitRules.fromAttributes`, for the HUD, local prediction and drawing only. `Input` reports slots, and `Casting` maps them to the Abilities in the copy. Other players' Telegraphs read the `ChargingRank` character attribute that `Charging` sets. No Rank from a client is ever used.
+- **Cooldowns** stay in `Casts`, per Ability per life, separate from the Kit, so swapping an Ability out and back in never resets one.
+
 ## Dependencies
 
 Systems receive their dependencies explicitly, rather than reaching around the DataModel for each other, and circular ModuleScript dependencies are avoided. No dependency-injection framework is needed. For example:
@@ -118,6 +129,7 @@ Small deterministic tests are enough, without an elaborate framework. They cover
 - Status consumption
 - Reaction ownership and credit
 - Rank progression
+- Kit building, equipping, the Equip Lock and the Kit's attributes
 
 They never run in the game by themselves. During Play, run `require(game.ServerStorage.Tests.RunAll).run()` on the Server DataModel, which returns a pass and fail summary.
 

@@ -249,6 +249,70 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
     - the attributes round-trip
     - the cap is at most `MAX_RANK`
 
+**Built 2026-11-08.**
+
+- **New:** `KitRules` (shared Rules) and `Kits` (server), with `KitRulesSpec`.
+- **`Tuning.kit`** replaces `Tuning.prototypeKit`, and `inputKey` and `slot` are gone from `Config.Abilities`.
+- **`Casts`** asks `Kits.canCast` for every request. Its cooldown table is renamed `cooldownsByPlayer` and stays per Ability per life. A release whose Ability has left the Kit is logged as a refused release.
+- **`Charging`** sets `ChargingRank`, and `Protocol` names it.
+- **Client:**
+  - `Input` reports slots.
+  - `Casting` keeps a copy of the Kit from the attributes, refreshed on `AttributeChanged`, and sends nothing for an empty slot or during an Equip Lock.
+  - `Hud` builds slots by number, with the name, Rank pips out of `maxRank`, the empty state and the Equip Lock look. The slot gap grew from 6 to 18 so the names fit.
+  - `ChargeTelegraphs` takes the Rank from the caller, or from `ChargingRank` for other players.
+- **The pips are 8 px,** with a fainter outline on Ranks not yet reached, because at 6 px filled and hollow were hard to tell apart.
+- **Specs:** the three `prototypeKit` loops and the two key tests changed as settled. The 9 KitRules tests make 207 specs, all passing.
+- **`code-structure.md`** gains a Kits section.
+
+**Run 2026-11-08 by `studio-tester`, solo and then on 2 clients, reviewed by the main session. All 27 checks pass, and no code changed during testing.** Real input ran at about 15 fps. The Empty checks set `startingKit = "Empty"` in Edit mode and reverted it after, which was confirmed. They granted Abilities through a TEMPORARY `Kits.grant` hook, deleted afterwards, and a search for TEMPORARY now finds nothing.
+
+**Reference Kit, solo (against version 46):**
+
+| # | Check | Result |
+|---|---|---|
+| A1 | Specs | 207 passed, 0 failed |
+| A2 | Kit attributes and HUD | Tidal Bolt/Q and Arc Burst/E at Rank 1, with one filled pip and one hollow, no Equip Lock, and no `LockedUntil` attributes |
+| A3 | Held Basic Attack | 6 hits of 6, 0.40–0.42 s apart, with no Knockback |
+| A4 | Tap Q, then tap E | 12.034, then 30.02 (Wet Reaction) |
+| A5 | Q held 0.65 s, then 2.6 s | Walking 16 → 12, with `ChargingRank` 1 next to `ChargingAbility`. All cleared on release, which did 13.45. The 2.6 s hold auto-released for 15 |
+| A6 | Tap Q, then E held 2.2 s | 12, then 32.1 |
+| A7 | Cooldown | A second Q tap 0.8 s later did nothing. The key counted down and the shade drained |
+| A8 | Death and respawn | The Kit and HUD were unchanged, and Q worked straight away |
+| A9 | Forged requests | A `CastRequest` with an extra `rank` was dropped as malformed. An unknown Ability gave `NotInKit`, Tidal Bolt through `CastRequest` gave `NotInstant`, and a Basic Attack `ChargeStart` gave `NotChargeable` |
+
+**Empty Kit with grants, solo:**
+
+| # | Check | Result |
+|---|---|---|
+| B1 | Empty Kit | No Kit attributes. Both slots read "Empty", dark, with Q and E and no pips |
+| B2 | Pressing empty slots | Taps and 1 s holds sent nothing and drew nothing. The Basic Attack still hit for 6 |
+| B3 | Grant Tidal Bolt, Rank 1 | Q slot. The Equip Lock showed for 0.83 s at 15 fps: dimmed to 0.55 with a 2 px white outline and the bar filling, then back to normal |
+| B4 | Grants that must fail | Rank 3 gave `InvalidRank`, the Basic Attack gave `UnknownAbility`, and a duplicate gave `AlreadyOwned` |
+| B5 | Q after the lock | 12 |
+| B6 | Grant Arc Burst, Rank 2 | E slot with both pips filled. Q then E did 12, then 33.6 (Rank 2's 16 plus a Reaction bonus of 16 × 1.1). An E hold showed `ChargingRank` 2 and did 17.87 |
+| B7 | Grant into a full Kit | `KitFull` |
+| B8 | Respawn with an Empty Starting Kit | The Kit was empty again |
+| B9 | Server Equip Lock | A `ChargeStart` sent the moment the grant arrived was rejected as `EquipLocked`, with 0.784 s left, and no Charging started |
+
+**Reference Kit, Player1 and Player2:**
+
+| # | Check | Result |
+|---|---|---|
+| C1 | Player1's full Q, seen by Player2 | `ChargingAbility` TidalBolt and `ChargingRank` 1 appeared, then cleared. The orb grew to 4.2. `CastStarted` had rank 1 and charge 1, and the hit was 15 |
+| C2 | Player1's full E, seen by Player2 | `ChargingRank` 1 and the lightning light appeared, with no ground preview on Player2. The hit was 16.1 |
+| C3 | PvP | Tap Q then full E did 12, then 32.1. Basic Attack hits were 6, 0.40 s apart |
+| C4 | Both HUDs and attributes | Each showed its own Reference Kit, and the other player's Kit attributes replicated |
+| C5 | Kill and respawn | `killed=true`. Player2 respawned 3.02 s later with the same Kit and Charged Q straight away, and Player1 saw `ChargingRank` 1 |
+| C6 | Forged `ChargeStart` with `rank = 2` | Dropped as malformed, with no Charging and no `ChargingRank` |
+
+**Accepted with notes:**
+
+- **The client predicts the Equip Lock from server time.** A slow clock could send one request a moment early. The server refuses it as `EquipLocked`, and the client then shows the time left as a short cooldown shade. It's rare, and presentation only.
+- **The Telegraph's Rank comes from when Charging starts,** while the Cast's Rank is resolved at release. An Upgrade during a Charge, possible from Ticket 16, would draw the old Rank until release. That's presentation only and accepted.
+- **Test setup, not bugs:** the camera's yaw and pitch drifted in the solo run and were pinned with a TEMPORARY `BindToRenderStep`. A server-side `PivotTo` was reverted by Movement Validation. A first Q then E from about 30 studs was pushed out of Arc Burst's range. All three are in the quirks doc.
+
+**Not yet published.** Waiting for the developer's go-ahead and publish, to be recorded as a checkpoint.
+
 ### 16. Pickups and replacement
 
 - **Scope:** server-owned Ability Pickups, collection by proximity, Upgrades, F+Q and F+E replacement through `ReplaceRequest`, the replaced Ability dropping, and readability in the world and HUD.
