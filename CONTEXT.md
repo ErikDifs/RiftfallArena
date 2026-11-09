@@ -249,7 +249,7 @@ A themed group of monsters with one defining behaviour, recognizable territory a
 _Avoid_: Monster type, faction
 
 **Elite**:
-A stronger version of a Monster Family's monster, with one additional Telegraphed attack or behaviour.
+A stronger version of a Monster Family's monster, with one additional Telegraphed attack or behaviour. The Rift Warden is a separate elite-tier guardian, not a Monster Family Elite. An Elite Warden is a reserved future encounter.
 _Avoid_: Boss, mini-boss
 
 **Telegraph**:
@@ -265,7 +265,7 @@ The area a monster or spawn group belongs to, and returns to if pulled too far.
 _Avoid_: Leash area, camp
 
 **Last Hit**:
-The final damaging hit on a monster, which decides its authoritative killer.
+The final damaging hit on a monster or Rift Warden, which decides its authoritative killer.
 _Avoid_: Kill steal, tag
 
 **Drop Table**:
@@ -277,8 +277,16 @@ A breakable world object along a useful route that drops at least a Rank 1 Picku
 _Avoid_: Chest, catch-up reward
 
 **Sentry**:
-A stationary hostile PvE enemy that fires at nearby players and guards valuable Rift Caches. It is the only hostile PvE until monsters are built.
+A stationary hostile PvE enemy that fires at nearby players and guards valuable Rift Caches. With the Rift Warden, it is the only hostile PvE until regular monsters are built.
 _Avoid_: Turret, tower, monster
+
+**Rift Warden**:
+An optional, contested, elite-tier (mini-boss-style) PvE guardian that stands on a Layer 2 platform inside its own circular Home Territory, carries a visible Ability reward, fights with two Telegraphed melee attacks and drops one ordinary Rank 1 Ability Pickup when killed. It is rare, takes a competent solo player about 15 to 20 seconds, never gates a route, Kit or progression step, never respawns, and despawns with its Section. It is not a normal monster and not a true boss. "Elite Warden", "Boss" and "Crown Boss" are reserved for genuinely larger future encounters (the Dais slot).
+_Avoid_: Monster, boss, elite, mob
+
+**Regular monster**:
+A planned weaker, quicker-to-kill, more numerous PvE enemy scattered through the Arena, clearly different from a Rift Warden. Not built yet. It is the next PvE ticket after the Rift Warden.
+_Avoid_: Warden, mini-boss
 
 ### Interactions
 

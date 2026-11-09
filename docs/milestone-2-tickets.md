@@ -1564,7 +1564,7 @@ Replace the greybox `MatchMap` with the first real Arena, the **Rift Crown**: a 
 #### Non-goals
 
 - **Rift Collapse.** Ticket 21 builds and validates `SectionId`, `CollapseLayer`, `CollapseParent`, `ShardId`, connector metadata, slot `SectionId` and `CollapseCenter`, and nothing more. It does **not** remove sections during play, damage players with the Rift, time Collapse phases, add Collapse UI, resolve loose Pickups on collapsing floor, decide what Crown Sentries do late, or decide Dais overtime.
-- **Rift Wardens.** Ticket 21 provides only reserved slots, spawn-distance compatibility and section metadata. It does **not** build Warden AI, aggro, attacks, XP, loot or an elite. The roughly 25-stud aggro range from the design is an example, not a requirement.
+- **Rift Wardens.** Ticket 21 provides only reserved slots, spawn-distance compatibility and section metadata. It does **not** build Warden AI, aggro, attacks, XP, loot or an elite. The roughly 25-stud aggro range from the design is an example, not a requirement. [Ticket 23](#23-rift-warden) settles the Warden and refines these slots: a `GateId` and `TerritoryRadius` on each slot, a `GateId` on each pad, and a preferred +15 to +20 degree offset toward the Gate seam (the +10 degree position is the fallback).
 - XP, levelling, equipment or Relic slots, new Abilities, loot tables beyond the 24-drop layout.
 - Any active environmental hazard, hazard anchors or scripts.
 - Final colours, textures, meshes, particles, sounds, uploaded assets, HUD, Match Intro or polished insertion/camera/VFX. **No upload without explicit approval.**
@@ -1965,7 +1965,7 @@ Desired rhythm: **Gather → Clash → Collapse → Final Fight.** These are der
 - **Layer 5 removal and any overtime:** consuming or shrinking the Dais, anti-stall pulses, sudden-death or combat modifiers, forced-draw mechanics.
 - **Dynamic timing:** roster scaling, survivor-based pause or acceleration, per-Section stagger.
 - **Loot relocation** (other than the Kit-drop fallback below), a Dais Cache or any new Dais objective.
-- **Wardens** beyond the generic despawn rule. No Warden AI, XP, drops, credit or aggro.
+- **Wardens** beyond the generic despawn rule and the `removeSection` hook. No Warden AI, XP, drops, credit or aggro ([Ticket 23](#23-rift-warden) owns those).
 - **Combat changes.** No Tidal, Hook, Stone Guard or Arc Burst retuning. If the Tidal gate fails, Layer 4 ships disabled and Tidal is not changed here.
 - Phase labels, a Crown-opening countdown or a second clock on the HUD.
 - Final art, audio, VFX, palette, fonts and icons. **No upload without explicit approval.**
@@ -2095,7 +2095,7 @@ The documentation still contradicts itself on Tidal's push distance (about 5 stu
 - **Caches:** every kind is removed with its Section, intact or broken, with no compensation, no automatic inward spawn and no refund. A sealed Crown Cache on removed ground (an invalid configuration) follows the same rule. No special recovery is built.
 - **Sentries** stay fully active until their Section is Removed, then vanish at once. There is no early shutdown phase, and no shot may resolve afterward.
 - **Projectiles** are combat objects and survive their source Section's removal. They end by their normal rules and see the new world.
-- **Future Wardens** belong to their slot's Section and despawn with it. A Collapse despawn gives no XP, credit or loot unless the Warden ticket says otherwise.
+- **Rift Wardens** ([Ticket 23](#23-rift-warden)) belong to their slot's Section and despawn with it. A Collapse despawn gives no XP, credit or loot. This step calls `Wardens.removeSection(sectionId)` (idempotent and non-yielding), as it does for the Caches and Sentries, and never destroys Warden instances itself. The Warden loop and its damage gate call `sync(now)`, so a lethal hit accepted before the removal boundary kills normally and one accepted at or after it finds the Warden already gone. A pending Warden impact resolves only if accepted before removal. Wardens are rebuilt from markers after the restore step, like Caches and Sentries.
 - **Future persistent world objects** must either carry a Section's id or be removable through the same support check. No generic framework is built for them now.
 - **Kit-drop fallback.** A newly generated whole-Kit drop (a `Void` death, or a health death in the removal tick) resolves like this:
   1. Start from the player's `lastGrounded` and apply the existing inward-offset attempt.
@@ -2456,10 +2456,302 @@ Correctly deferred: Warden behaviour, final art and audio, overtime, roster-band
 
 Review result: **no ADR required.**
 
+### 23. Rift Warden
+
+**Status: specified 2026-11-09 and reviewed adversarially the same day, not built.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-warden-design.md`](rift-warden-design.md) and [ADR-0008](adr/0008-pve-actors-are-kinematic-server-models.md). This entry is the build contract. Values carry the same four labels as Ticket 22: **settled initial value**, **tunable**, **measurement-dependent**, **test-only**.
+
+**Targets and balance expectations are not pass criteria.** The 15 to 20 s fight, the 35 to 50 Health cost, the Swing-backstep watch item, chase speed, route-tax feel and visual smoothness produce tuning notes. Only the **Blocking completion criteria** decide completion.
+
+#### Summary
+
+The **Rift Warden** is the Arena's first mobile PvE enemy: an optional, contested, **elite-tier (mini-boss-style) guardian** standing on an inner-Shard platform near the Safe spoke. It carries a visible Ability reward, fights with two Telegraphed melee attacks, stays on its small Territory, and drops one ordinary Rank 1 Ability Pickup when killed. It is not mandatory for any route, Kit or progression step. It is seasoning around the PvP Match, and it is not a normal monster, a boss, or the baseline monster population.
+
+#### Scope
+
+- `WardenRules` (pure): selection, reward deal, FSM, targeting, attack choice, locomotion maths, regeneration, no-progress, fault, stage gate.
+- `Wardens` (server): runtime, registration, motion, attacks, reward, `finish`, `removeSection`, telemetry.
+- Warden slot and pad markers, the static validators, and the slot-offset experiment.
+- A target-level pre-damage veto and the Warded and Resisted result reasons.
+- A players-only server cast filter and a ground-circle form for `castFromServer`, only if `Casts` lacks them.
+- `Match` integration, `WardenVisuals`, `Feedback` additions, `Protocol` and `Tuning` entries, specs, the Studio matrix, `CONTEXT.md` terms.
+
+#### Non-goals
+
+- Regular monsters, an elite or Dais Warden, a boss, Match XP, Relics, Equipment, currency, permanent progression, cosmetics.
+- Respawn, patrol, a leap, a ranged attack, any Warden Status, Root, Slow, Stun or player Knockback.
+- A `MonsterService`, behaviour trees, `PathfindingService`, a generic enemy framework.
+- Dynamic Warden scaling after GO, an independent despawn timer.
+- Final art, audio and animation, camera shake, a reward icon panel, a nameplate, a minimap marker. **No upload without explicit approval.**
+- Analytics backend, heatmaps, positional sampling.
+- Changing the 24-drop Cache economy, `LootRules.validate`, or the shared Match `random` draw order.
+
+#### Dependencies on Tickets 21 and 22
+
+**Relies on (Ticket 21):** the three Warden slot markers on the inner Safe-spoke Shards (Layer 2), the pads and `ShardId`, Forward Caches, the Arrival Hold and `goAt`, the 24-drop economy, Crown Sentries, markers carrying `SectionId`.
+
+**Ticket 23 adds to the Ticket 21 markers:** a `GateId` on each Warden slot and on each spawn pad, a `TerritoryRadius` on each slot, and the +15 to +20 degree offset experiment (the +10 degree position is the fallback).
+
+**Relies on (Ticket 22):** `Collapse.sync(now)`, Section removal as one non-yielding step, restore before marker discovery, and the rule that a combat event accepted before the removal boundary resolves under the old world and one accepted at or after it under the new world.
+
+**Requires from Ticket 22:** its object-cleanup step calls `Wardens.removeSection(sectionId)`, as it does for the Caches and Sentries it owns, and never destroys Warden instances itself.
+
+**Build order.** After the Ticket 21 build, since the Warden needs the real Layer 2 platforms, markers, Gates and `goAt`. Tickets 22 and 23 can then land in either order. If Ticket 22 is not yet built, `removeSection` is built and tested alone. Nothing is faked. The real Collapse plus Warden Studio check becomes blocking once both implementations exist together.
+
+#### Population and slot selection
+
+Chosen once at Match setup from the roster, after `assignSpawns`. **Tunable initial population rule:**
+
+| Match players | Wardens |
+|---|---:|
+| 1 (Studio solo only) | 1 |
+| 2 | 1 |
+| 3 to 4 | 2 |
+| 5 to 6 | 3 |
+
+Selection counts occupied pads per `GateId`. 1 Warden takes the least-occupied Gate. 2 Wardens take all but the least-occupied Gate. 3 take all. Ties use `wardenRandom`. No runtime geometry. Occupancies from the spread table: 2 players `{1,1,0}` takes the empty Gate. 3 players `{1,1,1}` takes any two. 4 players `{2,1,1}` takes the 2-player Gate plus one other. 5 and 6 take all three. Population is never changed after GO, and one Warden life per slot is final.
+
+`wardenRandom` is a dedicated stream, injected (`deps.wardenRandom`, default `Random.new()`). It never draws from `Match`'s shared `random`, so the Cache deal and spawn assignment are unchanged. If a stable Match seed already exists, derive from it. Do not build seed infrastructure for this ticket.
+
+#### Territory, aggro and targeting
+
+| Rule | Value | Label |
+|---|---|---|
+| Home Territory | circle around the slot marker, never leaves it | settled |
+| `TerritoryRadius` | geometry-derived, about 7 to 12 | measurement-dependent |
+| `AggroRadius` | `Territory + 4` (never more), about 11 to 16 across the likely Territory sizes (about 16 at a 12 radius) | tunable, geometry-validated |
+| Acquire | Running and past `goAt`, player Alive and valid, inside `AggroRadius`, clear authoritative line of sight (the Sentry sight helper) | settled |
+| Retention | target validity and distance only, not line of sight | settled |
+| Damage wake | any accepted player damage wakes it | settled |
+| Stage gate | `distance(attacker, Home) <= TerritoryRadius + AttackReach` at acceptance | settled rule |
+| `AttackReach` | 11 (Slam centre 6 plus radius 5) | settled initial value |
+| Rejected hit | no damage, Status, Reaction, Threat or wake, plus a Warded result | settled |
+| Threat window | 4 s of damage dealt | tunable |
+| Switch | challenger at least 1.5 times the target's and at least a small absolute minimum (`threatMinDamage`), and 2 s since the last switch | tunable |
+| Initial target | nearest valid player, tie by id order | settled |
+| Disengage | 4 s with no valid target | tunable |
+| Return | normal speed, targetable, damageable, re-engages on a valid player or accepted hit | settled |
+| Regeneration | 3 s with no accepted damage after arrival, then to full over about 8 s, stopped at once by accepted damage | tunable |
+| Full reset | Health full, Statuses and Threat cleared, target cleared, back to Idle | settled |
+
+A committed attack never retargets. A kill elsewhere affects targeting only if the victim was the target.
+
+The Warden is inert before `goAt`: no aggro, movement, attack or targeting. The phase is already Running during the Arrival Hold, so it must check `goAt` as Sentry targeting does. It must not rely on the Match phase alone.
+
+#### Combat
+
+**Identity:** a slow melee bruiser with one readable basic attack and one committed anti-kite area attack. Exactly two attacks.
+
+| | Stone Swing | Rift Slam |
+|---|---|---|
+| Shape | flat frontal sector, reach 7, about 100 degrees | ground circle, radius 5, centre up to 6 from the Warden |
+| Lock | facing at Telegraph start | centre at Telegraph start |
+| Telegraph | 0.7 s, rooted | 1.2 s, rooted |
+| Impact | one authoritative evaluation at `impactAt` | same |
+| Damage | 12 | 22 |
+| Recovery | about 0.7 s rooted, then about 0.8 s attack gap (movement allowed) | 1.2 s rooted |
+| Cooldown | none beyond the cycle (about 2.2 s) | about 7 s |
+
+All values are **settled initial values and tunable**. Attack choice: Swing if the target is inside Swing reach, Slam if outside Swing reach and inside Slam reach and ready, otherwise chase. No weighted AI. A hit shape hits every valid player inside it once per attack, never the Warden, Sentries, Caches, Pickups or map objects (an explicit players-only filter). No chaining. An impact resolves only while the Match is Running and past `goAt` (the existing hit gates), so a Warden never hurts anyone during the Arrival Hold or Results.
+
+| Item | Value | Label |
+|---|---|---|
+| Health | 200 (range 180 to 260) | tunable |
+| Damage to players | normal damage and Shield pipeline, no scaling by player count, Rank or time | settled |
+| Evade | accepted Dash negates it exactly like normal hits, with the normal `Evaded` feedback | settled |
+| Statuses and displacement against players | none, none | settled |
+| Charging | ordinary Warden damage interrupts Charging only if existing damage already does | settled |
+| Wet, Reactions, Arc Burst | work on the Warden normally | settled |
+| Forced movement against it | immune (Tidal Knockback, Hook pull move nothing), damage and Statuses still apply | settled |
+| Falling | cannot be displaced or fall, no Warden Void kill | settled |
+| Kill Recovery | none | settled |
+| Kill credit | `hit.attackerId` of the accepted lethal player hit (Last Hit), attribution only | settled |
+
+A player killed by a Warden is eliminated with no killer and no Kill Recovery. Reuse the Sentry convention for the elimination cause. Warden damage to players is real combat damage but is kept out of PvP kill and damage numbers (as Sentries are in `SessionRules`) and is logged separately.
+
+#### Locomotion
+
+Anchored, kinematic and server-moved ([ADR-0008](adr/0008-pve-actors-are-kinematic-server-models.md)).
+
+| Item | Value | Label |
+|---|---|---|
+| Chase speed | 12 studs/s (range 11 to 14) | tunable |
+| Approach spacing | about 5 studs, an approach target and never a repulsion radius | tunable |
+| Goal | inside target: Home to target direction, spacing 5, clamped into the Territory. Outside target: nearest Territory boundary point, held there | settled |
+| Dead zones | goal change about 0.75, arrival about 0.5 | tunable |
+| Turning | bounded about 270 degrees/s, no snap. Attack starts only within about 20 degrees of the intended direction | tunable |
+| Rooting | rooted through Telegraph, impact and Recovery. Swing gap allows movement | settled |
+| Collision | body `CanCollide = false`, separate fixed Hitbox, no collision group unless testing proves it needed | settled |
+| Floor check | one downward check per movement step against the active environment roots (the same `Environment.folders()` the Sentry sight uses, so a removed Section is never seen), align Y, refuse a step with no floor or a step over about 2.5 studs | tunable |
+| Fault | more than about 1 stud outside Territory, no floor, or below a safety Y: despawn, no reward, no credit, `WardenFault` | settled |
+| No progress | in Chase or Return, not rooted, goal farther than arrival tolerance and not reduced by about 1 stud over about 3 s | tunable |
+| No-progress result | Chase: abandon target and Return. Return: snap Home as recovery, log, no reward | settled |
+
+Open combat circle: no collidable authored prop inside the usable movement circle plus a small clearance. Decals, non-colliding rubble and floor variation inside the step tolerance are allowed. If a blocker is found, move or remove it or adjust the Territory. Never add pathfinding.
+
+#### Reward
+
+| Rule | Value |
+|---|---|
+| Source | a separate Warden bonus deal. The 24-drop Cache bag is untouched |
+| Per kill | exactly one ordinary Ability Pickup, **Rank 1** |
+| Identity | uniform random over the four Abilities, **distinct across the Match's Wardens**, pre-dealt at setup from `wardenRandom` |
+| Personalisation | none. No killer, collector, Shard or Kit logic |
+| Collection | normal Pickup rules, no ownership delay, no reservation |
+| Collapse, fault, Match end | no reward, no credit |
+| Not in this ticket | XP, Kill Recovery, currency, Relic, second Pickup, Rank 2 or 3 world Pickups |
+
+The reward pickup is spawned through `Pickups.drop` at the death position with the normal spread. A `source = "Warden"` tag and Warden id are carried into the normal collect, consume and clear log lines.
+
+Wardens are also excluded from the fast-opening guaranteed-drop rule in `ranks-and-pickups.md`: a Warden reward is pre-dealt and never a Monster Family Drop Table roll.
+
+**Loot-safe Territory.** The Warden can die anywhere in its circle and the drop spreads. The circle edge must keep a lip margin of `lethalLootMargin + maximumPickupDropSpread`, about 15 studs, **verified from the actual `Pickups.drop` spread before it is locked**. Safe reward spawn outranks the Territory size.
+
+#### Runtime architecture and interfaces
+
+- **FSM:** phases `Idle`, `Engaged`, `Returning`, `Dead`. A nullable `action` (`kind`, `impactAt`, `endsAt`, `resolved`, locked facing or centre, optional target id for telemetry). Telegraph, impact, Recovery, the no-target hold, the attack gap, regeneration and cooldowns are timestamps on the record.
+- **Events** returned by `WardenRules` (`Acquired`, `TargetSwitched`, `AttackStarted`, `Impact`, `ActionEnded`, `Disengaged`, `ReturnStarted`, `ReturnedHome`, `RegenStarted`, `ResetComplete`, `Faulted`). The runtime does the world effects. `WardenRules` never touches `Workspace`.
+- **Loop:** one Heartbeat connection for all Wardens, connected at `setup` and disconnected at `clear`. AI decisions at about 5 Hz from an accumulator. Motion, timestamps, impact, recovery, regeneration and death-fade removal every frame. **No `task.delay` and no per-Warden coroutine.** Impact is checked each frame so a 0.2 s Evade stays meaningful.
+- **`Wardens` API:** `start(deps)`, `setup(matchId, occupiedPads)`, `clear()`, `step(dt)` (manual mode for specs), `removeSection(sectionId)`, `get(id)`. Dependencies are injected as for `Sentries`: `characters`, `casts`, `statuses`, `pickups`, `collapse` (its `sync`), `clock`, `markers`, `canSee`, `floorAt`, `folder`, `log`, `wardenRandom`, and the `goAt` source.
+- **Records** cache `id`, `matchId`, `gateId`, `sectionId`, `home`, `territoryRadius`, `rewardAbility` from the marker at setup and never rediscover geometry.
+- **`setup`** begins with `clear` and is idempotent. Order: read markers, compute Gate occupancy, select, deal, build, register, log `WardenDeal`.
+- **`Match`** (stays the lifecycle owner): calls `wardens.setup(matchId, occupiedPads)` after `assignSpawns` and before placement, and `wardens.clear()` at Results. It passes only occupied pads. It never reads angles, radii or Territory. The `MatchSpec` order expectation covers this. Wardens are rebuilt after Ticket 22's restore, like Caches and Sentries.
+- **Registration:** `characters.registerTarget` with `kind = "warden"`, `immovable = true`, `grantsKillRecovery = false`, `onKilled(hit)`, and a new minimal **`gate(hit) -> allowed, reason`** consulted before the default damage path. Caches keep their own `onHit`. Nothing is rewritten around the gate.
+- **Gate:** evaluated at authoritative acceptance with the attacker's position then. It calls `collapse.sync(now)` first. It rejects an invalid attacker, a removed Section and an out-of-envelope attacker. It is not a policy engine.
+- **Result reasons:** the combat result distinguishes ordinary hit, Shield, Evade, **Warded** and **Resisted** (damage landed, forced movement ignored). Never overload `Evaded` or a single `immune` flag.
+- **Attacks:** `casts.castFromServer` with the Warden id as caster, Swing as a sector, Slam as an instantaneous circle at the locked centre. Verify and extend minimally: a players-only filter, and an arbitrary-origin 360-degree area. No separate hit-detection module.
+- **`Protocol`:** `Protocol.wardenId`, an id kind the cast, attribution and `CacheRules.mayDamage` paths recognise, the tag, the folder name and the attribute names. Scoped to what the protocol needs. No generic monster namespace.
+- **`finish(record, cause)`:** idempotent, first call wins. Causes `Killed`, `Collapsed`, `Fault`, `MatchEnd`. Order: mark terminal, clear the action, stop motion and AI, unregister the target, clear Statuses, do the cause-specific work, update presentation. **Only `Killed` spawns a reward**, exactly once.
+- **Death presentation:** a killed Warden is already unregistered, non-damaging and non-blocking. Removal is a `removeAt` timestamp of about 0.5 s. A Collapse removal destroys it at once.
+- **Collapse ordering:** `removeSection(sectionId)` is idempotent and **non-yielding**, so it fits Ticket 22's atomic removal. A lethal hit accepted before the removal boundary kills normally and its Pickup may then be swept as loose loot on doomed ground. A hit accepted at or after the boundary finds the Warden gone, with no kill and no reward. A pending impact resolves only if accepted before removal. The Warden loop and the gate both call `sync(now)`, as the Match gates and Sentry loop do.
+- **Stale guards:** record identity and `matchId` checks before any side effect, with a counter and not a log line.
+- **Dormancy:** with the Reference Kit no Warden exists and no loop runs.
+
+#### Presentation
+
+Server owns gameplay state, an anchored root, the fixed Hitbox and the attributes (`WardenState`, `WardenAction`, `WardenImpactAt`, `WardenEndsAt`, a locked centre, `WardenReward`, `WardenHome`, `WardenRadius`). Health comes from the target's replicated Health, or a normalised value if the final representation does not replicate one. Do not keep a hidden Humanoid solely for the bar. A sibling client module **`WardenVisuals`** draws everything else, from attributes only. It owns no authority and cleans up completely.
+
+| Element | Requirement |
+|---|---|
+| Body | a client cosmetic rig on the authoritative root: dormant hunch, wake rise, wind-up poses, recovery lowered, death fade about 0.5 s. No smoothing until Play shows steppiness |
+| Reward core | the Pickup colour and shape from the shared Ability visual data, embedded in the chest, never a collectable object before death |
+| Territory ring | about 12 low-opacity arc or rune segments near the ground, subtle at Idle, brighter when Engaged, visible within about 45 studs. Marks the Territory only |
+| Health bar | slim, fill only, no number or text, neutral colour, shown when Engaged, Returning or regenerating within about 40 studs |
+| Wake | authoritative state is Engaged at once. The 0.4 s rise is presentation only. No hidden delay |
+| Swing | locked wedge (reach 7, about 100 degrees) filling to `impactAt`, body wind-up, sharper short cue |
+| Slam | locked disc (radius 5) filling to `impactAt`, heavier pose, longer deeper cue |
+| Recovery | seams dim, body stays lowered |
+| Evade and Shield | existing feedback unchanged |
+| Warded hit | translucent shimmer, a hollow tink, a hollow marker with no damage number. An optional rate-limited "out of range" hint |
+| Resisted movement | stone-set dust puff, thud, brief brace |
+| Return and regen | calmer seams, bar visible, no text, a gentle pulse while healing, fill follows real Health |
+| Death | seams out, core becomes the real Pickup at once, no corpse |
+| Collapse or fault | no kill-like effect |
+| Spectators | see the same Warden information |
+
+Hostile Telegraphs use red, which no Ability uses. Confirm against Ticket 22's world telegraph so the two never read alike (differentiate by shape, pattern and rhythm if they do). Swing and Slam must differ without colour. Reward identity must not rely on colour alone. If two Pickup shapes are too similar, add the smallest silhouette difference. No Ability icon database. Audio uses existing suitable sounds or placeholders, and gameplay never depends on new sound assets.
+
+#### Telemetry
+
+Console `[Riftfall]` `key=value`, no coordinates, timed from GO. Telemetry is attempted once, failures are contained, and it never blocks gameplay.
+
+- **Events:** `WardenDeal` (players, count, occupancy, Gates, tie candidates and result, rewards), capped `WardenAggro` and `WardenReset` (first 3 per Warden, then counted), `WardenKilled` (`by`, `ability`, `seconds`, `engagedSeconds`, `firstEngager`, `duringWarning`, `reward`, `pickup`), `WardenRemoved` (cause), `WardenFault`.
+- **`WardenSummary`:** one line at Match end with per-Warden blocks. Identity (Gate, occupancy, reward). Engagement (first aggro and its cause, counts, resets by reason, unique engagers, engaged seconds, `visitors`, `closestApproach`). Damage (to the Warden, damagers and top damager, to players, players hit, player deaths). Swing and Slam as started, hits, misses and Evades, plus Shield absorbed. Ward and band (`wardedHits`, `wardedPlayers`, `wardedMaxOnePlayer`, `nearHits`, `bandHits`, `bandDamage`). Contest (`contestedSeconds`, `maxInEnvelope`, `newcomers`, `multiHitAttacks`). Route (`passByAggro`, `routeTaxDamage`). Health (`maxOutsideDistance`, `snapHome`). Outcome.
+- **`passByAggro`:** a Proximity engagement with zero accepted damage to the Warden that ended in a NoTarget reset. `routeTaxDamage` is the Warden's damage to players in those engagements.
+- **Reward fate:** joined offline from normal Pickup and `Equip` lines through the `source` tag and the pickup id.
+- **Not logged:** per-attack events, Heartbeat or movement samples, Threat internals.
+
+Three tiers. **Correctness (hard):** `WardenFault` = 0, snap-home = 0 in normal play, no leaked targets, connections or models, exactly one reward per legitimate kill and none for Collapse, Fault or Match end, no aggro before `goAt`, no non-player attack target, distinct rewards, a stale-rejection counter with one diagnostic if unexpectedly non-zero. **Balance evidence:** engage and kill rates by player count, Gate, occupancy and reward; fight length; damage taken; Warden-caused deaths; Swing and Slam hit, Evade and miss rates; warded rate; pass-by aggro; band use; steal rate; Collapse survival. **Role-level review triggers** are initial signals only, not read until there are enough encounters, and are listed in [`rift-warden-design.md`](rift-warden-design.md).
+
+#### Validators (static, Edit-mode safe)
+
+- Slot count, unique `GateId`, `SectionId` on Layer 2, `TerritoryRadius` present and positive. Every pad has a `GateId`.
+- Territory circle wholly on live Layer 2 floor, clear of lethal lips by the loot-safe margin, connectors, aprons, the Crown approach and Sentries.
+- No collidable authored prop inside the circle plus clearance.
+- `distance(Home, every pad) >= AggroRadius + spawnSafetyBuffer` (buffer about 20, from Ticket 21), for all six pads.
+- No Home Cache inside aggro. The Forward Cache outside aggro (initial extra clearance about 2, not a universal formula). Ordinary connector and apron traversal does not automatically trigger the Warden.
+- `AggroRadius <= TerritoryRadius + 4`.
+- An ignoring route exists from each pad to its Safe spoke and link without Dash, fighting or taking unavoidable damage (a Studio playtest requirement, with a simple sampled clearance check allowed to support it, and no pathfinding built to validate it).
+- The slot offset: keep +15 to +20 degrees only if connector, apron, Territory, Forward Cache, lip, line-of-sight and ignoring-route checks pass, otherwise keep +10 degrees.
+- If no valid Territory and loot margin fit the authored Layer 2 platform, flag a genuine Ticket 21 contradiction and revisit that local platform only. Do not redesign Rift Crown globally.
+
+#### Tests
+
+**Specs (pure and fixture-based).**
+- **S1** Gate selection for 1, 2, 3, 4, 5 and 6 players on the real spread-table pad sets, with tie control.
+- **S2** Reward deal: distinct, deterministic from an injected stream, and the shared `random` untouched (Cache deal and spawn assignment identical with and without Wardens).
+- **S3** FSM transitions: acquire (needs line of sight), damage wake, sticky target, Threat switch with margin, absolute minimum and cooldown, the 4 s disengage, vulnerable Return, interrupted regeneration, the 3 s wait then regeneration, no instant cleanse.
+- **S4** Action timeline: Telegraph, exactly one impact, rooted recovery, the Swing gap, the Slam cooldown, no retarget mid-Telegraph.
+- **S5** Locomotion maths: clamp, goal, spacing as an approach target only, dead zones, the turn limit and the 20 degree gate, no-progress (Chase abandons, Return snaps).
+- **S6** The stage gate at its boundary: veto means no damage, Threat or wake.
+- **S7** `finish`: first wins, one reward only for `Killed`, none otherwise, idempotent, both orderings against Collapse.
+- **S8** Lifecycle: `setup` and `clear` idempotence, no duplicate connections or targets, stale guards, `removeSection` idempotent and non-yielding, inert before `goAt`.
+- **S9** `MatchSpec`: setup after `assignSpawns` and receives occupied pads, clear at Results.
+- **S10** Validators.
+- **S11** Telemetry through a fake sink: `WardenDeal`, capped events, `WardenSummary` fields, failures contained.
+
+**Studio S1 (solo Play).**
+- **P1** Idle through Countdown and the Arrival Hold: no aggro, movement, attack or damage.
+- **P2** Idle, aggro, fight, disengage, Return, regeneration, full reset, with no teleport.
+- **P3** Swing and Slam shapes match the Telegraph, one evaluation, players only.
+- **P4** Evade negates Swing and Slam.
+- **P5** Stone Guard absorbs.
+- **P6** Wet then Lightning Reaction on the Warden, with Wet visible.
+- **P7** Hook and Tidal damage and Wet, no movement, stone-set feedback distinct from the ward.
+- **P8** Outside-fire ward: rejected, no damage, Threat or wake, ward feedback.
+- **P9** Reward core readable before the fight. A kill gives exactly one Rank 1 Pickup of that Ability, collectable at once.
+- **P10** No body-blocking and no push, no Movement Validation correction. Over a full fight `maxOutsideDistance` stays in tolerance and it never reaches a connector or lip.
+- **P11** Match reset leaves no Warden, target or effect, with a fresh deal.
+- **P12** Real log lines match what happened.
+
+**Studio S2 (two clients).** **T1** a real 2-player Match with one Warden at the empty Gate. **T2** kill by one client, collection by the other, no reservation or delay. **T3** a Swing or Slam hits both players. **T4** a same-tick Pickup contest resolves normally. **T5** a spectator sees the same Warden state.
+
+**Synthetic multi-Warden.** **M1** three Wardens at once with distinct rewards and no interference. **M2** the 2-Warden selection. These use a TEMPORARY hook that calls the **real** `wardens.setup` selection and deal with injected pad sets, never hand-built Wardens. Real 4 and 6 player Matches are evidence only, since the tooling cannot reliably drive them.
+
+**Cleanup and fault.** **C1** `removeSection` and a forced Fault leave no reward, credit, leaked target, connection or model. **C2** a Warden alive at Match end is cleared with no reward.
+
+**Method.** Exact timing lives in specs with a fake clock. Studio is for engine and visual behaviour. Run specs through `RunAll` on the Server in Play. Read [`docs/testing/studio-mcp-quirks.md`](testing/studio-mcp-quirks.md) first. Standing in Warden range between tool calls is lethal as with Sentries: arm everything, then approach, act and leave within one call.
+
+**Evidence only (recorded, never gating).** The Swing backstep, the slam-only band share, circling at chase speed 12, a competent solo fight time and Health cost, how often the ward fires and whether it feels unfair, Safe-route pass-by, visual smoothness, the real Territory radius and loot margin, and the `WardenSummary` triggers.
+
+#### Verify before building
+
+- Where the target-level veto hooks into `Combat` and how a Warded or Resisted reason surfaces in `CombatResult`.
+- `Casts`: players-only filtering from a server origin, and an arbitrary-origin 360-degree area.
+- How `Characters.registerTarget` uses `immovable` for a model that moves.
+- Whether the Warden hit pipeline reports per-target hit, Evade and Shield outcomes. If not, count through the shared `CombatResult` path.
+- The elimination cause used for Sentry kills, to reuse for a Warden kill, and how Sentry hits on players are kept out of PvP kill and damage numbers (`SessionRules`), to reuse for the Warden.
+- Whether Pickup and `Equip` log lines carry ids and accept a `source` tag.
+- `StatusVisuals` on a non-player model.
+- Whether the four Pickup shapes are distinct, and the Natural Recovery rate against the Warden damage figures.
+- The actual player numbers used for tuning (Health, walk speed, Dash, Evade, Basic, Tidal, Arc Burst, Hook, Stone Guard), read from code, not these docs.
+- Whether a stable Match seed exists.
+- The slot-to-pad, Home Cache and Forward Cache distances at the real marker positions.
+
+If a documented number differs slightly in code, update the tuning assumption and keep the settled combat role unless the difference materially breaks it.
+
+#### Completion criteria
+
+**Implementation complete** (nothing else holds the ticket open):
+- All blocking specs green in `RunAll` on the Server in Play.
+- The blocking Studio matrix (P1 to P12, T1 to T5, M1, M2, C1, C2) green, with the presentation checks observed.
+- `WardenFault` = 0, snap-home = 0 in normal play, no leaked targets, connections or models, and exactly one reward per legitimate kill.
+- Docs and results recorded in this ticket, the quirks doc updated, and every TEMPORARY hook removed (grep the word).
+- A clean commit.
+
+**Publish checkpoint** (separate manual step): the developer publishes and the version is recorded in [Checkpoints](#checkpoints).
+
+**Blocking dependency on Ticket 22:** until both implementations coexist, only `removeSection` is blocking. The real Collapse plus Warden Studio check then becomes blocking.
+
+#### Future work
+
+**Regular monsters are intentionally deferred to the next PvE ticket.** Wardens are elite-tier, mini-boss-style guardians, not the baseline monster population. The next PvE design should explore weaker, quicker-to-kill regular monsters scattered through the Arena, reusing only the Warden infrastructure that proves genuinely reusable.
+
+Also deferred: an elite Dais Warden or boss, Match XP and Relics, patrol, respawn, a ranged or leap attack if telemetry shows kiting dominates, final art, audio and animation.
+
 ## Later, after evidence from the run test
 
 - non-Ability world items, under the principles above
 - ~~the smallest Rift Collapse~~, now specified as [Ticket 22](#22-rift-collapse); what remains is what its evidence asks for (an Unstable stage, roster-band timing, overtime)
-- monsters, Elites and Rank 3 behaviour changes
+- ~~the first Rift Warden~~, now specified as [Ticket 23](#23-rift-warden); what remains is **regular monsters (the next PvE ticket)**, an elite Dais Warden or boss, and Rank 3 behaviour changes
 - the real Hub, with batches of players into several Matches at once
 - testing two slots against three, once there are about 6–8 Abilities

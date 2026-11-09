@@ -36,6 +36,8 @@ A Pickup's Rank is also its rarity:
 | Elites and events | Rank 2, occasionally Rank 3 | High-value rewards and PvP hotspots, increasingly important during Clash |
 | Player deaths | Rank 1, under the death rules below | A reward worth contesting after PvP |
 
+**Rift Wardens** ([Ticket 23](milestone-2-tickets.md#23-rift-warden)) are an exception to "stronger monsters produce Rank 2". Each killed Warden drops exactly one ordinary **Rank 1** Ability Pickup, pre-dealt at Match setup (uniform random, distinct across the Match's Wardens) as bonus supply on top of the 24-drop Cache economy. Rank 2 comes only from collecting a duplicate, as for every other source. Milestone 2's Rank cap of 2 stands, and Rank 3 is not reachable.
+
 ### Monster Families
 
 Each family has recognizable territory or encounter locations and a themed, weighted Drop Table. Players learn where Build pieces come from, players pursuing compatible Builds cross paths, and contested areas become organic PvP objectives. For example: "I have Tidal Bolt, so I should head toward the Storm area for Arc Burst."
@@ -55,7 +57,7 @@ Rift Caches sit along useful routes, including routes from the spawn points. The
 
 Players begin each Match with a Basic Attack, a Dash and empty Ability Slots, with no random starting Ability. Milestone 2 has two slots, on Q and E. The long-term number is unresolved, with three kept as a likely test, as set out in [Milestone 2](milestone-2-tickets.md).
 
-While a player has at least one empty Ability Slot, their next eligible monster kill guarantees a Pickup from that family's Drop Table. Normal chance-based drops then resume. The rule is configurable, because playtesting may show that filling the slots needs to happen faster. It applies only to normal eligible monster rewards, so killing trivial or invalid targets cannot generate extra drops.
+While a player has at least one empty Ability Slot, their next eligible monster kill guarantees a Pickup from that family's Drop Table. Normal chance-based drops then resume. The rule is configurable, because playtesting may show that filling the slots needs to happen faster. It applies only to normal eligible monster rewards, so killing trivial or invalid targets cannot generate extra drops. A Rift Warden is not an eligible monster for this rule.
 
 ## Pickup readability and ownership
 
