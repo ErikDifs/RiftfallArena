@@ -1044,6 +1044,99 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - the main session has reviewed the map and `PveVisuals`
 - **No Ticket 19 work** starts automatically.
 
+**Built and tested 2026-11-09. All checks pass.**
+
+- **The map:**
+  - The main session built `Workspace.MatchMap` straight from the coordinate list, a single script that was the brief itself, rather than through `studio-implementer`.
+  - **The shell:** a 250 × 250 floor with its top at y = 0, perimeter walls 24 studs high (from y = −4 to 20), and pads `MapSpawn1`–`6` on r = 105, every 60° from 0°, facing the centre.
+  - **Cover:** six cover walls (16 × 10 × 3), tangential at r = 50 on the pads' directions, and six low blocks (8 × 4 × 8) at r = 65 between them.
+  - **The centre:** a cylinder core of r = 10 and 16 high, with radial walls (29 × 12 × 3) from r = 9 to r = 38 at 90°, 210° and 330°. They make bays centred on 30°, 150° and 270°.
+  - **Outer Caches:** at r = 80, every 36° from 18°. Two are each shared by two pads: the one at 90°, by the pads at 60° and 120°, and the one at 270°, by the pads at 240° and 300°. Every pad has two within about 27–54 studs.
+  - **Each bay:** the central Cache sits on the bay's axis at r = 26, facing outward. The Sentry stands 15 out and 13 across, on a 2-stud pedestal, with its root at y = 5.2 and its firing point 2.4 above that.
+  - **Lines of fire.** A tap bolt clears the Cache's Hitbox (radius 1.5, plus the bolt's 0.6 and the 0.3 tolerance) by 2.9 studs at the front breaking spot. The Sentry-side and front-diagonal spots are open. The one spot it can't reach is straight past the Cache from the Sentry, the shadow every single Sentry leaves. B4 uses it as the cover check.
+- **Server side:**
+  - **New shared code:** `Environment` holds the one list of environment folders, and all nine former `Arena` call sites use it, including `Cover.new`, which now takes a list.
+  - **New pure Rules:** `LootRules`, `CacheRules` and `SentryRules`.
+  - **New systems:** `Caches`, with `prepare(random)` to deal without touching the world, `setup(deal, matchId)` and `clear()`, and `Sentries`, with `setup`, `clear` and `stepAll`. Each makes its workspace folder at the first setup, and the Sentry loop starts then too.
+  - **`Characters`:** targets carry a `kind`, an optional `onHit` and `onKilled`, and `unregisterTarget`. The `"Map"` area reads `MatchMap`.
+  - **`Combat`:** the Cache branch, and `Blocked` for refused Cache hits and for a Sentry's hit on another Sentry. A new `CombatResult` kind, `Blocked`, ends the Cosmetic Projectile there, and `Feedback` draws a plain impact for it. No new remote.
+  - **`Recovery`** skips Caches and Sentries. **`Session`** applies `SessionRules.countsForPlayers` and remembers a Sentry's kill for the log. **`Casts.castFromServer`** takes `options.origin`.
+  - **`Match`:**
+    - It checks the bag at startup and deals just before a due start, using the new `MatchRules.isStartDue` and `disable`.
+    - It sets Caches and Sentries up and clears them, deals spawns from the `"Map"` pads, and keeps Sentry killers out of player-facing data.
+  - **Ticket 16's placement path is gone:** `Pickups.placeMarkers`, its spec and the `PickupPlacements` folder.
+  - **Small additions for specs,** in the style of the existing `manual` options: `Combat` takes a `fireResult` dependency, and `Recovery.start` takes `manual`.
+- **Client side,** built by `studio-implementer` from an exact brief and reviewed before acceptance:
+  - The new `PveVisuals` draws the stages, the break burst and the `CacheBreak` sound (a built-in sound, checked to load), the stump colour, the Sentry orb and the wreck.
+  - `Tuning.caches.display` and `Tuning.sentries.display` hold its values.
+- **A fix during review:** the Cache models were first named `CacheCacheOuter01`, a doubled prefix the implementer found. They now take the marker's name.
+- **Specs:** 356 passed, 0 failed, run on the Server in Play with both the Reference and the Empty Kit, and again in the two-client session.
+  - **New specs:**
+    - `LootRulesSpec` (9)
+    - `CacheRulesSpec` (6)
+    - `SentryRulesSpec` (8)
+    - `CachesSpec` (7)
+    - `SentriesSpec` (6)
+    - `CombatSpec` (6)
+    - `MatchMapSpec` (6)
+  - **Additions:** `MatchSpec` gained 4 tests, `MatchRulesSpec` 2 and `SessionRulesSpec` 1. `PickupsSpec` lost its `placeMarkers` test.
+- **Test setup:**
+  - **The aid:** a TEMPORARY `TEMPORARYMatchHook` server script offered `hit` through `Combat.applyHit`, `grant` through `Kits.grant` and `setHealth`. Its `grant` first omitted the Rank and always returned false, so Run B built its Kits from real Caches instead.
+  - **The Starting Kit:** it was `Empty` for Runs B and C.
+  - **Afterwards:** the hook and its BindableFunction were deleted. No instance in the place has the hook's name, no script source mentions `TEMPORARY`, and `startingKit` is back to `"Reference"`.
+
+**A, Reference Kit, solo,** plus the two rendering checks in the two-client session:
+
+| # | Check | Result |
+|---|---|---|
+| A1 | Dormant | No Match attributes or `MatchState`, no `Caches` or `Sentries` folder, `PveVisuals` empty, and no `LootDeal`, `CacheBroken`, `SentryKilled` or `MatchStart` lines. The 4 dummies are there, the player is on an arena pad, and the Kit is Tidal Bolt / Arc Burst |
+| A2 | Q, E and a Charge (forged, with rendering off) | No `CastRejected`. `ChargingRank` 1 during the hold |
+| A3 | Dummy hits | Tidal Bolt did 12 and made the dummy Wet. Arc Burst then did 30 with `WetReaction` |
+| A4 | Cover | A tap through `CoverCentre` reached nobody, and a clear shot hit for 12. With two clients, the other client drew the bolt's impact on `CoverNorthEast`'s face at z = −30 |
+| A5 | Camera collision (two clients, rendering) | In the north-east corner the camera stopped at z = −49.5, inside the wall's face at −50, pulled in to 3.8 studs from 9 |
+| A6 | Death | Respawned on an arena pad in 3.15 s with the Reference Kit. No `Eliminated` line |
+| A7 | Forged `ReturnToHub {}` | Nothing changed |
+| A8 | The ShootingDummy | Still sees and shoots through the shared environment list |
+| A9 | Consoles | No errors |
+
+**B, Empty Kit, solo** (three Matches, by `studio-tester`, rendering off):
+
+| # | Check | Result |
+|---|---|---|
+| B1 | Start | Spawned on `MapSpawn2`. 13 Caches (10 outer, 3 central), 3 Sentries, 0 Pickups. `LootDeal match=1 total=16 counts=ArcBurst:8,TidalBolt:8 variety=ok`. No attribute on any Cache model or descendant names an Ability |
+| B2 | An outer Cache with the Basic Attack | 13 swings of 6, all `Hit`, none `killed`. Stage 1 at 45 health, stage 2 at 21, broken at 75. Exactly one Pickup, 0.00 studs across from the marker, the Ability `LootContents` named. The `CacheBroken` line was right. Burst parts, and a `CacheBreak` sound in `PveVisuals`. The stump doesn't collide or take rays, is 1 high, and the hook's `hit` finds `NoTarget`. A second outer Cache held the other Ability, as dealt |
+| B3 | Tidal Bolt into a Cache | `Hit` for 12, 75 → 63. The Cache isn't Wet, with no Reaction |
+| B4a | A Sentry | The Telegraph attribute appears about 0.47 s before each shot and clears with it. Shots came 3.15, 3.20 and 3.20 s apart. A hit does 12, makes the player Wet, and pushes them |
+| B4b | Dodging | A 6-stud sideways move at each of three Telegraphs: no hit from any of them |
+| B4c | Breaking sight | Moving 4 studs behind cover cleared the attribute 0.215 s into the Telegraph, before the 0.466 s shot. No `CombatResult` that cycle |
+| B4d | Cache cover, the explicit regression | At `CacheCentral1`'s shadow spot, three Sentry shots in a row came back `Blocked` on `cache:CacheCentral1`. The Cache stayed at 120 and stage 0, and the player at 100 |
+| B4e | The orb (two-client session, rendering) | It sat on the firing point and grew from 0.46 to 2.20 over 0.49 s, then went with the shot |
+| B5 | A central Cache | 20 swings, broken at 120. Tidal Bolt and Arc Burst, 10.00 studs apart, with their midpoint on the marker. From the marker the remaining Pickup was 4.99 away and not collected. A hop toward it collected it. The other had already been collected while swinging from the shadow spot, 3.3 studs from it, as an Upgrade |
+| B6 | Killing a Sentry | Tidal Bolt made it Wet, then Arc Burst did 30 with `WetReaction`. It died on Basic Attacks, with `killed=true`, `killRecovery 0` and no health added. `SentryDead`, no longer a target, dark on the client, no Pickup, and `SentryKilled match=3 sentry=sentry:1 by=player:... ability=BasicAttack seconds=77.4`. It didn't Telegraph again in 10 s with the player in its old sight |
+| B7 | Eliminated by a Sentry | A real shot: `Eliminated match=2 ... cause=Died by=sentry:3 alive=0 ... dropped=ArcBurst:1,TidalBolt:1`. `PlayerEliminated` has no `killerId`, and the title reads `ELIMINATED`. The drops are marked as from an elimination, at y = 3 and 1.5 studs from the death spot. The `MatchResult` shows `kills=0 reactions=0 dealt=0`, though that Match had a Reaction on a Sentry, about 54 damage to it and 78 to Caches |
+| B8 | The next Match | The Pickups were cleared. Then 13 intact Caches, 3 living Sentries, 0 Pickups and a new `LootDeal` (`match=3`) |
+| B9 | Consoles | No errors |
+
+**C, two clients** (the main session, rendering at 15 fps):
+
+| # | Check | Result |
+|---|---|---|
+| C1 | PvE setting up PvP | Sentry1's real bolt hit Player1 for 12 and made them Wet. Player2's real Arc Burst then hit Player1 for 30, with `reactionId=WetReaction`, `attackerId=player:-2`, which is the Reaction's **Triggered By**, and `reactionAppliedBy=sentry:1`, which is the Wet's **Applied By** |
+| C2 | A Cache as PvP cover | Player2's Tidal Bolt at Player1, through `CacheOuter01`: `Hit` on `cache:CacheOuter01` for 12 (75 → 63), the Cache not Wet, and Player1 untouched |
+| C3 | Results | Sentry1 then eliminated Player1: `Eliminated ... by=sentry:1`, `ELIMINATED`, and `Player2 wins`. Rows: Player2 `Winner`, `kills=0 reactions=1 dealt=30`, only the Reaction on Player1. Player1 `Eliminated`, all zeros |
+
+**Pacing measurements, for Ticket 20** (hops rather than walking, with tool delays). The time from Running to the first Ability was 91.9, 58.2 and 35.3 s across the three Matches, and to a full Kit about 124, 84.0 and 45.4 s. The best case, 35 s and 45 s, is the nearest to real play. The hypothesis above still stands: about 8–10 s to the first Ability with real walking.
+
+**Accepted with notes:**
+
+- **Variety with two Abilities.** The one-swap repair can't reach full variety when both three-Cache chains come out A-B-A: the remaining pair must then match, and fixing it means flipping a chain, several swaps at once. Measured over 2000 seeds, that was 65 partial with two Abilities (3.25%) and 0 with four. Equal counts never broke. `LootRulesSpec` pins 0 for four Abilities and at most 10% for two.
+- **`Caches`' lifecycle is `prepare(random)` then `setup(deal, matchId)`,** rather than `setup(random)`. That puts the deal-time check before anything changes in the world, as settled.
+- **The Cache attacker gate** uses `MatchRules.canBeHit` for the attacker, at impact, so it's still open during the short end grace, as hits on players are.
+- **Sentry knockback** is the tap Tidal Bolt's normal push. In practice it carried players 20–25 studs, often out of the 45-stud range, so a Sentry rarely lands two shots in a row unless the player comes back. It's worth watching when tuning Sentries, and isn't changed here.
+- **Unexplained: one `Blocked` Basic Attack** from a test character standing on top of a Cache. A Cache answers `Blocked` only when the gate refuses or it's already broken. Every hit from the ground (B2, B3, B5, C2) behaved normally, so it's left as an edge case to watch rather than a guess.
+- **The `CacheBreak` sound** was seen created and playing, but not heard, since every check ran through the MCP.
+- **Collection radius** is 3D, from the root to the anchor, so a Pickup at exactly 4.0 across the ground wasn't collected. That's as Ticket 16 settled.
+
 ### 19. Rift Hook and Stone Guard
 
 - **Scope:**
