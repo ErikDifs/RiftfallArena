@@ -1297,6 +1297,107 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **Small presentation extension points:** `visual.castAnimation` chooses a Cast's animation instead of `Casting` checking the Casting Style and the Basic Attack's id, and `visual.projectileStyle` chooses a Cosmetic Projectile's look.
 - **The Shield is cleared on death** explicitly, as well as by a new character, because an Eliminated body stays for 3 s.
 
+**Built and tested 2026-11-09. All checks pass.**
+
+- **Server side, built by the main session:**
+  - **New pure Rules:** `ShieldRules` (absorption, a new Shield, whether it's active, and whether a hit broke it) and `HookRules` (the destination, the clipped displacement and the velocity).
+  - **New system:** `Shields`, the one owner of each character's Shield and its attributes, with `grant`, `absorb`, `clear`, `get` and `deliver` (the `Self` form's delivery).
+  - **`Cover:sweep(from, to, radius)`:** a Spherecast against the environment roots that returns the farthest centre position.
+  - **`Combat`:** one `shields.absorb` call on the combined damage, and the `Pull` branch working from the caster's current root. `CombatResult` gained `absorbed`, `shieldLeft` and `knockbackSeconds`.
+  - **Forced movement:** `Movement.applyKnockback` and the dummies take the duration. `Characters` gained `immovable`, set for Sentries, and clears the Shield on `Died`.
+  - **`Casts`:** the `Self` form, the generic Stunned and Frozen gate, and a `manual` start with `Casts.receive` for specs.
+  - **Session:** a log-only `shieldAbsorbed`.
+  - **Config:** `RiftHook` and `StoneGuard`, `Tuning.hook`, `Tuning.shield.display`, four placeholder sounds, the four-Ability loot pool and the `Cylinder` Pickup shape.
+- **Client side:**
+  - **Main session:** `Knockback` takes the duration, and `Casting` the `Self` form and `visual.castAnimation`.
+  - **`studio-implementer`, from an exact brief, reviewed before acceptance:**
+    - the new `ShieldVisuals` (shell, amber ring, thinning, break and quiet fade)
+    - `Hud`'s Shield bar, read by `HealthDisplay`
+    - `Feedback`'s Shielded hit marker, the absorbed-hit sounds and the pull Beam
+    - the `Tether` Cosmetic Projectile
+    - the Cylinder Pickup
+- **Fixes during review and testing:**
+  - **Break or fade.** The server clears the Shield attributes before it fires the hit's `CombatResult`, so the attribute can arrive first. `ShieldVisuals` waits 0.15 s before choosing a break or a quiet fade.
+  - **The player's pull overshot.** Time alone ended it a frame late: 0.8 studs, and once 2 studs into body contact with the caster. A movement with its own duration now also stops on arrival on the client, slowing its last frame. Tidal Bolt's push is still timed only.
+  - **The dummy's pull fell short.** A long server frame cut it to 5.1 studs. A dummy's pull now travels exactly its planned distance, and the measured end is 4.00.
+  - **Colours.** Neon lightened the amber accent ring and the Hook's head to yellow, too close to Arc Burst's. Both now use a deeper amber (215, 110, 30), the Hook's Pickup and slot colour too, and the tether line is 0.15 wide rather than 0.12.
+- **Specs: 394 passed, 0 failed,** on the Server in Play, solo and in the two-client session.
+  - **New:**
+    - `ShieldRulesSpec` (5)
+    - `ShieldsSpec` (6)
+    - `HookRulesSpec` (7)
+    - `CastsSpec` (7)
+    - `BurstLimitsSpec` (3)
+  - **`CombatSpec`:** 9 new tests for the Shield worked examples, the fully absorbed hit, the combined Reaction, Evade and overflow, and the pull on players, dummies, clipped dummies, Sentries and Caches, with the caster gone or the target close, and Tidal Bolt against the Hook.
+  - **`CastRulesSpec`:** the `Self` form and the cast animations.
+  - **`CachesSpec`:** the four-Ability `LootDeal`.
+  - **`LootRulesSpec`:** 2000 seeds (0.09 s), with no requirement of zero partial deals. It measured 65 partial with two Abilities and 0 with four.
+- **Burst limits,** from config:
+  - the worst single hit is Arc Burst Rank 2, at full Charge, on a Wet target: 18.4 + 17.6 = 36
+  - the worst two-slot pair is Tidal Bolt then Arc Burst at Rank 2: 52.25
+  - with the Hook, the worst is 26.4
+- **Test setup:**
+  - **The aid:** a TEMPORARY `TEMPORARYHookAid` server script, with a BindableFunction, offered `cast` through `Casts.castFromServer` (a real projectile from a dummy), `setSlot` and `grant` through `Kits`, `setHealth` and `spawnPickup` through `Pickups.spawn`.
+  - **The Starting Kit** was `Empty` for Run B only.
+  - **Afterwards:** the aid is deleted, no instance or script source names `HookAid`, and `startingKit` is `"Reference"`.
+
+**A, solo, by `studio-tester`** (Reference Kit, rendering at 15 fps):
+
+| # | Check | Result |
+|---|---|---|
+| A1–A3 | Reference regression and the new gate | Tidal Bolt 12 with its normal push and no `knockbackSeconds`. Arc Burst 30 with `WetReaction`. The Basic Attack hit for 6. `Stunned` and `Frozen` each refused a Basic Attack, which worked again once cleared |
+| H1, H2 | The Hook on a dummy | 8 and a 0.25 s pull toward the caster (5.1 studs before the dummy fix, then 4.00 after it). Within 3 studs: 8 and no move |
+| H3 | Rank 2 range | At 34.96 studs, Rank 1 missed and Rank 2 hit and pulled to 3.96 |
+| H4 | The player pulled | 24 → 3.80 studs in about 0.27 s, with no later snap and no Movement Validation correction |
+| H5 | A Charging target | Pulled, with `ChargeEnded ... cause=Knockback` |
+| H6, H7 | A miss, and an Evade | No damage, no move and no Beam. `Evaded` with no pull |
+| G1, G2 | Guard, then a Tidal Bolt into it | 25 / 25 for 3.0 s, with the shell, ring and bar. Then 0 / 12 / 13: Health 100, Wet and a push |
+| G3 | The combined Reaction | `WetReaction`, Triggered By and Applied By both `dummy:StaticDummy`, absorbed 13, `shieldLeft` 0, `damage` 17, Health 83 |
+| G4, G5 | Break and expiry | A break grew and faded the shell over 0.35 s with the `glassbreak` sound. An expiry faded quietly with Health unchanged |
+| G6 | Natural Recovery | An absorbed hit held Health at 91.9 for 7.1 s before recovery |
+| G7, G8 | Evade and death | An Evaded hit left the Shield at 25. Death cleared it in 0.05 s, with none after respawn |
+| G9, G10 | Upgrade and replacement | A mid-Shield upgrade kept 25 / 25, and the next Cast gave 35 / 35. A replacement drew `EquipLocked` (0.75 s left), then Cast |
+| I1, I2 | Instant gates | A Hook during a Charge was refused as `Charging`, and the next one wasn't on cooldown. `ChargeStart` for the Hook gave `NotChargeable`, and an extra `rank` field was dropped with a warning |
+| — | Session | The `Summary` had `shieldAbsorbed: 49`, which matches the absorbed hits |
+
+**B, Empty Kit, solo, by `studio-tester`:**
+
+| # | Check | Result |
+|---|---|---|
+| B1 | Deal | `counts=ArcBurst:4,RiftHook:4,StoneGuard:4,TidalBolt:4 variety=ok` |
+| B2 | Pickups | Hook: an upright amber Cylinder. Guard: a grey Cube |
+| B3, B4 | Sentry and Cache | A Sentry took 8 with no knockback and no move. A Cache 75 → 67 with no Status |
+| B5 | Upgrade | A second Hook upgraded to Rank 2 and hit at 34.6 studs |
+
+**C, two clients, by `studio-tester`** (Server & Clients, rendering at 15 fps):
+
+| # | Check | Result |
+|---|---|---|
+| K2–K4 | Real Q/E input | One press, one Cast. A 2 s hold gave one Cast and the release none. E gave a Shield of 25 |
+| K5, K6 | The F modifier | F held: no Cast. F released with Q still held: no Cast, and a fresh press Cast once |
+| K7 | E during a Tidal Bolt Charge | Nothing, while the Charge released. E right after Cast normally |
+| P1h | Short pull, player on player | 17.56 → 3.80 studs in 0.263 s, with no correction |
+| P2h | Long Rank 2 pull | About 30 studs, 33 → 3.75, in 0.264 s at about 2 studs per frame, with no correction |
+| P3h | A wall | Pulled from the low area toward a caster above, it stopped at 1.84 from the ledge face (the 1.5 radius plus the 0.5 clearance, as clipped), with y unchanged |
+| P4h | A ledge | Pulled off the lip, it fell from y 3.2 to -4.8 with no upward launch and no correction |
+| P5h | A dummy near the path | The dummy didn't stop the pull, which ended about 3.9 from the caster |
+| S1–S3 | The other client | The shell and ring showed. The Tether head and Beam showed and cleared at range end. `PullHand` lasted 0.25 s |
+
+**Main-session review (two-client screenshots):**
+
+- **The long Rank 2 pull:** fast forced movement, not a teleport, about 16 frames over 30 studs. Kept, with the duration unchanged.
+- **The Shield shell:** a translucent grey bubble that keeps the character, the name and the silhouette readable. It's distinct from Evade, Wet and the Charge orb, and the thinning reads. Its accent was changed from yellow to deep amber, as above.
+- **The Hook projectile:** a thin line from the hand with a bright elongated head, visible against the arena's floor and cover. Its colour was changed as above. Not reviewed on `MatchMap`, but it uses the same environment colours.
+- **The Guard audio** (`metal.ogg` on, `hit.wav` absorbed, `glassbreak.wav` break) was chosen distinct and checked to load and play, but not heard, since every check ran through the MCP. It's for the developer to listen to.
+
+**Accepted with notes:**
+
+- **A close target isn't Knockbacked,** so a Hook within 4 studs doesn't end a Charge. That follows "no displacement", and nothing else would push it.
+- **The player's own pull ends on arrival on their client,** so where they stop still depends on how current the server's view of both players was at impact. Measured ends were 3.75–3.96 studs.
+- **Characters aren't in the sweep,** but a player's own physics still collides with a body directly on the pull line. Not tested exactly on the line.
+- **The `Shield` attributes clear on the server before `CombatResult` fires.** Clients allow for it, and it's recorded in `code-structure.md`.
+- **Ticket 20 watch list,** carried from the settlement: Stone Guard's effective health against the Tidal → Arc payoff, and environmental Hook kills off ledges.
+
 ### 20. Run test readiness
 
 - **Scope:**

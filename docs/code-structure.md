@@ -24,6 +24,8 @@ ReplicatedStorage
     │   ├── LootRules
     │   ├── CacheRules
     │   ├── SentryRules
+    │   ├── ShieldRules
+    │   ├── HookRules
     │   ├── HitboxRules
     │   ├── CastRules
     │   ├── ChargeRules
@@ -46,6 +48,7 @@ ServerScriptService
     ├── Match
     ├── Caches
     ├── Sentries
+    ├── Shields
     ├── Dummies
     ├── Casts
     ├── Charging
@@ -79,6 +82,7 @@ StarterPlayer
         ├── Replacing
         ├── Spectating
         ├── StatusVisuals
+        ├── ShieldVisuals
         ├── ReactionVisuals
         ├── Feedback
         ├── HealthDisplay
@@ -187,6 +191,17 @@ From [Ticket 18](milestone-2-tickets.md#18-match-map-caches-and-sentries), the M
   - **The end of Results** also runs `Caches.clear` and `Sentries.clear`.
 - **Clients.** `PveVisuals` draws crack stages, the break burst and sound, the stump, the Sentry Telegraph orb and the wreck, from tags and attributes only. What a Cache holds never reaches a client.
 
+## Rift Hook and Stone Guard
+
+From [Ticket 19](milestone-2-tickets.md#19-rift-hook-and-stone-guard), the two new Abilities extend existing paths rather than adding systems beside them.
+
+- **Forms and Casting Styles.** Both are `Instant`, through the one `CastRequest`. Stone Guard is the new `Self` form: `Casts` delivers it to `Shields.deliver`, skips the `InvalidAim` check for that form only, and the client draws no delivery geometry. `CastRequest` refuses a caster who is `Stunned` or `Frozen`, whatever the Ability, the Basic Attack included.
+- **Presentation data.** `visual.castAnimation` (`Release`, `Swing` or none) chooses a Cast's animation, and `visual.projectileStyle` (`Orb` or `Tether`) a Cosmetic Projectile's look. Pickup shapes are Sphere, Diamond, Cube and Cylinder.
+- **`ShieldRules`** is the absorption maths (`absorb`, `new`, `isActive`, `broke`). **`Shields`** (server) holds each character's one Shield, replaces rather than stacks, expires it quietly, clears it on death through `Characters`, and is the only writer of `Shield`, `ShieldMax` and `ShieldEndsAt`.
+- **`Combat`** runs each hit's combined damage, the Reaction's bonus included, through `Shields.absorb` once, after Evade and the Reaction and before Health. `CombatResult.damage` is Health lost, with `absorbed` and `shieldLeft` when the target had a Shield. Session keeps `damageDealt` as Health lost and adds a log-only `shieldAbsorbed`.
+- **Forced movement.** An Ability with `forcedMovement = "Pull"` gets its Knockback from `HookRules` instead of `pushStrength`: a destination 4 studs in front of the caster's current position, shortened by `Cover:sweep` (a Spherecast against the environment roots, ignoring characters), as a velocity over `Tuning.hook.pullSeconds`. `CombatResult.knockbackSeconds` carries that duration, and the client's Knockback, Movement Validation and dummies use it when present and `Tuning.knockback.durationSeconds` otherwise. A target registered `immovable` (Sentries) is never pulled, and with no living caster there's no pull.
+- **Clients.** `ShieldVisuals` draws the shell, its thinning, the break and the quiet expiry from the attributes and `CombatResult`. The server clears the attributes before the hit's `CombatResult` arrives, so it waits 0.15 s before choosing a break or a fade. A movement with its own duration stops on arrival, on the client and for dummies, while a normal push is only timed. `Hud` has a Shield bar above the Health bar. `Feedback` has the Shielded hit marker and the pull Beam.
+
 ## Dependencies
 
 Systems receive their dependencies explicitly, rather than reaching around the DataModel for each other, and circular ModuleScript dependencies are avoided. No dependency-injection framework is needed. For example:
@@ -230,6 +245,7 @@ Small deterministic tests are enough, without an elaborate framework. They cover
 - Fits, Upgrades and replacement, who collects a Pickup, and the checks on a replacement
 - The Match's phases, roster, eliminations, end and gates, and its steps in the world on fakes
 - The equal loot bag and its deal, Cache stages, drops and gates, the Sentry cycle, and what a hit does to each kind of target
+- Shield absorption and lifetime, Rift Hook's pull, the generic Instant Cast path (`CastsSpec`, through `Casts.start({ manual = true })` and `Casts.receive`), and the burst limits calculated from config
 - The real Match map's markers and the bays' lines of fire (`MatchMapSpec`, which needs the map in the workspace)
 
 They never run in the game by themselves. During Play, run `require(game.ServerStorage.Tests.RunAll).run()` on the Server DataModel, which returns a pass and fail summary.
