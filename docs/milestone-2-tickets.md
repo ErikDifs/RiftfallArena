@@ -1410,6 +1410,134 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **Publishing:** this prepares a publish candidate and stops for the developer's approval. Nothing is published as part of finishing the ticket.
 - **The sitting with outside testers** still waits for Stage 3 to validate the combat.
 
+**Settled 2026-11-09, before building.** Settled with the developer from the docs, then checked against the code where noted. Nothing is built yet.
+
+1. **What "Stage 1 and 2 regression" means here.** It does **not** mean rerunning every acceptance check from Tickets 15–19. The 394 specs and the earlier tickets' Play checks stay as evidence, and Ticket 20 adds integration confidence without duplicating them. It means two runs on the final Ticket 19 code:
+   - **Run R, the Reference Kit regression.** It protects Stage 3 and the shared combat paths changed since Ticket 14. Solo first, then two clients where real replication matters.
+     - **Covers only shared paths:** Basic Attack, Dash, Evade, Tidal Bolt, Arc Burst, the Wet → Arc Burst Reaction, Charging and its interruption by Knockback or forced movement, `CastRejected` and Dash reconciliation, and the player-vs-player replication those need.
+     - **Confirms the progression systems are dormant:** no Match lifecycle, no Hub participation state, no runtime Caches or Sentries, no `LootDeal`, and the arena and dummies remain the Reference environment.
+     - **Not judged through the MCP:** aim feel, projectile feel, readability or fun. Those stay with the developer and Stage 3.
+   - **Run M, the final progression-loop integration**, with two clients and an Empty Kit: Hub → Countdown → `MatchMap` → PvE and loot → Kit building → PvP → Elimination → Results → Hub. The goal is that the individually tested systems work together, with natural play preferred to isolated setup.
+     - **Match 1, the Winner path:** both players start in the Hub, the countdown starts the Match, spawns are distinct, Caches and Sentries initialise, and there are no loose Pickups. Then Caches are broken, Abilities collected, a duplicate Upgrades, a replacement is made and a Sentry is met. At least one Ticket 19 Ability is used in the PvP fight, which ends in an elimination and the whole-Kit drop. The other player wins, the Results rows and logs are right, both return to the Hub and the Match is cleaned up. Not every Ability pairing is needed.
+     - **Match 2, the Timeout path:** `maxSeconds` is shortened temporarily, both players are Alive at the end, and the result is Timeout with no winner invented and both survivors shown. Results and the Hub cleanup still work, and `maxSeconds` goes back to 480 straight away.
+     - **Leaving mid-Match,** as a third short Match or folded in, whichever is cleaner, without weakening the Winner and Timeout checks. It shows `Left`, the whole-Kit drop before cleanup, no double elimination, the remaining player's win, and the leaver's result row surviving the departure.
+   - **Version discipline.** Both runs use the same candidate code where possible. A fix to shared gameplay after Run R reruns the affected part of Run R. A fix to progression-only code reruns the affected part of Run M. The whole matrix isn't restarted after every local fix.
+2. **Pacing and measurement logs.** All use the one authoritative Match clock, **seconds since `Running` began**, the same as `CacheBroken`, `SentryKilled`, `Eliminated` and `MatchEnd` already do. Never client time. Nothing new reaches the world, the clients or the attributes, and Reference mode logs nothing new. Checked in `Session`: `Pickup` had no timing, and `MatchResult` already had per-player `equips`, `upgrades` and `replaces`.
+   - **`Pickup`** gains `seconds=%.1f filled=%d/%d`, appended after the existing fields. `filled` is the number of non-empty Ability slots after the mutation over the configured slot count. An Upgrade or a replacement of a full Kit stays `2/2`, and a Rank never fills a slot.
+   - **`MatchResult`** gains `firstAbility=<seconds|none>` and `fullKit=<seconds|none>`, plus `guards=%d` and `shieldAbsorbed=%.0f` (item 4).
+     - **`firstAbility`** is set once, at the first move from 0 to at least 1 filled slot, judged from the Kit's actual occupancy and not from the Pickup's kind.
+     - **`fullKit`** is set once, at the first move to every slot filled.
+     - **Neither changes later,** whatever happens to the Kit: a replacement, an Upgrade or the elimination drop. They are history and not state, and they survive elimination, `ReturnToHub` and the leaver's row captured before Session cleanup.
+   - **Ownership.** The milestones are stored with the player's Match data in `Session`/`Match`, recorded by `Session.recordPickup`, and serialised once when the result row is built. They are never parsed back out of log strings.
+   - **Central fights.** The existing fight definition is reused, with no parallel encounter state.
+     - A fight is `central=yes` when the **first damaging player-vs-player hit's target position** is within `Tuning.session.centralRadius` of the `MatchMap` centre, flattened to XZ. The value is **50**, with `distance <= centralRadius` as the boundary. For comparison, the central Caches sit at about r 26 and the Sentries at 20, the outer Caches at 80 and the spawns at 105.
+     - The tag is stored once on the fight record and never reclassified. A fight that starts outside and moves in stays `no`. One that starts in the centre and moves out stays `yes`. A fight that times out after 7 s and then restarts is a new fight with a fresh tag.
+     - Sentry or Cache damage alone never starts a PvP fight. A hit from a player on someone a Sentry has made Wet does.
+     - Inside a Match, `Fight` lines gain `match=N at=%.1f central=yes|no`. Outside a Match the format is unchanged, with no `match=none` or placeholder fields.
+     - `MatchEnd` gains `fights=%d centralFights=%d`, counted once per fight. A lone hit that nothing followed isn't a fight under the existing rule, so a fight counts when it is recognised, and `MatchEnd` closes any open fight first so the totals are complete.
+     - **No `cacheStartedFight` field.** The relation is read afterwards from `CacheBroken kind=Central seconds=X` against `Fight at=Y central=yes`. `kind=Outer|Central` already exists on `CacheBroken`, and the spec checks it is reliable.
+3. **The authority and security checks.** Run on a second client's real remotes by `studio-tester`. Combat requests were forged in earlier tickets, so this covers the progression-specific paths and the gates that only matter in a Match. Per remote tested, the record says: guarded yes or no, the guard parameters, the malformed outcome, the flood outcome, state integrity, recovery and any finding.
+   - **`ReplaceRequest`**, the one handler confirmed to have a guard (a token bucket, `burst = 5`, `perSecond = 5`, dropping excess before validation).
+     - **Flood:** 50 in one tick, and then 50 spread over several seconds. In one tick at most 5 reach validation, with no duplicated mutation. Sustained throughput is bounded approximately by the refill rate, allowing for scheduler variance. A legitimate request works promptly once tokens are available, and a flood doesn't starve it for an unreasonable time after the burst ends.
+     - **Malformed:** a string where an integer is expected, a non-integer, NaN, infinity where the validator can test it, a negative, slot `0` and `3`, an unknown `pickupId`, an extra `abilityId` or `rank`, and a missing field. Where the Protocol layer rejects first, "dropped as malformed" is the expected result, with no reason required. A structurally valid but semantically bad request goes through the handler's own refusal. No single rejection mechanism is forced.
+     - **State gates:** more than 6 studs away, a Kit that isn't full, Charging, Eliminated, in the Hub, a voluntary Hub spectator (refused because the server's Match state is `Hub`, not because of what the client says), and no Running Match. A refusal drops no outgoing Ability, leaves the Pickup, and leaves the Kit, Equip Lock and cooldowns unchanged.
+     - **Race:** two clients take the same Pickup in the same server step, as far as the harness allows. Exactly one replacement succeeds, the Pickup is removed once, there is one outgoing drop, the loser sees no mutation, and nothing is duplicated. The winner's identity isn't pinned.
+   - **`ReturnToHub`** has no flood guard, because Ticket 17 didn't require one, and none is added now. An Alive player in a Running Match is never removed by it. A Hub player stays in the Hub, a payload with extra fields is dropped, and repeated calls after a legitimate success are harmless, with no duplicate spawns or state corruption, reasonably throttled warnings and no material degradation.
+   - **Gates outside active play:** `CastRequest`, `ChargeStart` and a Basic Attack from Eliminated, Hub, Hub-spectator and no-Match states, and an Ability that isn't in the authoritative Kit. All give no combat effect, no cooldown spent, no Charge, no Health or Shield change and no target damage. **`DashRequest` follows the settled Ticket 17 gate,** which allows movement-only Dash in the Hub and during Results, so it is not required to be rejected there. Eliminated or invalid character state must not cause an invalid mutation.
+   - **Cache damage** from a Hub player, an Eliminated player and outside Running, through the real attack path where practical. Health and `CacheStage` stay unchanged, no Pickup appears and no `CacheBroken` is logged.
+   - **`CastRequest`, `DashRequest` and `ChargeStart` floods are measured only,** at about 50 in one tick. First check whether each already has a generic guard, and don't assume there is none. If one does, record its parameters and observed behaviour. If one doesn't, **no guard is added in this ticket.** Measure server errors, Heartbeat responsiveness, tick degradation, state corruption, log volume and whether a legitimate request still works straight afterwards.
+   - **Pass, all five:**
+     1. Authority: every forged request is rejected, ignored or dropped at the right layer, with a reason verified only where one exists.
+     2. No unauthorised mutation of the Kit, Pickups, Rank, Equip Lock, cooldown, Match phase, roster, Health, Shield or Cache/Sentry state. Movement is allowed only where the design allows it.
+     3. Race safety: one winner and no duplication.
+     4. Stability: no unhandled exception, runaway task, pathological warning spam or permanently broken state. Throttled warnings from deliberate malformed tests are fine.
+     5. Recovery: Heartbeat stays responsive, and a legitimate request works once the normal cooldown, token refill and Match state allow it. A guarded request doesn't have to bypass an exhausted bucket.
+   - **A Ticket 20 finding,** classified and brought back before any generic rate-limit framework is considered, is an unguarded flood that causes sustained Heartbeat degradation, Match-loop starvation, state corruption, excessive unthrottled logs, requests still unusable after the burst, or a server error. A brief spike that recovers immediately isn't a finding.
+4. **The watch list is measured only, with no automatic tuning thresholds.** A handful of testers is too small for pass or fail, and the MCP can't judge fairness. Ticket 20 makes the effects observable, and the run test decides.
+   - **Stone Guard.** `MatchResult` gains `guards` (successful Stone Guard activations only, never rejected, malformed or Equip-Locked attempts) and `shieldAbsorbed` (Shield absorbed in that Match, as a Match-local delta like the other session stats). `damageDealt` keeps meaning Health damage dealt, and Results UI doesn't change.
+     - **Static context,** recorded as analysis and not as an invariant (`BurstLimitsSpec` already pins the Ability values): the worst two-slot burst, 52.25, is 39% of 135 effective health with a Rank 2 Guard, against 52% of 100 without one.
+   - **Environmental Hook kills.**
+     - **`HookPull match=N caster=… target=… at=… studs=…`:** one line per Hook that actually displaces a player. `studs` is the authoritative safe displacement, not a client estimate. It is not logged for a miss, a wall impact, an Evade, a Cache or Sentry hit, a zero-displacement close target, or a damage-only hit with the caster gone.
+     - **`hookPulledAgo` and `hookBy` on `Eliminated`:** `Session` keeps the last successful player pull per target (the target, the caster, the Match and the time), replaced by each newer pull. When a player is eliminated with no valid player killer and was pulled within **5.0 s**, the line carries `hookPulledAgo=<seconds> hookBy=<player>`, otherwise `hookPulledAgo=none`.
+     - **Telemetry only.** It is correlation and not kill credit. It never becomes the killer, a PvP kill, `PlayerEliminated.killerId` or a Results `eliminatedBy`, and the existing attribution rules are unchanged. The record clears on death, elimination, a fresh Character, Return to Hub and a new Match, so Match N never annotates Match N+1.
+   - **Defects versus observations.** Fixed in Ticket 20 if seen: a target embedded in a wall, a pull through blocking geometry, Movement Validation snapping a valid pull back, an invalid vertical launch, or a duplicated or wrong displacement. Recorded for the run-test review without tuning: how often Hook leads to falls, whether ledge pulls feel fair, Guard's durability and fight outcomes, and Shield efficiency.
+   - **Review questions for the run test, not triggers.** How many Guard casts and how much Shield absorbed per Match? Do Guard users dominate otherwise even fights? How many Hook pulls, and did any no-killer elimination come within 5 s of one? Did testers call those deaths readable and fair?
+5. **How pacing is measured.** There are two separate questions: the **mechanical floor** (how fast can a player who knows the route get the first Ability and a full Kit) and **human run pace** (orienting, fighting Caches, Sentries, PvP, loot choices). Scripted walkers measure only the first, and are never presented as expected human pacing. The authoritative Session logs are the timing source, and the script's own timing is never a competing one.
+   - **Scripted real-speed walkers,** armed in an earlier call on each client before Running and waiting on `MatchPhase == Running`. Each uses `Humanoid:MoveTo` through the real `MatchMap` and any waypoints around real cover, with no teleporting, so it stays subject to collisions, Movement Validation and movement-state limits. At each Cache it approaches into Basic Attack range, sends real Basic Attack `CastRequest`s at the normal cadence, breaks it, lets the Pickup system collect the drop, and walks on to its second suitable outer Cache. The test hook never damages Caches for this measurement.
+   - **Three Matches, both clients at once,** from different spawn pads, for a spread. Record per player the pad, `firstAbility` and `fullKit`, with notes.
+   - **One central pass,** with the Sentries left active, since their pressure is part of the central cost. Record separately the travel time to the centre, the Cache break timing, and whether Sentry pressure interrupted or slowed it. If the player dies or PvP disrupts it, the pass is rerun and the disrupted value isn't taken as the baseline.
+   - **Movement Validation check:** the first run verifies that real-speed `MoveTo` produces no violation, no snap-back and no abnormal speed correction.
+   - **If `MoveTo` conflicts with the harness,** do not fall back to hops. In order: confirm the failure really is Movement Validation and not path geometry, adjust the walker to drive normal Humanoid movement, use a small helper that still moves continuously at the real WalkSpeed, and only if that can't be made reliable use a **synthetic floor** (actual path distance ÷ configured speed, plus real Cache and action timing), labelled as such and never as a Play measurement.
+   - **Reporting.** A compact table (Match, player and spawn, first Ability, full Kit, notes), then the minimum, median and maximum of the outer runs, and the central pass separately. Values are labelled **floor pacing under perfect route knowledge,** excluding search, hesitation, reading Pickups, loot decisions, avoiding players, aim and detours. They are compared against **both** references and neither replaces the other: Ticket 18's hypothesis (first Ability about 8–10 s, full Kit about 25 s, from geometry and Cache break time) and Milestone 2's design targets (first Ability about 30–45 s, full Kit about 1.5–2 minutes). The useful question is how far apart the floor and the intended human experience are. There is no pass or fail from three Matches.
+   - **No config change without review.** Ticket 20 measures and reports first, and brings back the ranges, the central cost and a recommendation. It changes none of Cache Health, Cache positions, Cache count, spawn positions, movement speed or the collection radius without the developer's approval. It also names where the time actually goes, and doesn't assume Health is the lever. A scripted floor that misses the human target isn't a reason to tune, since the human run test is decisive.
+6. **Publish candidate and the run-test switch.** A Ticket 20 **Reference-safe publish candidate** is the exact Studio state at a recorded git commit where:
+   - `RunAll` passes on the Server in Play, with the telemetry specs in the count
+   - Run R and Run M have passed on the same code
+   - no temporary runtime aid remains, with the exact script and API names searched and absent from the runtime and source paths
+   - all temporary tuning is restored, `Tuning.match.maxSeconds = 480` and `Tuning.kit.startingKit = "Reference"`
+   - the git tree is clean
+   - the ticket records the commit, the final spec count, the Run R and Run M results, the telemetry findings and what changed since version 86
+
+   It is a tested state and not a Roblox version, and it is never left in Empty mode. The repo's `.rbxl` stays the Ticket 1 baseline, and Roblox version history stays the checkpoint record. The Checkpoints row is added only once the developer has published and reported the version, and it records both the git commit and the Roblox version. A version is never inferred from git.
+
+   **Run test switch.** There is no runtime selector, place attribute, second flag or mode framework.
+   - **To prepare the progression run test:** change exactly `Tuning.kit.startingKit = "Reference"` to `"Empty"`, check that no other code or config change exists, publish manually, and record the resulting version in Checkpoints.
+   - **After the run test, before any Stage 3 sitting:** restore `"Reference"`, check it is the only intended mode change, publish again and record that Reference-safe version.
+   - **Never assume the currently published version has the right `startingKit`. Check it before each external sitting.**
+   - Run M may set `"Empty"` in Edit mode for testing and reverts it afterwards. Ticket 20 doesn't publish an Empty build to prove it works.
+
+   **Pre-publish checklists,** because one published place serves both modes:
+   - **Reference / Stage 3:** `startingKit = "Reference"`, `maxSeconds = 480`, no temporary hooks, a clean tree at the expected commit, and `RunAll` passed.
+   - **Progression run test:** the same candidate code, the only mode change `startingKit = "Empty"`, no temporary hooks or tuning, and the resulting version recorded.
+
+   **The final handoff** states the commit, the spec count, the candidate's `startingKit`, the Run R and Run M status, any unresolved findings, and that publishing is manual.
+7. **Ticket 19's leftovers.** Closed in this order: the sound listening pass, any sound swap, Run R, then Run M with the Hook and body checks inside it. No extra Match is needed for them.
+   - **Placeholder sounds,** the one leftover that needs human judgement. Before Run M, the developer listens through one short solo Play sequence: Cast Rift Hook, Cast Stone Guard, take a hit while Shielded, let damage break the Shield, then Cast Guard again and let it expire.
+     - **Each of the four cues** (Hook cast, Guard activation, absorbed hit, break) gets *keep* or *replace*, judged on audibility, volume, distinctness from nearby cues, repeated absorbed hits not annoying, the break clearly stronger than an absorbed hit, and Guard activation not sounding offensive. A timed expiry stays quiet and doesn't use the break cue.
+     - **A replacement is another built-in `rbxasset://` sound** that isn't used for another important cue and reports `IsLoaded`, and is listened to again. No uploads, and no production audio pass.
+     - **Closed when** all four have a verdict, any rejected cue is replaced and re-heard, all retained sounds load, and nothing was uploaded.
+   - **Hook on `MatchMap`.** `studio-tester` captures representative screenshots of real Hook use in Run M against the open floor, the middle-ring cover and the central core, at normal combat distance. The main session asks only whether the projectile and head can be tracked, whether the pull line is visible after confirmation, and whether it stays distinct from Tidal Bolt and Arc Burst. A small procedural tweak (colour or value, brightness, width, head or trail scale) is allowed only if it is clearly lost against the environment, and is rechecked. Anything subtler goes into the run-test notes, and the effect isn't redesigned.
+   - **A body on the pull line.** In Run M's two-client checks, the caster, an uninvolved second character directly on the intended pull path and the Hook target beyond them, with a valid Hook landed. The target takes normal damage and is pulled, the middle body doesn't intentionally block the authoritative pull, there is no contact damage and no wall-style stop. **The endpoint isn't pinned,** because ordinary body contact is accepted. The pull must finish with no embed in a character or geometry, no Movement Validation correction, no snap-back, no prolonged stall, no oscillation and no unintended damage. **If displacement occurs, `HookPull` is still emitted,** and its `studs=` reflects the authoritative decision and isn't corrupted by client body contact. No character-sweep blocking or collision redesign is introduced.
+   - **Mechanical defects found are fixed in Ticket 20** and the affected check rerun. Balance, polish and preference findings are recorded for the run-test review without expanding the ticket.
+8. **Specs.** Fakes and log formats, in the existing spec style, written with the instrumentation.
+   - **Pacing:**
+     - the first Equip at 38.2 gives `firstAbility=38.2` and `filled=1/2`
+     - the second Equip at 94.7 gives `fullKit=94.7` and `filled=2/2`
+     - a later Upgrade or Replace changes neither
+     - a player eliminated before any Ability has both `none`
+     - a player with one Ability has the first set and the second `none`
+     - a leaver keeps the values already captured
+     - Reference mode produces no new pacing fields or logs
+     - the `Pickup` seconds, the `MatchResult` milestones, the `Fight at`, `HookPull at` and `CacheBroken` all use the same Running-start clock
+   - **Central fights:**
+     - r 49.9 is `central=yes`, and `<= 50` is the pinned boundary
+     - r above 50 is `no`
+     - Y differences don't affect it
+     - the fight keeps its tag after later hits elsewhere
+     - a second fight after a timeout is classified afresh
+     - the Match counters increment once per fight
+     - Reference fight logging is unchanged
+   - **Guard:** a successful Guard increments `guards`, a rejected one doesn't, absorbed Shield accumulates Match-locally, `MatchResult` captures both, and the next Match starts from zero.
+   - **Hook:**
+     - a successful nonzero player pull writes the recent-pull state
+     - zero displacement and Sentry or Cache hits don't
+     - a second Hook replaces the first
+     - an elimination under 5 s logs the elapsed time and the caster, and over 5 s logs `none`
+     - a valid player killer stays the official killer despite a recent Hook
+     - the state clears across the Match and Character lifecycle
+     - one `HookPull` line per successful player displacement
+   - **`CacheBroken`:** `kind=Outer|Central` is reliable.
+   - **Test aids:** named so they can be searched for, deleted afterwards and never committed. The word `TEMPORARY` isn't searched repo-wide, because these docs contain it.
+   - **Roles:** the main session builds the `Session`, `Match` and `Combat` instrumentation and reviews everything. `studio-implementer` takes the specs from a written list, and `studio-tester` runs the Play checks, one agent in Studio at a time.
+9. **Done when:**
+   - the instrumentation and its specs are built, and `RunAll` passes with the new count
+   - the sound pass is done, and Run R and Run M have passed on the same code, including the security and robustness matrix and its record
+   - the scripted pacing floor and the central pass are recorded in a table
+   - the Hook visibility and body-on-the-line leftovers are closed
+   - the **Run test switch** section and both pre-publish checklists are in the ticket, and `code-structure.md` and `studio-mcp-quirks.md` carry anything new
+   - the candidate meets the definition above, with `startingKit = "Reference"` and `maxSeconds = 480`
+   - nothing was published or uploaded, nothing from "Later, after evidence from the run test" was started, and the work stops for the developer's go-ahead
+
 ## Later, after evidence from the run test
 
 - non-Ability world items, under the principles above
