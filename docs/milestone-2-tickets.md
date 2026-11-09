@@ -78,7 +78,7 @@ Roblox version history is the code's history, as [Milestone 1's checkpoints](mil
 
 **A cut-down, one-life Match when the Starting Kit is Empty (2026-11-08, revised the same day).** It tests empty Kit → exploring and loot → a developing Kit → PvP. It's a deliberately cut-down version of the full [Match](match-structure.md), not a separate concept. The first version, a timed Match with respawns throughout, was replaced the same day by the developer's one-life rule below.
 
-- At the start of each Match, every player's Kit is empty and the world's Pickups are placed fresh. There are no Gather, Clash or Rift Collapse phases.
+- At the start of each Match, every player's Kit is empty and the world's Pickups are placed fresh. There are no Gather, Clash or Rift Collapse phases. (Updated 2026-11-09: on the Rift Crown, [Ticket 22](#22-rift-collapse) adds a time-driven Rift Collapse inside Running. The Match lifecycle is unchanged, and Gather, Clash and Collapse are derived labels, not states.)
 - **One life.** Death eliminates the player from the Match. They don't respawn into it, and they go into Spectate. Death means the current run is over.
 - **The last living player wins.** A configurable maximum duration, about 8 minutes to start with, stays as a failsafe.
 - **The Match controls participation explicitly,** as Alive, Eliminated and Spectating, or leaving for the Hub, rather than relying on Roblox's respawning. Respawning belongs to the Hub and other places outside a Match, and never returns an eliminated player to the Match.
@@ -110,7 +110,7 @@ Roblox version history is the code's history, as [Milestone 1's checkpoints](mil
 - If the time runs out with two or more alive, the Match ends with no winner. Nothing else picks one: not kills, damage, Rank, loot collected or any other secondary score, because those would reward something other than being the last player standing.
 - The results show **Time out — no winner** and list the survivors.
 - The session log records the end cause (`Timeout`, or a winner), the number still alive, the Match duration and the number of eliminations. The key test metric is how often Matches fail to reach one survivor naturally.
-- No Rift Collapse in this milestone. Convergence comes from a small enough map, loot placement, contested valuable areas, the noise of fighting, and Eliminated players' whole-Kit drops worth contesting.
+- *(Superseded 2026-11-09: [Ticket 22](#22-rift-collapse) specifies the Rift Collapse for the Rift Crown, and the Timeout remains a failsafe. The text below is the original reasoning.)* No Rift Collapse in this milestone. Convergence comes from a small enough map, loot placement, contested valuable areas, the noise of fighting, and Eliminated players' whole-Kit drops worth contesting.
 - If timeouts are more than occasional in testing, the next convergence feature is probably the smallest useful version of the Rift Collapse's shrinking playable area, not an unrelated mechanic against hiding. Evidence decides whether that ticket is needed.
 
 **PvE is breakable Rift Caches and stationary Sentries (2026-11-08).** It's the smallest PvE that can prove the run loop, and none of the larger monster system in [Monsters](monsters.md) is built for it. It exists to test that:
@@ -1554,7 +1554,7 @@ Replace the greybox `MatchMap` with the first real Arena, the **Rift Crown**: a 
 - **Cache kinds `Home`, `Forward` and `Crown` replace `Outer` and `Central`** in `Tuning.caches`, `Caches`, `LootRules` and the specs. Values are carried over, not retuned: Home and Forward use the Outer health (75) and 1 drop, Crown uses the Central health (120) and 2 drops.
 - The 24-drop loot layout and its **Ability deal**, and 3 Crown Sentries on the existing Sentry system (its values are unchanged).
 - Six spawn pads, the **spread-table assignment**, the **roster cap** and the assignment backstop.
-- The **arrival hold**, `goAt`, and the 480 s Match clock starting at GO.
+- The **arrival hold**, `goAt`, and the 480 s Match clock starting at GO (Ticket 22 raises `maxSeconds` to 600; the clock origin stays GO).
 - The **Crown seal** (`crownOpenSeconds`), implemented and tested here, not only prepared for.
 - **Void elimination** at `voidKillY`, cause `Void`, displacement credit and the inward Kit-drop offset.
 - Collapse-ready metadata and the **structural validator**, which only reads data. No Collapse behaviour.
@@ -1912,8 +1912,8 @@ Add (names are an implementation decision): `CrownOpened match= seconds= alive= 
 
 #### Deferred and unresolved
 
-- Rift Collapse mechanics, timing, telegraph, damage, and whether it ends at the Inner Crown or the Dais.
-- Fate of **Crown Sentries** (Layer 3) and of **loose Pickups and Kit drops** on a collapsing section.
+- ~~Rift Collapse mechanics, timing, telegraph, damage, and whether it ends at the Inner Crown or the Dais.~~ Resolved by [Ticket 22](#22-rift-collapse).
+- ~~Fate of **Crown Sentries** (Layer 3) and of **loose Pickups and Kit drops** on a collapsing section.~~ Resolved by Ticket 22 (Sentries are removed with Layer 3, loose loot is consumed, Kit drops use a live-floor fallback).
 - Warden stats, AI and aggro range, and the Warden slot hypothesis.
 - XP, equipment/Relic slot, loot beyond the 24 drops, Rank pacing tuning.
 - Cache stagger after the seal, the Match Intro, final art, audio and palette.
@@ -1930,10 +1930,536 @@ Add (names are an implementation decision): `CrownOpened match= seconds= alive= 
 - **No ADR required.** The existing ADRs record durable architecture (authority, movement, the status model, hitboxes, the MCP workflow, charging, one life). `voidKillY`, the kill-plane model and the 24-drop economy are tunable gameplay design, recorded here and in the design archive. Revisit only if one of them becomes hard to reverse.
 - The glossary terms for this map were reviewed against this ticket and carry no tunable numbers.
 
+### 22. Rift Collapse
+
+**Status: specified 2026-11-09 and reviewed adversarially the same day, not built.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-collapse-design.md`](rift-collapse-design.md); this entry is the build contract. Every number carries one of four labels:
+
+- **settled initial value:** a design decision that has a number. Changing it is a design change and is recorded here.
+- **tunable:** a starting value in `Config` that can change from evidence without a redesign.
+- **measurement-dependent:** confirmed or changed after a Studio measurement, with the consequence named beside it.
+- **test-only:** exists only in the TEMPORARY accelerated test configuration and is never committed.
+
+**Expected values and balance targets are not pass criteria.** A target (for example a typical Dais fight length) produces a tuning note. It does not keep this ticket open. Only the **Blocking completion criteria** below decide completion.
+
+#### Summary
+
+The Rift Collapse is the time-driven phase that removes the Rift Crown's ground, layer by layer from the outside in, until the survivors fight on the Dais. A fixed schedule is built at GO. Each layer gets a 30 s **Warning**, during which it stays completely normal, and is then **consumed** in one authoritative step. The Collapse deals no damage. Anyone left without ground falls, and the existing `Void` system handles the death. The Collapse is meant to be the normal way a Match ends, and the Match Timeout stays a technical failsafe.
+
+Desired rhythm: **Gather → Clash → Collapse → Final Fight.** These are derived labels used by telemetry, not Match states. The lifecycle stays Countdown → Running → Results, and the Collapse runs inside Running.
+
+#### Scope
+
+- `CollapseRules` (pure) and a small `Collapse` server module that `Match` drives: the schedule, its validation, the ordered event cursor and the effective-schedule shift.
+- Section states, Warning, atomic consumption by reparenting, restore, and the intact-map assertion.
+- Object cleanup on a consumed Section, the Kit-drop live-floor fallback, and the Sentry cancel.
+- The settle window and the Match-end integration, including `maxSeconds` becoming 600 and re-based on `goAt`.
+- The Dais Last Stand, with Layer 4 optional by configuration.
+- The replicated Match and Section state, the HUD line, the local alert, the world-telegraph states and their cleanup, and the accessibility requirements.
+- Telemetry, configuration, validators, specs, structural checks, the Studio matrices, the latency measurements and the Tidal publish gate.
+- Updates to `CONTEXT.md` and `docs/testing/studio-mcp-quirks.md`.
+
+#### Non-goals
+
+- **Any Rift damage:** ticks, ramps, storm damage, a damaging, slowing, blinding or pushing volume, Shield or Stone Guard interaction, or a Collapse killer or source for attribution.
+- **Any grace after removal:** a floating platform, temporary collision, a rescue timer, a teleport, a recovery state, or immunity for Stunned, Rooted or fighting players. A short **Unstable** stage is the named fallback if evidence shows deaths feel cheap. It is not built here.
+- **Layer 5 removal and any overtime:** consuming or shrinking the Dais, anti-stall pulses, sudden-death or combat modifiers, forced-draw mechanics.
+- **Dynamic timing:** roster scaling, survivor-based pause or acceleration, per-Section stagger.
+- **Loot relocation** (other than the Kit-drop fallback below), a Dais Cache or any new Dais objective.
+- **Wardens** beyond the generic despawn rule. No Warden AI, XP, drops, credit or aggro.
+- **Combat changes.** No Tidal, Hook, Stone Guard or Arc Burst retuning. If the Tidal gate fails, Layer 4 ships disabled and Tidal is not changed here.
+- Phase labels, a Crown-opening countdown or a second clock on the HUD.
+- Final art, audio, VFX, palette, fonts and icons. **No upload without explicit approval.**
+- Multi-session or multi-Arena support, pristine-map cloning, a generic world-effect ownership framework, an analytics backend, positional sampling.
+
+#### Dependencies on Ticket 21
+
+**Relies on:** the Section and connector metadata (`SectionId`, `CollapseLayer`, `CollapseParent`, `ShardId`, `ConnectorType`), `CollapseCenter`, markers that carry `SectionId`, the structural validator, slabs 12+ studs thick with sheer faces, the Dais as a self-supporting pillar, `arrivalHoldSeconds` and `goAt`, the Crown seal, `Void` at `voidKillY` with displacement credit and the inward Kit-drop rule, the 24-drop loot economy, Crown Sentries at r ≈ 27 (Layer 3) and Crown Caches at r ≈ 19 (Layer 4).
+
+**Requires from the Ticket 21 build:** the Crown ramps and Ribs belong to Layer 4, and the Sentry plinths and buttresses belong to Layer 3 (the Dais isolation check enforces the first). Each scheduled Section and connector model has exactly one stable home parent, whatever the folder layout is.
+
+**Amends Ticket 21:**
+1. `Tuning.match.maxSeconds` becomes **600** (it was 480), and the failsafe deadline is `goAt + maxSeconds`. Ticket 21 already moves the Match clock to GO.
+2. The Kit drop after a `Void` death validates against **live** floor with a `CollapseParent` fallback. Where the floor still exists, behaviour is exactly Ticket 21's.
+3. The structural validator gains the Collapse checks below, additively.
+4. Every item in Ticket 21's "Deferred and unresolved" list that mentions the Collapse is resolved here.
+5. Ticket 21's lip-margin rule applies to the **intact** map. After Layer 3 is consumed, Crown Caches (r ≈ 19) sit about 5 studs inside the new lethal lip at r ≈ 24. That is accepted and measured (see Review notes).
+
+#### Collapse gameplay model (**fixed**)
+
+- A Section has two gameplay phases: **Normal / Warning** and **Removed**. During Warning it stays fully solid, traversable, queryable and fightable, with no damage, movement penalty, vision penalty, push or status.
+- At removal time `T` the Section is removed from gameplay in **one authoritative step**.
+- **Players fight normally on a Warning Section until `T`.** Hook, Tidal Bolt, Arc Burst, Basic Attack, Stone Guard, Dash, Pickup collection, Cache damage and PvE all work. Nothing is pre-disabled because its floor is in Warning.
+- **The Rift is the absence of ground.** There is no airborne Rift volume.
+- **Death model:** the Collapse removes floor and the existing `Void` system handles the result. The death cause stays `Void`, and recent valid Hook or Knockback attribution still credits the pusher. Otherwise it is a self-fall. The Collapse never becomes a killer or a credit source.
+- **Accepted consequence:** a player who is Stunned, Rooted, Frozen or committed to a fight when `T` arrives falls with the Section. The fairness burden belongs to the Warning, the telegraph and a predictable order.
+- **Removed geometry invariant (fixed):** after a Section is Removed, **no authoritative gameplay query may behave as though its geometry still exists.** This covers character collision, Hook and `Cover:sweep`, line of sight, Sentry targeting and cover, projectile and environment queries, floor raycasts, Pickup floor validation and the camera and aim cover checks.
+
+#### Section states
+
+| State | Meaning | Allowed next state |
+|---|---|---|
+| `Normal` | Intact and not warned | `Warning` |
+| `Warning` | Intact, telegraphed, `CollapseRemovesAt` set | `Removed`, or `Normal` only through `stop()` at Match end |
+| `Removed` | In the holding folder, absent from gameplay | `Normal` only through a restore |
+
+- The authoritative state lives in the server registry. The `CollapseState` attribute on a Section model is a presentation replica for clients, and the server never reads it back.
+- **Only `Normal → Warning` and `Warning → Removed` happen at runtime.** There is no `Normal → Removed`, no second Warning and no second removal.
+- Connectors are Sections for state and telegraph purposes, with the same states, timestamps and effects. Dash gaps are markers with no geometry and need nothing.
+
+#### Atomic removal and the authoritative boundary (**fixed**)
+
+- **Atomic layer removal.** Every Section scheduled for an event is removed in one non-yielding update. No gameplay code may observe some Sections of the layer as Removed while others sharing the same `CollapseRemovesAt` are not, and there is no `ShardId` or `SectionId` priority. Visual crumble may stagger after the authoritative step. Gameplay never staggers.
+- **Boundary invariant.** Before any gameplay handler relies on Collapse-sensitive world state, every scheduled removal whose time has passed must already have been applied. Gameplay before the update for `T` sees the old world, and gameplay after it sees the fully removed world. There is no rollback, no retroactive hit correction, no partial Section state and no replay.
+- **Mechanism.**
+  - A lightweight Heartbeat step runs while the Match is active (GO to `stop()`).
+  - The existing Match-installed gates (`canAct`, `canCollect`, the target filter) and the Sentry loop also call `sync(now)`, so no ability gets its own call.
+  - The Heartbeat step keeps the worst-case error of pure geometry queries that don't pass a gate (projectile and Hook sweeps) to about one server frame. If testing shows that is not acceptable, fix it at the shared environment-query layer, not per ability.
+- **Consequences at the boundary.**
+  - A combat event accepted before the boundary resolves under the old geometry. One accepted at or after it resolves under the new geometry. That covers damage, Hook, projectile sweeps, Sentry fire, Pickup and Cache interaction.
+  - **Pickup collection:** removal wins if the collection attempt happens after the Section is Removed. The existing collection cadence (about 10 Hz) means up to about 0.1 s of granularity, which is documented and tested. No bespoke high-frequency loop.
+  - **Cache break:** a break completing in the removal tick produces no loot.
+  - **Sentry:** a shot may begin or resolve only if accepted before its Sentry is removed.
+  - **Projectiles** in flight survive and resolve against whichever world exists at their sweep.
+  - **Hook:** no special case. Normal Hook movement plus the removed geometry decide, and displacement credit applies as usual.
+- **Safety is the physical outcome.** The server does not classify a player as safe or doomed at `T`, and does not snapshot positions to pre-declare deaths. After removal, a player with live support keeps playing and one without falls. A `Void` elimination occurs only when the existing authoritative Void condition is reached. The server's view of "supported" is its observation of validated client movement (ADR-0002), so the plane crossing is the authoritative record of a fall. Client replication latency may cause a **presentation** discrepancy but never changes who survives, and no hidden server grace compensates for it.
+
+#### Schedule and timing
+
+**Representation (one source of truth):** each row is `{ layer, removeAt, warnSeconds? }`, in seconds from GO, with a global default `warnSeconds`. **`warnAt = removeAt − warnSeconds`** is always derived. Config never stores both. Rows must form a **contiguous prefix of Layers 1–4**.
+
+| Event | Time from GO | Label |
+|---|---|---|
+| Crown opens (Ticket 21, independent) | 1:00 | tunable |
+| Layer 1 Warning / removed | 3:00 / 3:30 | tunable |
+| Layer 2 Warning / removed | 4:15 / 4:45 | tunable |
+| Layer 3 Warning / removed (**Final Fight begins**) | 5:30 / 6:00 | tunable |
+| Layer 4 Warning / removed (**Last Stand begins**) | 6:45 / 7:15 | tunable |
+| Match failsafe (`maxSeconds`) | 10:00 | settled initial value |
+
+- Removal offsets in config are 210, 285, 360 and 435 s, **tunable**. `warnSeconds` defaults to 30 s, **tunable**.
+- The cadence is 30 s Warning, removal, 45 s stable gap, next Warning, a 75 s rhythm. The first-Warning tuning window is about 2:30–4:00, **tunable** (guidance, not a validation bound).
+- The Warning must be long enough for ordinary walking to evacuate a layer (the figure used when the Warning was settled is about 3–8 s of walking per layer), plus time to notice and finish a fight. The intent is that a player who notices the Warning in reasonable time can leave without a Dash.
+- **Absolute timestamps.** At GO every offset is converted to an absolute server time **once** (`goAt + offset`), and those are used for the rest of the Match. The Crown seal, the Collapse and the failsafe all use `goAt` as the origin. Timestamps are not recomputed from elapsed time.
+- **No dynamic timing.** The schedule never pauses, never accelerates, and doesn't change with survivor count or roster size. 2–6 players share it. If telemetry shows repeatable dead time in 2–3 player Matches, the first allowed experiment is a roster-band shift of the **first Warning only**, with the cadence unchanged. Not built here.
+- **One survivor** ends the Match normally after the existing end grace and never waits for the Collapse.
+- **Derived labels** (telemetry only): Gather is GO to the Crown opening, Clash is the Crown opening to the Layer 1 Warning, Collapse is the Layer 1 Warning to the Layer 3 removal, and Final Fight is after the Layer 3 removal. A Last Stand sub-label (`dais`) starts at the Layer 4 removal.
+
+**Scheduled, effective and applied times (stall handling).**
+
+- **Scheduled:** the configured offset from GO. **Effective:** the authoritative time after any stall-induced shift. **Applied:** when the update actually ran.
+- Events apply **strictly in order**. A later event never applies before an earlier one.
+- When an event applies late, `delay = applied − effective`. **That event's successors are all shifted by exactly `delay`**, so the 30 s Warning and 45 s gap are preserved. A late Warning therefore shifts its own removal by `delay` and every later Warning and removal by the same amount. A Warning is never skipped or shortened, and a Warning and its removal are never applied in the same update.
+- The HUD and clients use the **effective** times. Telemetry records scheduled, applied, effective and `delay`.
+- The failsafe margin is validated against the **effective** last event. If accumulated delay threatens the margin, record it as an abnormal server-performance condition. Do not shorten any Warning.
+
+#### Crown interaction
+
+- `crownOpenSeconds` stays independent of the Collapse and is not derived from Layer 1.
+- **Guard:** the first Warning must begin at least `firstWarnGuardSeconds` (**tunable**, 90 s) after the Crown opens. With the defaults that leaves 120 s of Crown contest before any pressure. An invalid combination disables Matches with a clear reason.
+- The Crown opening is an **event message** (the existing world and audio event plus a short message). It does not get a countdown in the main status slot.
+
+#### Final Crown and the Dais
+
+| Stage | Time | Playable ground |
+|---|---|---|
+| Crown Final Fight | 6:00 → 7:15 | Inner Crown (Layer 4) and Dais |
+| Dais Last Stand | from 7:15 | Dais (Layer 5) only |
+
+- **Layer 5 is never consumed.** The Dais stands until one survivor remains or the failsafe is reached. There is no further scheduled event.
+- **Layer 4 is an optional row.** Omitting it gives the permanent Inner Crown plus Dais (the configuration fallback). It is a development and balance fallback and is not a player-facing Match mode.
+- **Sentry-free Final Fight (fixed).** The Crown Sentries are removed with Layer 3 at about 6:00. **No PvE displacement source may remain active afterward.** A Sentry's push beside a lethal-edged Dais would be a cheap non-player ring-out. A future Warden must not be assumed active in the Dais phase.
+- **Crown loot.** From 6:00 to 7:15 the surviving Crown Caches and loose Crown loot stay usable. At the Layer 4 removal the Crown Caches follow the object-cleanup rules, loose Pickups on removed terrain are consumed, and loose loot already on the Dais remains. No loot is teleported. The Dais has no dedicated Cache or objective in v1.
+- **Dais edge.** The perimeter stays fully lethal. No railings, invisible walls, safety lips or partial parapets. If the Dais proves unfair, the first lever is the configuration fallback, then deliberate combat or proportion changes, never ad hoc barriers.
+- **Ability value on the Dais (accepted).** Tidal Bolt becomes the main ring-out threat, Hook is useful for pulling and setting up but is not the main ring-out ability (it pulls toward the caster), Stone Guard is weaker because a Shielded hit still lands its Knockback, and Arc Burst and Basic Attack stay useful up close. No Collapse-specific Shield or Knockback rule is added.
+- **Duration expectation (tunable, evidence only):** a typical Dais fight resolves in about 20–60 s. Repeated fights of 2+ minutes, or frequent Timeouts from the Dais, are strong tuning signals. The Dais can last up to about 2:45 before the failsafe.
+- **The Dais is not designed to drop everyone.** The Layer 4 removal should not routinely kill every survivor. The Dais is the validated inward parent and is comfortably reachable during the Warning.
+- **Accepted risks:** an early Dais occupant enters the Last Stand with recovered health and ready cooldowns (a positional choice, with no anti-camping rule). Five or six players on the Dais may be chaotic (measured, and the Dais is not enlarged for it). A displacement-dominant final fight is intended up to a point.
+
+#### Tidal publish gate (**measurement-dependent**)
+
+The documentation still contradicts itself on Tidal's push distance (about 5 studs on a tap in the later note, 25 on a tap and 40 charged in the older one).
+
+> **Layer 4 must not be enabled in a publish candidate until tap and charged Tidal displacement have been measured on representative flat ground and on the final Dais greybox.**
+
+- **Measure at least:** tap Tidal from the centre and from common mid-radius positions, charged Tidal from the centre and near the rim, the target with and without movement input, a separate Dash-after-hit recovery test, and Stone Guard (confirm the Shield does not prevent Knockback; if it does, that is a correctness bug to fix before the result is read).
+- **Initial operational criterion for "likely lottery"** (measurement-dependent, not a balance law): a single charged Tidal hit on a victim whose `hitRadius` (the **victim's** radial distance from the Dais centre) is about **6 studs or less** can reliably ring them out from otherwise neutral conditions, with no prior edge pressure and no movement mistake. The baseline has the victim stationary or moving ordinarily, with Dash not used. If surviving a centre hit normally requires spending Dash every time, record that as strong evidence the Dais is displacement-dominant even if the strict criterion is not met.
+- **The gate is blocking to perform and record, not blocking on a result.** If the Dais is acceptable, Layer 4 may ship enabled. If it is a lottery, this ticket still completes and **Layer 4 ships disabled** (the permanent Inner Crown). Do not redesign Tidal inside this ticket, and do not nerf it silently.
+- Telemetry (`chargeBand`, `hitRadius`, `hitDist`) complements the gate and does not replace it.
+
+#### Objects on a removed Section
+
+- **Static objects** inherit the `SectionId` of the marker they were built from: unopened Caches, broken-Cache remnants, Sentries (and any wreck), future Warden slots and any other Section-owned static objective. They are removed with the Section.
+- **Loose Pickups** are consumed when, after the geometry is removed, their support ray finds no live floor. The ray uses the same bounded distance as the existing Pickup floor validation. No Pickup needs a Section id.
+- **No loot relocation (fixed).** Loose Pickups, whole-Kit drops already lying on the floor and Cache contents are never teleported inward. Loot left on consumed ground is lost, which is intentional scarcity.
+- **Order of one removal step:** (1) set the state to Removed and remove the geometry from collision and queries; (2) remove the Section's static objects, cancelling any Sentry Telegraph and pending fire; (3) sweep loose Pickups for support; (4) same-tick interactions see the removed world, and removal wins over a collection or a Cache break completing in that tick; (5) players then fall through the existing Void pipeline.
+- **Caches:** every kind is removed with its Section, intact or broken, with no compensation, no automatic inward spawn and no refund. A sealed Crown Cache on removed ground (an invalid configuration) follows the same rule. No special recovery is built.
+- **Sentries** stay fully active until their Section is Removed, then vanish at once. There is no early shutdown phase, and no shot may resolve afterward.
+- **Projectiles** are combat objects and survive their source Section's removal. They end by their normal rules and see the new world.
+- **Future Wardens** belong to their slot's Section and despawn with it. A Collapse despawn gives no XP, credit or loot unless the Warden ticket says otherwise.
+- **Future persistent world objects** must either carry a Section's id or be removable through the same support check. No generic framework is built for them now.
+- **Kit-drop fallback.** A newly generated whole-Kit drop (a `Void` death, or a health death in the removal tick) resolves like this:
+  1. Start from the player's `lastGrounded` and apply the existing inward-offset attempt.
+  2. Validate against **currently live** floor.
+  3. If that ground was consumed, walk the Section's `CollapseParent` chain inward and use the nearest valid floor point on the nearest surviving ancestor. The chain is the only search. There is no navmesh, global nearest-floor search or pathfinding.
+  4. Validate the resulting point (and each spread point) against live floor.
+  5. If no live floor exists, the Kit is consumed. It is never spawned over void.
+  A Kit that was already loose on doomed ground before `T` follows the loose-loot rule and is consumed. A late kill whose loot is lost moments later is an **accepted harsh case**, measured and not softened here.
+- The registry caches each Section's bounds, home parent and parent link, so the fallback never needs the removed model in `Workspace`.
+
+#### Match ending, settle window and simultaneous deaths
+
+- **Settle window.** `collapseSettleSeconds` (**measurement-dependent**, 1.5 s as the starting value) begins at the **applied** removal time, not the scheduled one. `settleUntil = max(settleUntil, removalAppliedAt + collapseSettleSeconds)`. Repeated updates never restart it.
+- **No verdict resolves inside the window.** Winner, `NoSurvivors` and Timeout all resolve at `max(existing end-resolution deadline, settleUntil)`. The existing end grace stays and the Collapse adds no result logic of its own. A zero-Alive result cannot change, but it still waits for uniformity, a delay of at most the window. During a pending end the lone survivor cannot act or collect, as today, for at most that long.
+- The window is **global**: it is not tied to which deaths were "caused by the Collapse". All deaths count normally during it.
+- **After the window,** the existing result rules apply: exactly one Alive wins, none is `NoSurvivors` (a draw), more than one continues. There is no timestamp, last-to-fall, ping, damage, kill-count or combat-credit tiebreak, and no co-winners.
+- **Results:**
+  - Two survivors lose floor together: `NoSurvivors`, regardless of crossing order.
+  - One safe and one falling: the safe player wins only after the window.
+  - A combat death and a fall in the same window: if both are dead at resolution, `NoSurvivors`.
+- **Attribution is per victim.** A Hook-and-fall pair can end in `NoSurvivors` while the Hooker keeps the kill credit. Winner resolution and elimination attribution stay separate.
+- **Harsh trade (accepted):** a player who kills the last opponent and then falls inside the window gets `NoSurvivors`, not a win. It is logged.
+- **Validation of the value:** it must exceed the measured worst-case server-side Void offset from a player who loses support at the highest relevant point (plus one loop tick and a processing margin), and stay dramatically shorter than the stable gap. It is tuned from the latency measurements, not fixed.
+- **Principle:** the window is a correctness fallback. If a future final removal would routinely drop everyone, fix it in the final-Crown design, not by relying on `NoSurvivors`.
+
+#### Runtime architecture
+
+- **`CollapseRules`** (pure) holds config validation, the schedule derivation, next-event derivation, ordering and timing invariants, the shift and settle calculations, the phase-label function, and the HUD presenter (a pure map from attributes and time to a presentation state). It never touches `Workspace`.
+- **`Collapse`** (server) holds the Section registry, state mutation, object cleanup, reparenting, telemetry emission and the replicated attributes. It is **driven by `Match`**, in the same way `Caches` and `Sentries` are. Its surface is `start(goAt, matchId, config)`, `update(now)`, `sync(now)` (the gate-facing alias), `settleUntil()`, `stop()` and `reset()`.
+- **`Match` stays the authoritative owner** of when Collapse starts, stops and resets and which Match it belongs to. It passes `settleUntil()` into the end check, so `MatchRules` stays pure.
+- **Dependencies are passed in:** the map root, holding folder, clock and telemetry sink. That is what lets the specs use a fixture and never touch the real Rift Crown.
+- **Match identity.** Runtime state is stamped with the current `matchId`, and a delayed callback from an older Match is ignored and counted. No generic session framework.
+- **Ordered cursor and idempotency.** Events are an ordered list with a cursor. The cursor advances only after the event's mutation, cleanup and sweep completed. Operations check state first, and retries never repeat finished side effects, with no transaction framework. Cleanup and telemetry happen once per event.
+- **Telemetry never blocks.** It is attempted once inside a protected call. A failure is contained, the gameplay event still completes, the cursor advances, and the failure cannot replay the removal. Do not require a log line proving the logging itself failed.
+- **Dormancy.** With the Reference Kit nothing is installed, no Heartbeat step runs and no attributes appear, as with Tickets 17 and 18.
+- No multi-session abstractions. No independent service with its own Match lifecycle.
+
+#### Removal mechanism, restore and reset
+
+- **Consumption is reparenting.** At removal each consumed Section or connector model moves from its active home into a **private holding folder** (server-only, under `ServerStorage`). This removes it from collision, queries and rendering at once, and avoids a per-part flag snapshot. Merely setting `CanCollide = false` is not enough.
+- **The holding folder holds only consumed models** of the current Match's map and is never a second permanent map hierarchy. Each model's stable home parent is recorded when the registry is built.
+- **Restore points (both idempotent).**
+  1. **Primary:** at the end of Results, when everyone is back in the Hub: clear the runtime PvE and loot objects, restore the consumed models to their home parents, reset states and attributes, and verify integrity. Restoration must complete before the next Match rebuilds Caches and Sentries from markers. Restoring a large model replicates to every client (`StreamingEnabled` is off), which is why it does not happen at Match start.
+  2. **Safety net:** at the start of Match setup, restore and assert again before any marker discovery or character placement. A Match never assumes the previous one cleaned up.
+- **Intact-map assertion.** Before a Match can begin: the holding folder is empty, every registered Section and connector is present, every state is `Normal`, no stale removal attribute remains, and the Ticket 21 structural validator still passes. If not, **refuse Match start with a clear diagnostic** and log `CollapseResetFail`. Never start on a partly restored Arena.
+- **Caches, Sentries and Pickups keep their lifecycle.** They are cleared at Match cleanup and rebuilt from the authored markers for the next Match. The restore only restores authored geometry and markers.
+- **Cached geometry.** Other gameplay code must not hold stale descendant Part references to Sections that may be reparented. The Collapse registry itself may cache identity, metadata, bounds, home parent and parent link. This is checked with a targeted grep at implementation time, not an anti-cache framework.
+- **No pristine-map cloning** per Match. Revisit only when concurrent Arenas become real.
+- **Studio and Edit-mode safety.** Collapse runtime tests that consume Sections run in **Play**. Any Edit-mode tooling capable of invoking a removal must refuse by default or guarantee restoration in a `finally`-style cleanup. A test run must never save a place with half the Arena in `ServerStorage`. The intact-map assertion is a pre-test and pre-snapshot check.
+- **Client effects.** When a Section model disappears, its local veins, beacons and effects clean themselves up, with no orphan at the old location. Any cosmetic debris is spawned client-side from cached bounds and has no authoritative collision or query role.
+
+#### Replicated Match and Section state
+
+Use the existing Workspace-attribute convention. No new remotes are required. Anything routed through a remote must pass `Protocol.validate`.
+
+| Workspace attribute | Meaning |
+|---|---|
+| `CollapseLayer` | The next relevant event's layer (1–4), or **`0`** for the final-ground sentinel (no further event; presentation only, not a real layer). Absent or cleared before GO and outside Running. |
+| `CollapseWarningAt` | Effective Warning start of that event |
+| `CollapseRemovesAt` | Effective removal time of that event |
+| `CollapseWarning` | Boolean, **true only after the server has actually applied the Warning**, false once that layer is removed |
+
+| Phase | Attributes |
+|---|---|
+| Before GO, outside Running | absent or cleared |
+| Stable, next event pending | `CollapseLayer` = n, `CollapseWarning` false |
+| Warning applied | `CollapseWarning` true, `CollapseWarningAt` and `CollapseRemovesAt` effective |
+| Layer removed, another follows | next layer's values, `CollapseWarning` false |
+| Final ground | `CollapseLayer` = 0, no timestamps |
+| Match end | all cleared |
+
+- Each Section or connector model carries only `CollapseState` and `CollapseRemovesAt` for the local and world telegraph. Clients do not receive `CollapseParent`, the registry, cleanup ownership, the cursor or telemetry state. If the escape arrow needs more than the parent's position, expose a small precomputed escape target, not the registry.
+- Clients derive presentation from these timestamps every frame, with no local countdown accumulator. A stall-induced shift can make a countdown jump up. That is not a gameplay event.
+- Warning style and the world telegraph key from `CollapseWarning` and the per-Section state, never from `CollapseWarningAt ≤ now` alone.
+
+#### World telegraph requirements
+
+Required states and anchors only. Exact materials, colours, particles, meshes and sounds stay with the art pass.
+
+- Every Warning Section **visibly changes**: Section-wide Rift veins or cracks, a rhythmic pulse, and a vertically readable beacon or column that can be identified from another Shard. Effect positions are derived from Section bounds. If that does not reliably give a visible point on an irregular or concave Section, use the smallest robust fallback (for example, a floor sample or a per-Section escape or beacon target). Do not build geometry sampling.
+- **Phase lock:** Warning Sections sharing a removal time share the same pulse rhythm, so a pulse never implies a different deadline. Crumble stagger is allowed only around or after removal.
+- **Client tiers (derived, not authoritative states):** Early 30–10 s, Urgent 10–5 s, Final 5–0 s (**settled initial value**).
+- **Threshold cues:** at 30 s, a brief global announcement and sting with the world Warning; at 10 s, the Urgent presentation; at 5 s, the explicit local final countdown with a per-second cue only for players on Warning ground; at `T`, a positional removal cue. No global per-second ticks.
+- **Contrast principle:** Warning ground looks unstable and its inward parent looks stable. No glowing path to safety is drawn.
+- **Arrow:** a simple screen-space arrow toward the nearest useful point of the player's Section's `CollapseParent`. Warning connectors get no arrow. If the nearest parent point can point through blocked geometry, use a small authored or derived escape target per Section, not a general navigation system.
+- **Accessibility:** colour is never the only channel. Combine text and numbers, pulse rate, pattern, the beacon and audio, and give every important sound a visible equivalent.
+- **Mobile and controller:** key HUD information stays in safe top-centre space away from thumb zones, with no hover dependency, no tiny world-only countdown text, and nothing needing a precision cursor.
+
+#### HUD behaviour
+
+One contextual line in the **existing top-centre Match status slot**. There is no permanent second Collapse row, no permanent Match-time row and no phase strip.
+
+| State | Content (format, not final copy) |
+|---|---|
+| Arrival hold, before GO | `N alive` |
+| GO to the first Warning | `N alive · Outer consumed in M:SS` |
+| During a Warning | the same sentence with stronger presentation |
+| Between removals | the next layer's countdown, such as `Middle consumed in 1:15` |
+| Final ground (`CollapseLayer` = 0) | `N alive · LAST GROUND` |
+| Last 60 s of the failsafe | `LAST GROUND · match ends in 0:48` (alive count if the layout allows) |
+| Results | hidden, as today |
+
+- **Layer names** are Outer, Middle, Approach and Inner Crown, localized. Layer numbers and internal ids are never shown to players.
+- **Alive count** stays visible throughout, inline on desktop and on a compact second row if a narrow screen needs it.
+- **Gather, Clash, Collapse and Final Fight are not shown to players in v1.**
+- **Warning presentation:** the wording stays stable and the styling becomes more urgent: stronger weight, a visible non-colour marker, a pulse synchronized to the authoritative Warning, a faster pulse from 10 s, and a more prominent countdown in the last 5 s. No global per-second audio.
+- **Local danger alert:** a separate component **directly beneath** the global line. It never covers it. It shows only while the local player stands on a `Warning` Section, with explicit danger wording, the seconds remaining and the arrow. The duplication is intentional: the global line says what is happening in the Match, the alert says that you personally are in danger. Both derive from the **same** effective timestamp.
+- **The alert clears immediately** when the player reaches non-Warning live ground, the Section is removed, the Match ends, or the player stops being an active participant. It never lingers while spectating.
+- **Spectators** get the global line and the world telegraphs, with no local alert or arrow, and the existing spectator text must stay compatible. A compact second line is acceptable.
+- **Hub viewers** of a Running Match may get the simplified active-Match status, with the next Collapse countdown if it is cheap. They get no alert and no arrow. No separate spectator dashboard is built.
+- **Countdown rules (fixed):** whole seconds only, `M:SS` on the global line, plain integer seconds on the alert if that reads better. **Round up:** `displaySeconds = max(1, ceil(removesAt − now))` while that removal is the active next event, and never show `0` or `0:00`. As soon as the server publishes the next event, switch to it, or to `LAST GROUND`. The display rounding is presentation only and implies no extra grace.
+- **Failsafe precedence:** the failsafe stays hidden until its last 60 s. If a real Collapse countdown and the failsafe notice ever overlap (an abnormal delay), Collapse wins, and the overlap is logged.
+- **The Crown opening** is an event message only.
+- **Localization:** entries use named placeholders (for example `{alive}`, `{layer}`, `{time}`) and are never grammatical concatenation. Keys: the alive text, the consumed sentence, `LAST GROUND`, the match-ends notice, the Crown-opened message, the Warning announcement, the local alert and the four layer names.
+- **Presenter function:** pure, from the replicated attributes, a synchronized server-time estimate, the alive count, the Match end data and the player or spectator context to one of stable, warning, final, failsafe or hidden, with the layer key, the displayed seconds and the tier. Unit-testable without rendering.
+
+#### Telemetry
+
+Console lines in the existing key=value style. New lines use the `[Riftfall][Collapse]` prefix and carry `match=` and `t=` (seconds since GO). Existing `[Riftfall][Session]` lines stay where they are, and `MatchEnd` and `MatchResult` remain the canonical result. No periodic coordinates, heatmaps, backend, per-frame or per-hit logging, client telemetry framework or new personal data (keep the existing player identifier convention, and log only Section names and radius numbers).
+
+| Line | Content |
+|---|---|
+| `CollapseStart` (at GO) | player count, schedule, `warnSeconds`, settle seconds, `crownOpenSeconds`, `maxSeconds`, `voidKillY`, whether Layer 4 is enabled |
+| `CollapseWarn` | layer, scheduled and applied Warning times, effective removal, delay, cumulative shift, Alive count, Alive players on that layer's ground, `fullKits` and `rank2Players` if cheap |
+| `CollapseTick` (10 s and 5 s) | layer, Alive count, Alive players still on Warning ground (and identifiers per the existing convention) |
+| `CollapseRemoved` | layer, scheduled, effective and applied removal times, delay, Alive count, Sections removed, static objects removed; loot lost as compact counters (Caches by Home, Forward and Crown, loose Pickups total with Ability and Rank, whole Kits, Sentries); for Layer 4, Alive entering the Dais-only state |
+| `CollapseExposed` | one row per player supported by ground being removed, at the removal boundary: identifier, Section, distance to the parent boundary if cheap, recent damage, Stunned, Frozen or Rooted, whether on Warning ground at T−10 or arrived later, and Dash readiness only if Movement already exposes it. A telemetry sample only. It never feeds gameplay and does not mean "dies later". |
+| `KitDropRelocated` | emitted only when the live-floor fallback changed the placement: original and target Section, hops if useful, success or failure with a reason |
+| `QuietSpan` | with at least 2 Alive and no player-versus-player damage for 45 s, then at most once per 30 s: Alive count, derived phase, Section occupancy counts (no coordinates). PvE and Sentry damage don't count as activity. |
+| `CollapseShift` | only when the effective schedule shifts by more than 0.25 s: event, delay, cumulative shift, failsafe margin remaining |
+| `CollapseResetFail` | a failed restore, a non-empty holding folder, a failed integrity or structural check, with a concise reason, visible when Match start is refused |
+| `CollapseSummary` | one line (or at most a couple of clearly named lines) at Match end, see below |
+
+**Extended existing lines.**
+- `Eliminated` gains, where they apply (absent otherwise): `phase` (gather, clash, collapse, final, dais), `sinceRemoval`, `settle`, the displacement source, Ability, charge band (tap or charged), credit age, **`hitRadius`**, **`hitDist`**, and `fallsAfterDash`. `hitRadius` is the **victim's** radial distance from the relevant Arena, Crown or Dais centre **at the moment the displacement hit was authoritatively accepted**, taken from the authoritative combat position and not derived at death.
+- `CrownOpened` gains the Alive count, full-Kit count and Rank 2 player count.
+- Progression snapshots (Alive, full Kits, Rank 2) are taken at the Crown opening, the Layer 1 Warning and Dais entry. Kit state is never sampled continuously.
+
+**`CollapseSummary` content:** player count, Match duration and end cause; `firstPvpAt` (the first authoritative player-versus-player damage event), `firstElimAt`, the longest quiet span and the quiet-span count; compact `event:alive` checkpoints for the Crown opening, each Warning and removal, and Dais entry; PvP damage and eliminations by phase and cause; Void counts (credited, self, during a settle window); loot loss (Caches, Ability Pickups, Kit drops consumed, relocations, relocation failures); the Dais (players entering, duration, how the Match ended, Dais eliminations, Dais Timeout); runtime health (maximum delay, shift count, resolutions deferred by the settle window, stale callbacks rejected, reset failures). Time between eliminations is derived from the existing `Eliminated` timestamps. A stale callback gets a counter, not a line, with one diagnostic if the count is unexpectedly high.
+
+Telemetry provides evidence. Humans make the "fair or unfair" judgement, and nothing classifies a death automatically.
+
+#### Required configuration values
+
+Everything lives in `Config` (the existing tuning module), not in logic. Names are an implementation decision.
+
+| Key | Start | Label |
+|---|---|---|
+| Layer rows: `removeAt` for Layers 1–4 | 210, 285, 360, 435 s from GO | tunable |
+| `warnSeconds` default (rows may override) | 30 | tunable |
+| `warnSeconds` mechanical minimum | 10 (only because the presentation has 10 s and 5 s thresholds. It does not mean 10 s is a good Warning.) | settled initial value |
+| First-Warning tuning window | about 150–240 s | tunable (guidance) |
+| `firstWarnGuardSeconds` (after the Crown opens) | 90 | tunable |
+| `failsafeMarginSeconds` (after the last effective event) | 120 | tunable |
+| `Tuning.match.maxSeconds` | 600 | settled initial value |
+| `collapseSettleSeconds` | 1.5 | measurement-dependent |
+| Settle at most this fraction of the smallest stable gap | 0.25 | tunable |
+| Layer 4 row present | yes (omit for the permanent Inner Crown) | settled initial value, with the shipping decision measurement-dependent (Tidal gate) |
+| Tier thresholds (Early / Urgent / Final) | 30–10 / 10–5 / 5–0 s | settled initial value |
+| `CollapseTick` snapshots | 10 s and 5 s | settled initial value |
+| Failsafe notice window | last 60 s | settled initial value |
+| `QuietSpan` | 45 s, then every 30 s | tunable |
+| `CollapseShift` log threshold | 0.25 s | tunable |
+| Dais radius and area (from Ticket 21) | about 14 studs, about 600 studs² | tunable (Ticket 21, greybox-validated), reference only |
+| Lottery criterion `hitRadius` | about 6 studs | measurement-dependent |
+| Typical Dais fight length | about 20–60 s | tunable (expectation, evidence only) |
+| Latency pass margin | 0.25 s | settled initial value |
+| Latency settings, blocking / stress | 0, 100, 250 ms / 500 ms | settled initial value |
+| Samples per blocking latency setting | at least 5 | settled initial value |
+| **Accelerated test schedule** | `crownOpenSeconds` 0, `firstWarnGuardSeconds` 0, `warnSeconds` 15, removals 60 / 100 / 140 / 180 s, `maxSeconds` 300 | test-only |
+
+#### Config validation (`CollapseRules.validate`, runs before a Match starts)
+
+An invalid configuration refuses Match start with a clear reason. It never produces a silent default or an unplayable Match. It rejects:
+
+- a layer outside 1–4, any Layer 5 row, or rows that are not a contiguous prefix from Layer 1 (`[1,3]`, `[1,2,4]` and `[2,3,4]` are invalid, `[1]`, `[1,2,3]` and `[1,2,3,4]` are valid)
+- removal offsets that are not strictly increasing
+- a non-positive `warnSeconds`, or one below the mechanical minimum
+- a Warning that begins before the previous scheduled removal
+- a first Warning closer than `firstWarnGuardSeconds` to `crownOpenSeconds`
+- `maxSeconds` below the last **effective** removal plus `failsafeMarginSeconds`
+- a settle window larger than the allowed fraction of the smallest stable gap
+- a scheduled layer with no Section in the active map
+
+#### Structural checks (read-only, safe in Edit mode, blocking)
+
+They also run as the first step of `RunAll`, at Match start (the intact-map assertion) and before a `.rbxl` snapshot is saved.
+
+1. Every scheduled layer has at least one Section.
+2. Every `CollapseParent` exists, with a strictly later layer, and every chain reaches the Layer 5 Dais.
+3. **Dais isolation (the actual requirement):** after a theoretical Layer 4 removal, no collidable or queryable geometry remains around or inside the intended final arena except Layer 5 Dais geometry and explicitly allowed non-gameplay presentation objects. A presentation part is exempt only if `CanCollide = false`, `CanQuery = false`, and it cannot affect Hook, projectiles or line of sight. This catches terrace or ramp stubs, Rib fragments, invisible collision and ornamental blockers. The Dais must be flat and readable on top, surrounded by clearly lethal faces, and structurally self-contained.
+4. No Layer 5 event is scheduled.
+5. The holding folder is empty before a Match.
+6. The Section and connector registry is complete and every Section is `Normal`.
+7. No stale Collapse attributes exist on Sections or `Workspace`.
+8. **Every scheduled Section and connector model has exactly one stable recorded home parent suitable for reset.**
+9. The Ticket 21 structural validation still passes.
+10. **Edit-mode integrity after Play:** after a Play test that consumed Sections, stop Play, inspect Edit mode, rerun the active-map integrity check, and verify nothing from the runtime mutation persisted into the authored map.
+
+#### Pure automated specs (all blocking)
+
+Specs run against a **fixture** map (about 3 Sections with a parent chain, a connector, a marker and static object, and a loose Pickup with support) passed in as the Collapse's dependencies. **Automated specs must never be able to leave the authored Rift Crown partly consumed.**
+
+- **Schedule:** the default is valid with `warnAt` derived. A Layer 4 row omitted is valid. `[1,3]`, `[1,2,4]` and `[2,3,4]` are rejected. Out-of-order or equal times are rejected. A Warning starting before the previous removal is rejected. `warnSeconds` below 10 is rejected, and 30 accepted. The Crown guard and the failsafe margin (against the effective last event) are enforced. A Layer 5 row is rejected. The schedule is the same for rosters of 2 and 6.
+- **Runtime:** a Warning applies once. A removal applies once, and only from Warning. Several overdue events apply in order. The cursor advances only after the event completes, and a failed event retries without repeating finished side effects. A stale `matchId` callback is ignored and counted. `CollapseWarning` is false until applied, true during Warning, false after removal, and absent outside Collapse. The `CollapseTick` snapshots fire once each. The Collapse is dormant with the Reference Kit.
+- **Schedule-shift chaining (direct regression for the Point 7 amendment):** Layer 1's Warning applies late, its removal shifts, **every later Warning and removal shifts by exactly the same amount**, their 30 s Warning and 45 s gaps remain intact, a Warning and its removal are never applied in the same update, and the failsafe-margin validation uses the final effective event.
+- **Settle:** the window starts at the applied removal time, repeated `update` calls never restart it, and `settleUntil` only moves forward.
+- **Telemetry failure:** telemetry is attempted once, failure is contained, the gameplay event completes, the cursor advances, and the exception cannot replay the removal later.
+- **Removal:** static Section objects are removed. Loose unsupported loot is consumed and supported loot kept. A projectile is not destroyed merely because its source floor disappears. A pending Sentry fire is cancelled and nothing fires after the boundary. Removal beats a same-tick collection or Cache break.
+- **Kit-drop fallback:** both branches. With a surviving ancestor the Kit lands on live floor. With none it is consumed. A floor query verifies the location, not just a log line. Spread points are validated against live floor. Displacement records carry `chargeBand`, `hitRadius` and `hitDist`, taken at hit time.
+- **Match ending:** one survivor after the window is a `Winner`. Zero is `NoSurvivors`. A combat trade inside the window resolves after it. `resolveAt = max(end grace, settle deadline)`. Raw death-event order never decides the verdict. The existing trade and grace specs still pass unchanged.
+- **Reset:** consumed models are restored to their recorded homes, the holding folder ends empty, states and attributes are `Normal` and clear, and marker-driven systems rebuild afterward. A second restore is a no-op. A failed integrity check refuses the next Match start and logs `CollapseResetFail`.
+- **HUD and helpers:** the presenter (every state, the round-up rule, never `0` or `0:00`, a stall-induced jump, failsafe precedence), the `QuietSpan` rules (45 s, repeats every 30 s, PvE damage not counted), the phase-label function, and Section occupancy counting.
+
+#### Studio matrix (Play only for anything that consumes Sections)
+
+Timing-critical cases are **armed against an absolute server timestamp** in advance (read `CollapseRemovesAt`, then use a server-armed action or `task.delay` to a fixed absolute time on each client), never by hand through tool latency. The purpose is **server ordering**, not human reflexes. Brief testers per `studio-mcp-quirks.md` (check rendering first, keep calls short, run the most important checks first).
+
+The test configuration is the **test-only** accelerated schedule above, with the guards adjusted through explicit configuration. No production guard is bypassed in code, and the real baseline is never changed to speed up Studio.
+
+**S1: solo Play (blocking, real map).**
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | Lifecycle | Normal → Warning → Removed per layer, once each, in order. Section and Workspace attributes are correct, and `CollapseWarning` toggles as specified |
+| 2 | Removed-geometry invariant, per layer | Character collision, Hook sweep, line of sight and floor raycast no longer see the Section |
+| 3 | Stay on Layer 1 until removal | Fall, `Void`, `sinceRemoval` and `settle` logged |
+| 4 | Leave at 10 s, 5 s and about 1 s | At 10 s and 5 s, ordinary walking is enough **from a defined position** (a point whose measured walking time to the parent boundary is within the remaining time, with margin). At about 1 s, the outcome is **recorded, not required**: whether it survives depends on the start point. It is evidence for last-second responsiveness, timestamp and UI alignment and boundary behaviour, and is not a map requirement |
+| 5 | Fight while the Section is Warning | Basic Attack, Dash, abilities, damage and Pickup interaction all still work until `T` |
+| 6 | Pickup at the boundary (absolute-time armed) | A collection before `T` succeeds. One at or after the removal loses to the removal |
+| 7 | Cache break at the boundary (armed) | A break before `T` produces loot normally. One in the removal tick or later produces nothing |
+| 8 | Sentry Telegraph crossing removal | The Sentry enters its Telegraph before `T`, the Section removes, the Sentry vanishes, and no delayed projectile or damage resolves. Check the log and any stale callbacks |
+| 9 | Layer 3 → Final Fight | Sentries absent, no pending Sentry attack, the Inner Crown still valid, Crown Caches still functional, and the global HUD points at Layer 4 if enabled |
+| 10 | Layer 4 → Dais | The Dais is the only authoritative ground, terrace loot without live floor is gone, Dais loot remains, no Crown Cache remnants, the HUD shows final ground with no Layer 5 countdown, and no Sentry or PvE displacement source remains |
+| 11 | Failsafe | A one-row schedule with a short `maxSeconds` that satisfies the margin shows the notice in the last 60 s, then `MatchEnd cause=Timeout` |
+| 12 | Countdown | Derived from the timestamp, no drift over a Warning, the 30 → 10 and 10 → 5 thresholds, the 1 → removal transition, never `0` or `0:00`, a stall-induced shift, and the final-ground transition |
+| 13 | Presentation state | Section warning effects appear, tiers transition, removal clears them, no orphan effect remains, and the next Match creates fresh effects |
+| 14 | Second Match | See "Reset proof" below |
+| 15 | Six-roster sanity | The Collapse and telegraph state function with a six-player roster, the spawn system fits all six, and six rigs or players can stand on the Dais without a geometry problem |
+
+**S2: two clients (blocking).** The developer starts a Server & Clients session.
+
+| # | Check | Expected |
+|---|---|---|
+| 16 | Fight while both players are on Warning terrain | Nothing is disabled until `T` (as in 5) |
+| 17 | Two players fall on different Sections simultaneously | `NoSurvivors`, with the verdict at or after the applied removal plus the settle window, regardless of which plane crossing is observed first |
+| 18 | One safe, one falls | The safe player wins only after the settle and end grace |
+| 19 | Combat death and a fall in the same window | If both are dead at resolution, `NoSurvivors`. Raw death-event order does not decide it |
+| 20 | Hook or Tidal displacement just before removal (armed) | Normal displacement. Credit stands, and the outcome follows the physical state |
+| 21 | Whole-Kit drop where the original ground has vanished | Both branches: a surviving ancestor, so the Kit lands on live floor (verified with a floor query, not only `KitDropRelocated`), and no live ancestor, so it is consumed |
+| 22 | Dais Last Stand, 2 players | The Dais is the only ground and the fight resolves there |
+| 23 | Spectator | The global line and world telegraphs, with no local alert or arrow |
+
+**Reset proof (blocking, the most important check).** Match 1: consume several layers, produce loot, PvE and runtime mutations, and finish the Match. Match 2 must then start, not merely inspect the map: the Arena fully restored, every Section `Normal`, fresh Caches, fresh Sentries, no stale Pickups, no stale Warning attributes, the holding folder empty, the Collapse starting from Layer 1 again, and zero stale callbacks from Match 1 affecting Match 2. Also end one Match mid-Warning and confirm that Warning returned to `Normal`.
+
+**Latency (blocking measurements).** Run at 0, 100 and 250 ms, with 500 ms as stress evidence only, on the observing client, with at least 5 samples per blocking setting from a repeatable armed fall test. Record the server's applied removal time, the client's receipt of the updated attributes, the client's geometry disappearance, the start of the visible and physical fall, the server's Void elimination time, `sinceRemoval`, and the displayed countdown at the authoritative removal. Studio's network simulation is not a model of a real high-ping client (`IncomingReplicationLag` understates what a laggy player sees of targets), so record that limitation.
+
+> **Pass rule:** across the blocking settings, the worst measured **server-side** Void elimination offset for a player who loses support at removal, **plus 0.25 s**, must be at most `collapseSettleSeconds`. If it is not, tune `collapseSettleSeconds`, rerun and record the chosen value. That is a result, not a design failure. Client-side visual delay is measured separately as fairness evidence. If latency makes the last second visually unfair, improve synchronization and presentation first. Do not make client receipt authoritative and do not add a gameplay grace.
+
+**Tidal gate:** as specified above, performed and recorded.
+
+#### Blocking completion criteria
+
+1. All automated specs are green in Play (`RunAll` on the server).
+2. The structural and integrity checks pass.
+3. The S1 real-map matrix passes.
+4. The S2 two-client matrix passes.
+5. Reset is proven by actually starting a second Match.
+6. The latency settle-margin test passes, after any required tuning of `collapseSettleSeconds`.
+7. The Tidal measurement gate is performed and documented.
+8. The Layer 4 enable or disable decision follows the Tidal result.
+9. Warning and presentation state create and clean up correctly.
+10. No stale Match or Collapse callback affects a later Match.
+11. Temporary tuning, network settings and test aids are restored.
+12. The Edit-mode authored Arena is intact afterward.
+13. The Studio and MCP quirks documentation is updated where needed.
+
+#### Balance evidence (recorded, not pass or fail)
+
+These produce tuning notes and do not keep the ticket open:
+
+- whether 3:00 is optimal, and dead time in 2-player Matches
+- whether the Collapse creates enough PvP, or just running
+- the exact Dais fight duration, and how often charged-Tidal ring-outs happen beyond the publish gate
+- loot-loss harshness, and Warning comprehension
+- phone, controller and desktop readability, and audio and visual quality (the **state and cleanup** are blocking, the art quality is not)
+- a real six-player Dais fight (good, chaotic, cramped or fun)
+- real-world settle-window death frequency, and the survival outcome at about 1 s
+
+#### Cleanup checklist (after Studio work)
+
+- Remove the temporary test objects and scripts, and search to confirm they are gone.
+- Restore the modified `Tuning` (including `maxSeconds` to the committed baseline of 600).
+- Restore `settings().Network` and stop all Play and client sessions.
+- Verify the holding folder is empty and the active Rift Crown is intact in Edit.
+- Rerun the structural validator and the normal pre-commit checks.
+
+#### Assumptions that no longer apply
+
+- `Tuning.match.maxSeconds = 480` as the baseline. The 480 s figures in Tickets 17–21 and their regression checks are historical.
+- A Match's failsafe counted from the start of Running, instead of from GO.
+- "The Collapse will not remove sections during play" (Ticket 21's non-goal) and the Ticket 21 "Deferred and unresolved" entries for the Collapse.
+- Layer 5 as an undecided, optional layer: it is the Last Stand ground and is never consumed.
+
+#### Known future hooks
+
+- **Unstable stage:** a short non-damaging stage before removal, if evidence shows removal deaths feel cheap.
+- **Roster-band first Warning:** an earlier first Warning for small rosters, if 2–3 player Matches show repeatable dead time.
+- **Phase labels** in the HUD slot, if new-player testing shows the flow is hard to follow.
+- **Overtime for the Dais** (candidates: authored Dais rings, a combat modifier), only on evidence that Dais Timeouts are not rare.
+- **Wardens:** their own rule for the Dais slot and for despawn on consumption.
+- **Cosmetic debris** from cached Section bounds, and a final art, audio and palette pass.
+- **Concurrent Arenas:** revisit cloning and per-session Collapse state.
+
+#### Deferred and unresolved
+
+- The final visual and audio treatment of the telegraph, the beacon, the sting and the tick.
+- Warden stats, AI, XP, drops and credit, and their behaviour in the Last Stand.
+- Whether a dead mid-game or Dais stall justifies any new mechanic.
+- Whether the Layer 4 timing, the 30 s Warning and the 45 s gap suit real play (tuned from telemetry).
+- The final value of `collapseSettleSeconds` (set by the latency measurement).
+- Whether the Dais is acceptable for Tidal, which sets whether Layer 4 ships enabled.
+
+#### Dependencies, risks and ADRs
+
+- Depends on Ticket 21 (see above) and on Tickets 15–20. After the swap to the real Rift Crown, the Ticket 20 regression must still pass with `maxSeconds` at the new baseline.
+- **Risks:**
+  - Consuming authored models is a persistent-state hazard in Edit mode, covered by the Play-only rule and the pre-snapshot assertion.
+  - Restore replicates a large model to all clients, covered by restoring at Results end.
+  - Any system that caches Section parts breaks silently, covered by the targeted grep.
+  - The Dais may be a Tidal lottery, covered by the gate and the configuration fallback.
+- **No ADR required.** The Collapse's design is tunable gameplay and a Rules plus system implementation, recorded here and in the design archive. Reparenting, the atomic update and the fixed schedule are reversible, and ADR-0002 (movement), ADR-0005 (Studio workflow) and ADR-0007 (one life) are unaffected. Revisit only if concurrent Arenas or a damage-based Collapse ever become real.
+- **Glossary:** `CONTEXT.md` gains **Warning**, **Consumed** and **Last Stand**, and the Match, Rift Collapse and Section entries are corrected (the "about 12 minutes" figure is removed, since it contradicted `maxSeconds`).
+
+#### Implementation notes (not part of the gameplay specification)
+
+- Follow `CLAUDE.md`'s division: the main session builds the runtime and anything touching authority (`CollapseRules`, `Collapse`, the Match integration, the Kit-drop fallback, the settle gate). `studio-implementer` writes the mechanical specs from the written list, and `studio-tester` runs the Play matrices and returns compact tables. The developer launches multi-client sessions.
+- Read `docs/testing/studio-mcp-quirks.md` first. Run `RunAll` on the server in Play, because Edit-mode `require` can return stale modules. Read Session lines through `LogService:GetLogHistory()` on the server.
+- **Build order:** (1) `CollapseRules` with its specs. (2) The fixture and the `Collapse` runtime with injected dependencies, with removal, cleanup and reset specs. (3) The Match integration: the gates' `sync`, the settle gate in the end check, `maxSeconds` and the `goAt` re-base, the start, stop and reset call sites, and the intact-map assertion. (4) The Section and Workspace attributes. (5) The Kit-drop fallback, the displacement-record fields and the extended `Eliminated`. (6) The HUD presenter, the `MatchHud` line, the local alert and the telegraph effects with their cleanup. (7) Telemetry. (8) The structural checks. (9) Swap onto the real map and run S1, S2, latency and the Tidal gate. (10) Cleanup, documentation and the commit. Each step is testable before the next.
+
+#### Review notes (2026-11-09)
+
+An adversarial pass against Ticket 21, the settled design points, the existing Match-end and Void semantics, the HUD conventions and the Rules plus system architecture found **no blocking contradiction**. Fixes applied to the documents:
+
+- **The Match-end wording:** the settle window defers **all** verdicts (Winner, `NoSurvivors` and Timeout) uniformly, which slightly extends the old "zero Alive ends at once" rule by at most the window. The ticket now states it.
+- **"Authoritative physical state" and ADR-0002:** movement is client-driven and server-validated, so the ticket says the plane crossing is the authoritative record of a fall and that the server never pre-classifies.
+- **The `maxSeconds` baseline** moved from 480 to 600 and is re-based on `goAt`. The 480 s mentions in Ticket 21 now point here, and the historical regression text is declared historical.
+- **Stall handling** was made general: any late event shifts all later events by its delay, which covers a late removal as well as a late Warning.
+- **The glossary** had an "about 12 minutes" Match that contradicted `maxSeconds`, and the Section entry described a future Collapse. Both are corrected.
+- **Older "no Rift Collapse" statements** in this file (the Ticket 17 scope and the Match end and timeout note) and `match-structure.md`'s 9–12 minute Collapse phase now carry dated notes pointing here. The long-term phase times stay as a target for a larger mode.
+
+Accepted, with evidence to follow, and for the developer to veto at review:
+
+- **Crown Caches sit about 5 studs inside the post-Layer-3 lethal lip.** Ticket 21's lip-margin rule covers the intact map only. Final Fight Void deaths near the Crown Caches are visible through `Eliminated` with `phase=final`, `hitRadius` and `hitDist`.
+- The harsh trade, a late kill's lost loot and early Dais occupancy, all measured.
+
+Correctly deferred: Warden behaviour, final art and audio, overtime, roster-band timing, phase labels, an Unstable stage and concurrent Arenas.
+
+Review result: **no ADR required.**
+
 ## Later, after evidence from the run test
 
 - non-Ability world items, under the principles above
-- the smallest Rift Collapse, if timeouts are more than occasional
+- ~~the smallest Rift Collapse~~, now specified as [Ticket 22](#22-rift-collapse); what remains is what its evidence asks for (an Unstable stage, roster-band timing, overtime)
 - monsters, Elites and Rank 3 behaviour changes
 - the real Hub, with batches of players into several Matches at once
 - testing two slots against three, once there are about 6–8 Abilities

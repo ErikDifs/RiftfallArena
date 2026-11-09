@@ -18,6 +18,8 @@ Respawning still belongs in the Hub and in Reference Kit combat testing, which h
 | Clash | 5–9 min | Stronger monsters, events and Pickups pull players toward contested areas. PvP increasingly becomes the best way to gain power or deny it to others. |
 | Rift Collapse | 9–12 min | The playable area collapses inward through Rift-themed world effects, so nobody can hide to the end. |
 
+**Rift Crown v1 uses a compressed schedule.** The Rift Crown is a smaller Arena, and its Collapse runs on its own fixed timeline from about 3:00 (the Crown opens at 1:00 and the Match normally ends before 8–9 minutes), as [Ticket 22](milestone-2-tickets.md#22-rift-collapse) specifies. The times above stay the long-term target for a larger mode.
+
 ## Reaching a viable Kit
 
 With no respawns to absorb early mistakes, Gather's goal of letting players experiment and reach a viable Kit has to come from:
@@ -36,7 +38,7 @@ An Eliminated player drops their whole Kit, each Ability as its own Pickup at it
 
 - It is driven by time, not by remaining player count, so the match always reaches a conclusion even if players disconnect or avoid combat.
 - It physically removes safe territory, so hiding cannot delay the end indefinitely.
-- It should feel like unstable Rifts consuming the world, not a generic battle-royale storm. The exact implementation comes later.
+- It should feel like unstable Rifts consuming the world, not a generic battle-royale storm. The first implementation is [Ticket 22](milestone-2-tickets.md#22-rift-collapse): authored Sections are marked, then consumed on a fixed schedule, with no damage.
 
 ## Future outer loop
 

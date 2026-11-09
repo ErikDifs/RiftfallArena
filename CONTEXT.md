@@ -21,7 +21,7 @@ _Avoid_: Riftfall MMO
 ### Match
 
 **Match**:
-One free-for-all round of about 12 minutes, moving through Gather, Clash and the Rift Collapse, in which each player has one life. The last surviving player wins.
+One free-for-all round, moving through Gather, Clash and the Rift Collapse, in which each player has one life. The last surviving player wins. A technical time limit ends a Match that nothing else resolves, and it is a failsafe, not the normal ending.
 _Avoid_: Game, round, session
 
 **Eliminated**:
@@ -45,7 +45,7 @@ The middle phase, where stronger rewards pull players into contested areas.
 _Avoid_: Mid game
 
 **Rift Collapse**:
-The final, time-driven phase, where unstable Rifts consume the playable area so nobody can hide.
+The time-driven phase that removes the Rift Crown's ground layer by layer on a fixed schedule, so nobody can hide. It deals no damage: anyone left without ground falls. It ends with a Last Stand on the Dais.
 _Avoid_: Storm, shrinking zone, circle
 
 ### Map
@@ -103,8 +103,20 @@ An open edge of the Rift Crown with void below it. Falling below `voidKillY` eli
 _Avoid_: Ledge, boundary
 
 **Section**:
-One authored piece of the Rift Crown that becomes unsafe as a unit in the future Rift Collapse, with a layer and an inward parent.
+One authored piece of the Rift Crown that is consumed as a unit by the Rift Collapse, with a layer and an inward parent.
 _Avoid_: Zone, region, tile
+
+**Warning**:
+The 30-second period before a Section is consumed, during which it stays fully playable and is clearly marked. The Match status line counts down to its removal.
+_Avoid_: Countdown (that is the Match start), alert, storm warning
+
+**Consumed**:
+The state of a Section the Rift Collapse has removed from play. Everything on it that is not carried away is lost.
+_Avoid_: Destroyed, collapsed, deleted
+
+**Last Stand**:
+The final stage, once the Inner Crown is consumed and only the Dais remains. The Dais is never consumed.
+_Avoid_: Overtime, sudden death
 
 ### Builds
 
