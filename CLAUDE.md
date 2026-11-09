@@ -4,7 +4,7 @@ Game code lives in the open Studio place and is edited through the `Roblox_Studi
 
 ## Starting a session
 
-1. Read `CONTEXT.md`, the current ticket and the previous ticket's open points in `docs/milestone-1-tickets.md`, the ADRs the ticket names, and `docs/code-structure.md`.
+1. Read `CONTEXT.md`, the current ticket and the previous ticket's notes in the active milestone's ticket file (`docs/milestone-2-tickets.md` now; `docs/milestone-1-tickets.md` is the finished first milestone), the ADRs the ticket names, and `docs/code-structure.md`.
 2. Check the latest commit and the current published checkpoint in the ticket file's Checkpoints table.
 3. Call `list_roblox_studios` (the id changes when Studio reopens) and `get_studio_state`.
 

@@ -1138,6 +1138,8 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **The `CacheBreak` sound** was seen created and playing, but not heard, since every check ran through the MCP.
 - **Collection radius** is 3D, from the root to the anchor, so a Pickup at exactly 4.0 across the ground wasn't collected. That's as Ticket 16 settled.
 
+**Published by the developer on 2026-11-09 as version 79**, recorded in the checkpoints above.
+
 ### 19. Rift Hook and Stone Guard
 
 - **Scope:**
@@ -1147,15 +1149,16 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - Both added to the loot bag.
 - **Starts only after** the loop works with the existing Reference Abilities, so new content adds to a working loop rather than hiding architectural problems.
 
-**Settled 2026-11-09, before building.** Settled from the docs only: the Studio MCP wasn't connected in the session, so none of it is checked against the code. **Implementation waits for the developer's go-ahead, and for the Studio MCP being reconnected (`/mcp`), a fresh `list_roblox_studios`, and an inspection of the code paths named below.** Any material mismatch with the code is reconciled before architecture changes.
+**Settled 2026-11-09, before building.** Settled from the docs first, then checked against the code once the Studio MCP was connected. Where the inspection changed a rule's internal shape, the point below is amended and the change is listed under **Reconciled with the code** after it.
 
 1. **Rift Hook's pull.**
    - **Destination:** about 4 studs in front of the caster, on the caster→target line flattened onto XZ and normalised (caster position + direction × 4). Vertical separation plays no part, and the Hook adds no vertical velocity.
    - **Already close:** a target within about 4 studs still takes the hit, the ~8 damage and normal hit interactions, with no displacement. It is never pushed through or past the caster.
-   - **Geometry:** a character-sized authoritative sweep from the target toward the destination, against the same static-world roots as projectile line of sight. The pull never passes through or embeds in geometry, and stops short by the target's radius or a safe clearance. Other characters don't block it, and body-blocking isn't part of the Hook this milestone. The sweep primitive follows the existing Knockback and Movement Validation code, and no second collision system is added.
+   - **Geometry:** a character-sized authoritative sweep from the target toward the destination, against the same static-world roots as projectile line of sight. The pull never passes through or embeds in geometry, and stops short by the target's radius or a safe clearance. Other characters don't block it, and body-blocking isn't part of the Hook this milestone. No collision-safe sweep existed before (a player's Knockback is stopped by client physics, a dummy's by nothing), so the pull adds one small primitive, `Cover:sweep`, a Spherecast against the shared environment roots. It isn't a physics abstraction.
    - **Ledges:** no ledge-stop rule. If the horizontal path is clear, a target may be pulled past supported ground, and gravity takes over. That is horizontal forced displacement, not a vertical launch, and it's deliberate. If Ticket 20 shows environmental Hook kills are too easy or frustrating, revisit map geometry or add a grounded constraint then.
-   - **Duration:** a single tuning value, `pullDuration = 0.25 s` (range about 0.2–0.3 s), through the same authoritative forced-movement path as Knockback where practical. Not a teleport, not a slow drag.
-   - **Movement Validation** must explicitly allow the server-authoritative pull displacement, just as it already accounts for Knockback and forced movement, rather than reading it as invalid player motion.
+   - **Duration:** a single tuning value, `pullDuration = 0.25 s` (range about 0.2–0.3 s), through the same authoritative forced-movement path as Knockback, which gains an optional duration. Not a teleport, not a slow drag.
+   - **Movement Validation** must allow the server-authoritative pull displacement, using the supplied forced-movement duration, rather than treating that movement as invalid player motion.
+   - **Caster gone at impact:** if the caster has left, has no usable character or root, or is dead or Eliminated when the Hook lands, the hit and its damage resolve normally, with no pull and no pull Beam. It never pulls toward a corpse, a stale root or the cast position.
    - **Target states:** a Charging target's Charge ends through the existing Knockback rule, with no Hook-specific cancel. An Evading target is unaffected. Frozen and Stunned targets are pulled like any Knockback, if those states exist in the code.
 2. **Pulls on non-players.** The pull depends on target capabilities, not target names.
 
@@ -1166,11 +1169,11 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
    | Cache | Hook damage at the caster's Rank through Ticket 18's plain-object path. No pull, Knockback, Status, Reaction, Evade or Kill Recovery |
 
    - **One target:** the Hook is non-piercing and stops at the first player, dummy, Sentry, Cache or blocking geometry. A Cache or Sentry protects what stands behind it.
-   - **No confirmed hit, no pull:** a miss, a wall impact or an Evaded target does no damage and no pull. Nothing moves on projectile proximity or predicted contact, and the client's cosmetic projectile never moves a target.
+   - **No confirmed hit, no pull:** a miss, a wall impact or an Evaded target does no damage and no pull. An Evade doesn't consume the Hook: it flies on and may hit a valid target behind, as every projectile does. Nothing moves on projectile proximity or predicted contact, and the client's cosmetic projectile never moves a target.
    - **Regression invariants:** Sentry immobility must not become Knockback immunity for players or dummies, and the new pull mode must not change Tidal Bolt's push. Same forced-movement foundation, different displacement calculation. Both directions are verified in the code before building.
 3. **Stone Guard's Shield.** One server-owned pool, with current Shield, max and expiry. Clients only present it.
    - **Absorption:** each damage instance absorbs from Shield first and takes any overflow from Health, then continues normal death and elimination handling. The Shield is not a separate extra life. A hit that breaks the Shield and overflows can kill.
-   - **Reactions:** hit damage and Reaction damage stay separate damage instances through the same absorber. Reaction events, feedback, `Triggered By` attribution and accounting are unchanged. Shield subtraction lives in one generalised server-side absorber, never inside individual Abilities.
+   - **Reactions:** `Combat` already sums a hit's damage and its Reaction bonus into one damage value, one `CombatResult` and one Session record, so the absorber runs once on that combined value. The Shield totals are identical either way. Reaction events, feedback, `Triggered By` attribution and accounting are unchanged. Shield subtraction lives in one generalised server-side absorber, never inside individual Abilities.
    - **Expiry:** at 3 s or at 0. A timed expiry removes the remainder with no Health conversion, refund or cooldown benefit.
    - **No stacking:** the newest Shield replaces the current one, with no carried remainder.
    - **Evade:** an Evaded hit uses no Shield and counts as no absorbed damage.
@@ -1180,7 +1183,7 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
    - **Tracking:** a fully absorbed valid hit is still a hit, for combat state, killer attribution and fight history. `damageDealt` keeps meaning Health actually lost. A separate `shieldAbsorbed` counter goes in the session log only, not in the Ticket 17 results table.
    - **Low-health feedback** reads Health only.
    - **Replicated state:** character attributes `Shield`, `ShieldMax` and `ShieldEndsAt` (server time, if the client needs it for presentation). Clients never decrement it as authority.
-   - **`CombatResult`:** `damage` is Health actually lost, `absorbed` is the Shield consumed by that instance, `shieldLeft` is the Shield after resolution. Examples: 12 into 25 gives 0 / 12 / 13; 20 into 8 gives 12 / 8 / 0; 12 into none gives 12 / 0 / 0. The semantics hold even if the existing result contract needs a slightly different shape, and `Protocol` validation isn't weakened for convenience fields.
+   - **`CombatResult`:** `damage` is Health actually lost, `absorbed` is the Shield consumed by the combined hit and Reaction damage, `shieldLeft` is the Shield after resolution. Examples: 12 into 25 gives 0 / 12 / 13; 20 into 8 gives 12 / 8 / 0; 12 into none gives 12 / 0 / 0. The semantics hold even if the existing result contract needs a slightly different shape, and `Protocol` validation isn't weakened for convenience fields.
    - **Presentation:** a translucent stone-grey shell with warm amber accents that thins with the remaining Shield, readable to opponents, distinct from Evade, Charge, Frozen and Wet, and not hiding the character. A Shield broken by damage gets a break flash and sound. A timed expiry fades quietly. The local player gets a Shield bar beside the Health bar, which doesn't replace it. A fully absorbed hit has its own Shielded hit marker: not a miss, not an Evade, not ordinary damage.
 4. **Rank 2.** Both values live in the normal authoritative per-Rank config, resolved by the existing server Kit path. There is no new Rank transport and the client never supplies a Rank.
 
@@ -1198,8 +1201,8 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
    - **F replacement:** unchanged. While F is held, Q and E are replacement choices and never Cast, for Chargeable and Instant Abilities alike. A key consumed for replacement can't Cast on F's release, since a fresh press is required.
    - **Client suppression** of a slot on cooldown, Equip Locked or Charging is UX only. The server independently enforces every gate, and a rejection wins and spends no cooldown.
    - **While Charging:** an Instant Cast is rejected, spends no cooldown and leaves the Charge running and releasable. It never cancels a Charge, so Stone Guard can't cancel an unsafe Charge into defence and the Hook can't be fired mid-Charge.
-   - **Other gates:** the same as other Abilities. In a Match the caster must be Running, Alive, not Stunned or Frozen, past the Equip Lock, off cooldown and not Charging, with the Rank from the authoritative Kit. Reference mode keeps its existing gates and doesn't start requiring a Match.
-   - **Aim:** Rift Hook uses the Aim Point and the Ticket 14 hand origin, with its safe-origin and cover rules, and no Hook-specific origin calculation. Stone Guard ignores the Aim Point. If `CastRequest` requires one, the client sends the normal one and the server ignores it, and the Protocol isn't forked.
+   - **Other gates:** the same as other Abilities. Stunned and Frozen refuse every `CastRequest`, the Basic Attack included, as they already refuse `ChargeStart`, Dash and Pickups. Nothing sets either yet, so this changes no live play, and in-flight or committed effects are untouched. In a Match the caster must be Running, Alive, not Stunned or Frozen, past the Equip Lock, off cooldown and not Charging, with the Rank from the authoritative Kit. Reference mode keeps its existing gates and doesn't start requiring a Match.
+   - **Aim:** Rift Hook uses the Aim Point and the Ticket 14 hand origin, with its safe-origin and cover rules, and no Hook-specific origin calculation. Stone Guard ignores the Aim Point. `CastRequest` requires one, so the client sends the normal one and the server ignores it, and the Protocol isn't forked. Stone Guard is a new `Self` delivery form, so the `InvalidAim` check is skipped for that form only, never for Projectiles or Sectors.
    - **Prediction:** the Hook may draw a Cosmetic Projectile, cancelled by a Rejected Cast. Collision, damage, target, pull and Charge interruption wait for Server Confirmation. Stone Guard's Shield state is never predicted, and only the cooldown sweep is. A rejection restores the cooldown and shows no Shield.
    - **HUD:** the normal slot presentation (key, name, colour, Rank pips, cooldown sweep, Equip Lock) with no Charge meter and no Shield countdown on the slot. The replacement prompt is unchanged.
    - **No Telegraph** for either. The Hook's counterplay is its visible, narrow, travelling projectile and cover. Stone Guard's is the shell appearing.
@@ -1209,14 +1212,14 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
    - **Hook animation:** reuse the uploaded ChargeRelease once on the Cast, with no ChargeHold beforehand. Selection is data-driven, for example a `castAnimation` presentation field in the existing config style, so `CastAnimations` doesn't hard-code the Hook. Chargeable Abilities keep their hold and release behaviour. The code is checked first: if ChargeRelease is tied to Chargeable release, the presentation data is generalised slightly.
    - **Stone Guard:** no character animation, since ChargeRelease would read as offensive. The shell carries the readability. If Play shows the activation feels disconnected, that's a later animation task.
    - **Sounds:** distinct built-in placeholders for the Hook, Guard activation, Guard break and a hit absorbed by the Shield. Each must be unused for another gameplay cue and report `IsLoaded`. Absorbed-hit feedback stays readable without being noisy.
-   - **Pickups and HUD:** per-Ability presentation config feeds the Pickup colour and shape, slot colour and name. Hook is amber-orange, Stone Guard is stone grey, each with a distinct existing `pickupShape`, and no new mesh format.
+   - **Pickups and HUD:** per-Ability presentation config feeds the Pickup colour and shape, slot colour and name. Hook is amber-orange, Stone Guard is stone grey. Only Cube was free among the existing shapes, so Stone Guard is a `Cube` and the Hook a new primitive `Cylinder`, oriented and spun so it reads as a deliberate Pickup. No mesh.
    - **If the Hook needs its own animation after Play,** key a draft, preview it, bring it back for review, and ask before any upload.
 7. **Specs and checks.**
    - **Specs:**
      - **`ShieldRulesSpec`:** the three worked examples (12 into 25, 20 into 8, 12 into none), zero damage, exact depletion, and overflow that kills. A new Shield replaces rather than adds, timed expiry leaves Health alone, and death or elimination clears it. Rank values are 25 and 35, and upgrading mid-Shield leaves the current Shield, `ShieldMax` and expiry unchanged, with the next Cast using the new Rank.
      - **`HookRulesSpec`:** the XZ flattening, so changing only the target's Y leaves the destination unchanged. The destination is about 4 studs from the caster, a close target gets zero displacement and is never pushed past the caster, and no vertical component is introduced. An unobstructed path reaches the full destination, and blocking geometry shortens it by the clearance. Characters aren't supplied as geometry. Range is 30 and 36, and the duration is 0.25 s at both Ranks. If the collision and sweep belong to an existing generalised forced-movement Rules module after inspection, those assertions go there rather than being duplicated.
      - **Combat:**
-       - Hit and Reaction damage are separate instances through the same absorber.
+       - Hit and Reaction damage go through the absorber once, as their combined value.
        - An Evaded hit uses no Shield.
        - A fully absorbed hit counts as a hit, applies Wet and Knockback, triggers a Reaction by the normal rules and resets Natural Recovery.
        - `damageDealt` isn't inflated, and `shieldAbsorbed` accumulates separately.
@@ -1227,7 +1230,7 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
        - Equip Lock, cooldown, Stunned or Frozen, and the Match and Alive gate are enforced server-side.
        - The authoritative Kit Rank is used, a forged `rank` or extra field is dropped, `ChargeStart` for an Instant Ability is refused, and `ChargeRelease` can't manufacture an Instant Cast.
        - Tidal Bolt still pushes away while the Hook pulls toward its safe destination.
-     - **`LootRulesSpec`:** the real pool is four Abilities with four copies each (16 drops). The seed sweep, about 2000 seeds if cheap, requires for every seed exact 4/4/4/4 counts, central Cache entries that differ, every drop assigned once, a repair that terminates, the same seed reproducing the same deal, and a reported `variety=ok|partial` that matches the nearest-pair state. **Zero partial cases isn't a contract** unless the algorithm and geometry guarantee it. Equality stays strict and early variety stays best effort, so a zero from the sweep is evidence only.
+     - **`LootRulesSpec`:** the real pool is four Abilities with four copies each (16 drops). The seed sweep, 200 seeds routinely and about 2000 if cheap, otherwise as a separate stress check, requires for every seed exact 4/4/4/4 counts, central Cache entries that differ, every drop assigned once, a repair that terminates, the same seed reproducing the same deal, and a reported `variety=ok|partial` that matches the nearest-pair state. **Zero partial cases isn't a contract** unless the algorithm and geometry guarantee it. Equality stays strict and early variety stays best effort, so a zero from the sweep is evidence only.
      - **Burst limits:** the values are calculated from the authoritative Ability config, with no handwritten totals pinned. Principles: no ordinary single hit above about 40% of 100 Health, and no intended setup and payoff above about 60%, for every Hook and Guard pairing at the configured Rank values. The Hook is untyped and creates no Wet or Reaction setup. Stone Guard only adds defence and can't raise offensive burst.
    - **Play checks, by `studio-tester`, with the render and state inspected before each interaction group:**
      - **Hook:**
@@ -1279,6 +1282,20 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
      - The Hook and Shield readability has been reviewed.
      - The temporary aids are gone, `startingKit` is `"Reference"`, and `code-structure.md` and `studio-mcp-quirks.md` carry anything new.
      - No unapproved asset was uploaded, and nothing from Ticket 20 has started.
+
+**Reconciled with the code 2026-11-09, after inspecting it and before building.** The developer approved each change.
+
+- **Forced movement gains an optional duration.** `CombatResult` gets an optional `knockbackSeconds`. The client's Knockback, Movement Validation's allowance and the dummies' forced movement use it when present and `Tuning.knockback.durationSeconds` (0.2 s) when absent, so Tidal Bolt's push stays on its existing path. Knockback isn't changed to 0.25 globally.
+- **The pull's destination.** Pure `HookRules` owns the flattened direction, the destination 4 studs in front of the caster, the zero pull when close, the clearance, the 0.25 s duration and the ranges. `Cover:sweep(from, to, radius)` is injected, ignores characters, and returns a safe end short of static geometry. The Hook's Knockback is `velocity = safeDisplacement / 0.25` with `knockbackSeconds = 0.25`. A dummy gets the already-clipped velocity and never raycasts by itself.
+- **Caster gone at impact:** damage only, no pull and no Beam.
+- **One absorber call** on the combined hit and Reaction damage. The order is Evade, the Reaction, the total damage, the Shield, Health, `noteDamage`, then Statuses and Knockback as before.
+- **A `Self` delivery form** for Stone Guard: on the server it grants or replaces the Shield at the Kit's Rank through the normal cooldown, with no target, projectile or Sector. On the client it draws no delivery geometry. The `InvalidAim` check is skipped for `Self` only.
+- **A generic Stunned and Frozen gate** on `CastRequest`, the Basic Attack included, with a Reference regression check.
+- **Pickup shapes:** Tidal Bolt Sphere, Arc Burst Diamond, Stone Guard Cube, Rift Hook Cylinder.
+- **An Evade lets the Hook fly on,** like every projectile.
+- **Loot variety stays best effort.** `LootRulesSpec` drops its requirement of zero partial deals for four Abilities.
+- **Small presentation extension points:** `visual.castAnimation` chooses a Cast's animation instead of `Casting` checking the Casting Style and the Basic Attack's id, and `visual.projectileStyle` chooses a Cosmetic Projectile's look.
+- **The Shield is cleared on death** explicitly, as well as by a new character, because an Eliminated body stays for 3 s.
 
 ### 20. Run test readiness
 
