@@ -11,6 +11,7 @@ Being settled from 2026-11-08, before any building. Work stops after each ticket
 | 2026-11-08 | Published place `134091394433436`, version 51 (private) | Ticket 15: the per-player Kit, its attributes and HUD, the Equip Lock, `ChargingRank` and the Starting Kit setting, Reference by default |
 | 2026-11-09 | Published place `134091394433436`, version 70 | Tickets 16 and 17: Pickups and replacement, and the one-life Match with its Hub, Spectate, HUD and results, dormant behind the Reference Kit by default |
 | 2026-11-09 | Published place `134091394433436`, version 79 | Ticket 18: the `MatchMap`, Rift Caches, Sentries and the shuffled Ability bag |
+| 2026-11-09 | Published place `134091394433436`, version 86 | Ticket 19: Rift Hook and Stone Guard, the `Self` form, forced movement with its own duration, the Shield, and the four-Ability loot bag |
 
 Roblox version history is the code's history, as [Milestone 1's checkpoints](milestone-1-tickets.md#checkpoints) set out, and only versions marked Published count.
 
@@ -1397,6 +1398,8 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **Characters aren't in the sweep,** but a player's own physics still collides with a body directly on the pull line. Not tested exactly on the line.
 - **The `Shield` attributes clear on the server before `CombatResult` fires.** Clients allow for it, and it's recorded in `code-structure.md`.
 - **Ticket 20 watch list,** carried from the settlement: Stone Guard's effective health against the Tidal → Arc payoff, and environmental Hook kills off ledges.
+
+**Published by the developer on 2026-11-09 as version 86**, recorded in the checkpoints above.
 
 ### 20. Run test readiness
 
