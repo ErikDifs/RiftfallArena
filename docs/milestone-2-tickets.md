@@ -1538,6 +1538,16 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
    - the candidate meets the definition above, with `startingKit = "Reference"` and `maxSeconds = 480`
    - nothing was published or uploaded, nothing from "Later, after evidence from the run test" was started, and the work stops for the developer's go-ahead
 
+**Progress, 2026-11-09.**
+
+- **Instrumentation built** (items 2 and 4), by the main session, in `SessionRules`, `Session`, `Match`, `Pickups`, `Combat`, `Casts`, `Shields`, `KitRules` (`filledCount`) and `Tuning.session` (`centralRadius = 50`, `hookPullWindowSeconds = 5`). How it fits together is in [`code-structure.md`](code-structure.md#run-test-telemetry).
+  - **The map's centre** is the flat average of the `Map` spawn pads, computed at Match start, rather than a new world attribute or a hard-coded (0, 0, −450). The pads sit on a ring around the centre, so it carries over to the Rift Crown.
+  - **`fights` and `centralFights` count each player's `Fight` line,** because the existing fight definition is per player and no parallel encounter state was wanted. A duel between two players counts 2. Read the ratio, not the absolute number.
+  - **The Hook pull isn't cleared at the death itself,** because the elimination that reads it follows the death. It clears at the elimination, a fresh character, Return to Hub, and the start and end of a Match. The 5 s window and the Match id stop a stale pull from naming anything.
+  - **The session `Summary` line is unchanged:** `guards` appears only on `MatchResult`, so Reference mode logs nothing new.
+- **Specs** (item 8), by `studio-implementer` from a written list and reviewed by the main session: a new `SessionSpec` (17 tests on a fresh `Session` in manual mode) and additions to `SessionRulesSpec` (7), `CombatSpec` (3), `CastsSpec` (3), `KitRulesSpec`, `CachesSpec` (`kind=Central`) and `MatchSpec` (1 each). `RunAll` on the Server in Play: **427 passed, 0 failed**, up from 394.
+- **Next:** the developer's sound listening pass (item 7), then Run R, then Run M with the security matrix, the pacing walkers and the Hook leftovers.
+
 ### 21. Rift Crown Arena layout
 
 **Status: specified 2026-11-09 and reviewed adversarially the same day, not built.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-crown-design.md`](rift-crown-design.md); this entry is the build contract. Numbers are labelled **fixed** (a locked decision), **tunable** (a starting value that lives in `Config` and can change without a redesign) or **greybox-validated** (it depends on a measurement or a geometry check, so it is confirmed or changed in Studio before the ticket is done).

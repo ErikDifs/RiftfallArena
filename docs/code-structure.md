@@ -202,6 +202,17 @@ From [Ticket 19](milestone-2-tickets.md#19-rift-hook-and-stone-guard), the two n
 - **Forced movement.** An Ability with `forcedMovement = "Pull"` gets its Knockback from `HookRules` instead of `pushStrength`: a destination 4 studs in front of the caster's current position, shortened by `Cover:sweep` (a Spherecast against the environment roots, ignoring characters), as a velocity over `Tuning.hook.pullSeconds`. `CombatResult.knockbackSeconds` carries that duration, and the client's Knockback, Movement Validation and dummies use it when present and `Tuning.knockback.durationSeconds` otherwise. A target registered `immovable` (Sentries) is never pulled, and with no living caster there's no pull.
 - **Clients.** `ShieldVisuals` draws the shell, its thinning, the break and the quiet expiry from the attributes and `CombatResult`. The server clears the attributes before the hit's `CombatResult` arrives, so it waits 0.15 s before choosing a break or a fade. A movement with its own duration stops on arrival, on the client and for dummies, while a normal push is only timed. `Hud` has a Shield bar above the Health bar. `Feedback` has the Shielded hit marker and the pull Beam.
 
+## Run-test telemetry
+
+From [Ticket 20](milestone-2-tickets.md#20-run-test-readiness), `Session` logs more during a Match, for pacing and the run test's watch list. Outside a Match, as with the Reference Kit, every line is as before. None of it reaches the world, the clients or any attribute.
+
+- **One clock.** `Match` passes `state.startedAt` to `Session.beginMatch`, and every Match time is seconds since Running began on server time, as `CacheBroken` already was. `recordMatchEnd` ends the Match's context.
+- **Pacing.** `Pickups` passes the Kit's occupancy (`KitRules.filledCount`) to `recordPickup`, which appends `seconds` and `filled` and sets the player's `firstAbility` and `fullKit` once (`SessionRules.noteProgress`). `matchStatsOf` carries them, so the Match stores them at elimination and a leaver keeps them.
+- **Central fights.** `Combat` passes the target's position in the hit report. The hit that starts a fight tags it with the Match, its `at` and `central` (`SessionRules.isCentral` against `Tuning.session.centralRadius`, from the centre of the `Map` pads). `MatchEnd` counts each player's `Fight` line, so a duel counts 2.
+- **Watch list.** `Shields.deliver` returns whether it granted a Shield, and `Casts` then calls `recordGuard`. `Combat` calls `recordPull` for a Hook pull that moves a player, with the server's own displacement. `Session` keeps each player's last pull for `Eliminated`'s `hookPulledAgo` and `hookBy`, and clears it at elimination, a fresh character, Return to Hub and either end of a Match. It is never kill credit.
+- **`MatchResult`'s extra fields** (`firstAbility`, `fullKit`, `guards`, `shieldAbsorbed`) come from `statsById`, which `Match` passes to `recordMatchEnd` beside the rows. The rows that reach clients don't carry them.
+- **Specs.** `Session.start({ manual = true, clock, log, characters })` runs it with fakes, with `handlePlayerAdded`, `handlePlayerRemoving` and `handleCharacterAdded` in place of the Players events (`SessionSpec`).
+
 ## Dependencies
 
 Systems receive their dependencies explicitly, rather than reaching around the DataModel for each other, and circular ModuleScript dependencies are avoided. No dependency-injection framework is needed. For example:
@@ -247,6 +258,7 @@ Small deterministic tests are enough, without an elaborate framework. They cover
 - The equal loot bag and its deal, Cache stages, drops and gates, the Sentry cycle, and what a hit does to each kind of target
 - Shield absorption and lifetime, Rift Hook's pull, the generic Instant Cast path (`CastsSpec`, through `Casts.start({ manual = true })` and `Casts.receive`), and the burst limits calculated from config
 - The real Match map's markers and the bays' lines of fire (`MatchMapSpec`, which needs the map in the workspace)
+- The run-test telemetry: pacing milestones, central fights, guards, Shield absorbed and Hook pulls (`SessionSpec`, on a fresh `Session` with fakes)
 
 They never run in the game by themselves. During Play, run `require(game.ServerStorage.Tests.RunAll).run()` on the Server DataModel, which returns a pass and fail summary.
 
