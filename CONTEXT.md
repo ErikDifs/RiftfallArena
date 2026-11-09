@@ -48,6 +48,64 @@ _Avoid_: Mid game
 The final, time-driven phase, where unstable Rifts consume the playable area so nobody can hide.
 _Avoid_: Storm, shrinking zone, circle
 
+### Map
+
+**Rift Crown**:
+The first real Match map: a broken circular structure of floating fragments around a central one, with an open perimeter and void between the fragments. Falling into the void is an Elimination.
+_Avoid_: Arena (that is `Workspace.Arena`, the Reference environment), MatchMap (the greybox it replaces)
+
+**Shard**:
+One of the six outer fragments of the Rift Crown. Each holds one spawn and similar loot, and each differs in shape and edge profile. Unused Shards stay playable at low player counts.
+_Avoid_: Island, platform, zone
+
+**Crown**:
+The Rift Crown's central fragment: the contested centre and final-fight ground, not a spawn.
+_Avoid_: Centre island, core
+
+**Dais**:
+The raised central platform of the Crown, reached by three ramps. Empty in Arena v1 and reserved for a future elite or high-value objective.
+_Avoid_: Altar, podium
+
+**Rib**:
+One of three curved partial walls on the Crown's terrace that breaks sight lines without enclosing anything.
+_Avoid_: Wall, pillar
+
+**Spoke**:
+A connector between one Shard and the Crown. Each Shard has exactly one. Spokes are Safe or Risky.
+_Avoid_: Bridge (too general), entrance
+
+**Gate**:
+The pair of Crown landings, from two neighbouring Shards, that flank one Rib. One arrival is Safe and the other Risky.
+_Avoid_: Door, entrance
+
+**Safe connector**:
+A broad connector with continuous parapets, usable in combat and needing no Dash. Parapets stop routine sideways displacement deaths.
+_Avoid_: Safe bridge (it can be a causeway)
+
+**Risky connector**:
+A narrow connector with exposed sides and no parapets, where displacement can kill. It needs no Dash.
+_Avoid_: Death bridge
+
+**Dash shortcut**:
+An optional bridgeless gap crossed with a Dash, with takeoff and landing aprons. It always has a non-Dash alternative.
+_Avoid_: Jump gap
+
+**Home Cache / Forward Cache**:
+Home Caches are the two on a Shard near its spawn. The Forward Cache is the one farther out, toward its Gate. The three on a Shard always hold three different Abilities, so a Shard alone never gives a Rank 2. The three **Crown Caches**, one per bay, hold two Abilities each and sit behind the Crown seal.
+_Avoid_: Outer Cache (the old Ticket 18 name)
+
+**Crown seal**:
+The state of the Crown Caches before `crownOpenSeconds` (counted from GO): visible, but they can't be damaged or opened.
+_Avoid_: Lock, timer
+
+**Lethal edge**:
+An open edge of the Rift Crown with void below it. Falling below `voidKillY` eliminates the player with the cause `Void`.
+_Avoid_: Ledge, boundary
+
+**Section**:
+One authored piece of the Rift Crown that becomes unsafe as a unit in the future Rift Collapse, with a layer and an inward parent.
+_Avoid_: Zone, region, tile
+
 ### Builds
 
 **Kit**:

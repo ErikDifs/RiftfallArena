@@ -1538,6 +1538,398 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
    - the candidate meets the definition above, with `startingKit = "Reference"` and `maxSeconds = 480`
    - nothing was published or uploaded, nothing from "Later, after evidence from the run test" was started, and the work stops for the developer's go-ahead
 
+### 21. Rift Crown Arena layout
+
+**Status: specified 2026-11-09 and reviewed adversarially the same day, not built.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-crown-design.md`](rift-crown-design.md); this entry is the build contract. Numbers are labelled **fixed** (a locked decision), **tunable** (a starting value that lives in `Config` and can change without a redesign) or **greybox-validated** (it depends on a measurement or a geometry check, so it is confirmed or changed in Studio before the ticket is done).
+
+**Expected values are not pass criteria.** The measurement table separates what we *expect* from what *passes*. A measurement that lands outside its expected value triggers the adjustment named beside it. It does not fail the ticket unless the row has an explicit threshold.
+
+#### Summary
+
+Replace the greybox `MatchMap` with the first real Arena, the **Rift Crown**: a ruined citadel shaped like a shattered crown, suspended over the Rift. It is one central **Crown** and six outer **Shards**, joined by typed bridges, with an open perimeter and a physical void below. The ticket builds the map, its markers and metadata, the spawn and arrival rules, the void elimination with kill attribution, and the structural validator. It does **not** build the Collapse, Wardens, XP or any new hazard, but the map carries the data they need.
+
+#### Scope
+
+- The Rift Crown geometry as authored Parts and Models, built as `Workspace.RiftCrownBuild` and swapped in as `Workspace.MatchMap` (see Build and swap strategy).
+- **Cache kinds `Home`, `Forward` and `Crown` replace `Outer` and `Central`** in `Tuning.caches`, `Caches`, `LootRules` and the specs. Values are carried over, not retuned: Home and Forward use the Outer health (75) and 1 drop, Crown uses the Central health (120) and 2 drops.
+- The 24-drop loot layout and its **Ability deal**, and 3 Crown Sentries on the existing Sentry system (its values are unchanged).
+- Six spawn pads, the **spread-table assignment**, the **roster cap** and the assignment backstop.
+- The **arrival hold**, `goAt`, and the 480 s Match clock starting at GO.
+- The **Crown seal** (`crownOpenSeconds`), implemented and tested here, not only prepared for.
+- **Void elimination** at `voidKillY`, cause `Void`, displacement credit and the inward Kit-drop offset.
+- Collapse-ready metadata and the **structural validator**, which only reads data. No Collapse behaviour.
+- Telemetry for the opening, the Crown and pacing, and a **part-count baseline**.
+- Updating the affected specs: `MatchMapSpec`, `CachesSpec`, `LootRulesSpec`, `MatchRulesSpec` (its wrap-around test changes) and `MatchSpec` (the fall test at `Removed`).
+
+#### Non-goals
+
+- **Rift Collapse.** Ticket 21 builds and validates `SectionId`, `CollapseLayer`, `CollapseParent`, `ShardId`, connector metadata, slot `SectionId` and `CollapseCenter`, and nothing more. It does **not** remove sections during play, damage players with the Rift, time Collapse phases, add Collapse UI, resolve loose Pickups on collapsing floor, decide what Crown Sentries do late, or decide Dais overtime.
+- **Rift Wardens.** Ticket 21 provides only reserved slots, spawn-distance compatibility and section metadata. It does **not** build Warden AI, aggro, attacks, XP, loot or an elite. The roughly 25-stud aggro range from the design is an example, not a requirement.
+- XP, levelling, equipment or Relic slots, new Abilities, loot tables beyond the 24-drop layout.
+- Any active environmental hazard, hazard anchors or scripts.
+- Final colours, textures, meshes, particles, sounds, uploaded assets, HUD, Match Intro or polished insertion/camera/VFX. **No upload without explicit approval.**
+- Free-drop or glide spawning, a Dash ledge guard, fall recovery, a Fall state, hidden edge-kill volumes.
+- Player-count map variants, a multi-map framework or a procedural map framework.
+- Combat redesign. Cache health, Sentry fire rate and Ability values are not changed.
+
+#### Settled topology
+
+- **1 Crown + 6 Shards**, 7 fragments, 1 spawn per Shard (**fixed**). The map is the same for 2–6 players. Unused Shards stay fully playable and lootable.
+- No Shard is a safe island. Every Shard has a Crown spoke and at least one non-Dash rim route.
+- Radial: the future Collapse consumes Shards → Approach → Crown.
+
+#### Fragment structure and dimensions (**tunable** unless noted)
+
+| Item | Value |
+|---|---|
+| Arena diameter | about 260 (r ≈ 130 outer lip), centre at the origin of the map, **fixed size** |
+| Crown | about Ø64 (r 32) |
+| Shard | about 80 wide × 82 deep, irregular, usable area 4,000–6,000, individual Shards ±20% |
+| Crown to Shard gap | about 16 |
+| Shard to Shard rim gap | 10–24 |
+| Shard centres (azimuth) | 30°, 90°, 150°, 210°, 270°, 330° (centre at r ≈ 89) |
+| Shards differ | in silhouette, edge profile, local ruin layout, **not** in role |
+
+**Target walk times at 16 studs/s (greybox-validated):** spawn → first connector 2–3.5 s; spawn → Crown about 6 s; neighbouring spawns 8–9 s (about 12–13 s where the route is a Dash pair and Dash is saved, deliberately); opposite spawns about 17 s; full traversal about 16 s.
+
+#### Crown specification (topology and azimuths **fixed**, dimensions **tunable** and greybox-validated)
+
+- Terrace r 14–32 at y = 0. **Dais** r ≈ 14 raised about +5, **empty in v1**, reached by three ramps at **60°, 180°, 300°**. With the Rib at r ≈ 24 each ramp's run is only about 10 studs, so a ramp is about 27° steep. That is a deliberate exception to the 15° terrain guideline (the 5-stud face may also be jumpable, to be measured). Walk and fight on a ramp in the greybox.
+- **Three Ribs** (curved walls, about 14 long, about 8 high, line-of-sight blockers, not platforms) at 60°, 180°, 300°, r ≈ 24, just outside each ramp foot.
+- **Three Cache/Sentry bays** at **0°, 120°, 240°**: Crown Cache at r ≈ 19, Sentry at r ≈ 27 on a 2–3 high plinth behind it. Drops land about ±5 studs across the bay.
+- **Sentry buttress (settled in review, confirmed by the developer).** A Sentry at r 27 sits 5 studs from the lip and its push goes away from the Sentry, so a player standing behind it would be pushed over the rim, which the Point 3 rule forbids. *The Sentry bay geometry must convert the Sentry's outward displacement into safe collision or containment rather than a cheap void kill, while leaving the bay readable and combat-relevant.* Each Sentry plinth is part of a masonry **buttress** behind and beside it, in the Shattered Crown kit. It must:
+  - be enough geometry to catch the expected push trajectories;
+  - **not** create a fully enclosed dead-end pocket, block the normal bay approach, or give the whole bay unexpected Hook collision;
+  - **not** block the Sentry's intended line of sight toward the playable bay;
+  - **not** create a hiding pocket where a player can permanently escape Sentry or PvP interaction.
+
+  Exact dimensions are **greybox-validated**, because they depend on the measured Tidal tap and Sentry push distance.
+- **Sentry sweep check (acceptance, Edit-mode raycast script).** At minimum it proves: (1) from every intended player-standing position in the bay, the expected Sentry knockback trajectory meets safe Crown geometry before the lethal rim; (2) no intended standing position is a one-shot Sentry-to-void setup; (3) the buttress does not block the Sentry's target lane to those positions. If a measured push is larger than the margin, change the buttress or the Sentry position, not the rule.
+- **Lip rule:** no Cache, drop point or Sentry-covered standing spot within about 10 of a lethal lip (**tunable**, subject to the Tidal measurement below).
+- **Combat footprint:** the Inner Crown's about 1,800 studs² is the disc r ≤ 24 including the Dais top (about 1,190 terrace ring + 620 Dais). The terrace ring alone is about 1,190. Plan final fights with that in mind.
+- The Crown is not a required source of a first functional Kit.
+
+#### Connector graph and route taxonomy
+
+All six Shards connect **directly to the Crown**, one landing each, at **40°, 80°, 160°, 200°, 280°, 320°** (**fixed**). Three **Gates**, each around one Rib, pair two Shards.
+
+| Gate (rib) | Safe spoke | Risky spoke | Landings |
+|---|---|---|---|
+| 60° | Shard 30° → 40° | Shard 90° → 80° | 40°, 80° |
+| 180° | Shard 150° → 160° | Shard 210° → 200° | 160°, 200° |
+| 300° | Shard 270° → 280° | Shard 330° → 320° | 280°, 320° |
+
+**Rim links (between Shards):** Safe pair links 30↔90, 150↔210, 270↔330; one Risky link **210↔270**; **Dash shortcuts** 90|150 and 330|30 (marker/data objects, not geometry).
+
+**Radial placement (needed for the layer partition, greybox-validated):** the three Safe pair links sit in the inner half of the rim gap (about r 55–80, Layer 2). The Risky link and the Dash shortcuts sit toward the outside (about r 95–120, Layer 1). The rim gap is a wedge that widens outward, so the gap bands below apply at the chosen crossing point, not everywhere along it.
+
+| Type | Width / gap | Rules |
+|---|---|---|
+| **Safe** | 14–18 wide (**tunable**) | parapet about 4 high, 1.5–2 thick (**greybox-validated**), continuous, open at aprons, doubles as low cover |
+| **Risky** | 8–10 wide (**tunable**) | no parapet, no side geometry, readable as dangerous before committing; one push is never an automatic kill |
+| **Dash shortcut** | gap 10–14 (**greybox-validated**), takeoff and landing aprons | always a non-Dash alternative; failing may mean a fall |
+| Bridge-required gap | 18–24 (**greybox-validated**) | **if Dash + jump crosses it, widen toward 24** |
+| Jumpable gap | up to about 6 (**greybox-validated**) | not in the macro graph; only local Shard geometry after measurement |
+| Never | over about 30 | |
+
+Principles (**fixed**): a Shard always has a non-Dash route; no one is stranded for spending or saving Dash; the Crown is never the only link between large parts of the Arena; most fighting happens on broad terrain, not bridges; routes read as Safe or Risky before commitment. **No Cache, Sentry, Warden or required objective sits on a connector or its apron.** Landings approach from the Rib sides and are at least 15° from any Sentry lane.
+
+#### Verticality (the datum and the exclusions are **fixed**, heights are **tunable**)
+
+- One datum, **y = 0** (**fixed**): Shards, decks, aprons, Crown terrace. Opposing connector edges are on the same datum. No whole-Shard elevation differences.
+- Terrain relief about ±2, slopes under about 15°, no internal step over about 2 without a ramp.
+- Ruin platforms **+3 to +4**, 1–2 per Shard, 14–20 across, at least two accessible sides, at least 10 from a lethal lip. Low cover 3–4, plinths 2–3. The reach checks below may change these heights (adjust local geometry first).
+- **Not in v1** (**fixed**): multi-level Shards, caves, ladders, undercrofts, lower routes, overpasses.
+
+#### Spawn placement, spread assignment and the roster cap
+
+- Six invisible setup pads (existing `SpawnLocation`s under the map folder, `Enabled`, transparent and non-colliding), one per Shard, at the Shard's centre azimuth, **r ≈ 100** (**tunable**), facing the Crown. Pad rules (**greybox-validated**): lip margin 25–30 or more, no direct pad-to-pad sight line, first connector in 2–3.5 s. A pad may shift if local geometry helps.
+- **Spread table** with a **random rotation** per Match (none favoured): 2 → opposite Shards; 3 → alternating; 4 → spread to avoid clustering; 5 → all but one; 6 → all. No wrapping, **no Hub drafting**. This replaces today's uniform shuffle in `MatchRules.assignSpawns`.
+- **Primary rule: the roster is capped at six when it is formed** (`MatchRules.buildRoster` at the Countdown's end). If more than six are eligible, six are chosen at random with the injected `Random`, and the rest **stay Hub players, still eligible for the next Match** (nothing is dropped or flagged as an error). Seven players in the Hub must still produce a six-player Match.
+- **Defensive backstop: `assignSpawns` refuses and logs** when given more ids than pads, or an empty pad list. It never wraps onto an occupied pad. The check runs in the pre-start step that already deals the loot, so a refusal disables Matches with a reason and leaves the world untouched (as `disableMatches` already does for a bad loot deal), not after `startMatch` has started changing it.
+- `Characters.padsFor` reads the pads once per server, so a swap takes effect in a new Play session.
+- No aggro-capable PvE within `pveSlotClearance` of any pad (see PvE slots).
+
+#### Arrival hold and GO
+
+- The server places every roster character on its pad and holds them for **`arrivalHoldSeconds` = 3** (**tunable**, 0 disables). `goAt` is set when the last roster character has been placed. A character that cannot be placed goes through the existing loss path (`Removed`) and does not extend the hold.
+- **Disabled before GO, server-enforced:** movement (frozen by the server, not just ignored by the client), Basic Attack, Dash, casts, Cache damage, Pickup collection and replacement, Sentry targeting, PvE aggro and combat. **Allowed:** camera look and the leave/Return-to-Hub path.
+- **At GO:** controls, combat, Sentries and PvE become active, and the **480 s Match clock** and all pacing telemetry start. Today `startedAt` is set at `MatchStarted`, so the builder must separate "Match entered" from "GO". The seal clock is also measured from GO.
+- **During the hold:** the phase is still Running, `MatchRules.canAct`, `canCollect` and Sentry targeting also check `goAt`. A player who leaves is eliminated as `Left` as usual, and if that leaves one Alive from a roster of two or more the Match ends normally. `Void` does not apply.
+- Caches near a pad may be visible with contents unknown. Presentation length must not silently change gameplay timing.
+
+#### Loot and PvE spatial slots
+
+**24 Ability drops** (**fixed** for this ticket, the economy itself is tunable later): 12 Home + 6 Forward + 6 Crown.
+
+| Slot | Count | Placement (**greybox-validated**) | Rules |
+|---|---|---|---|
+| Home Cache | 12 (2 per Shard), 1 Ability each | 35–50 from the pad, 15+ from a lethal lip | no Sentry, no mandatory PvE |
+| Forward Cache | 6 (1 per Shard), 1 Ability | the Forward Cache rule below; **about 50–58 from the pad is a tunable starting target, not a pass band** | not on a bridge, apron or lip; about 50 from Crown Sentries |
+| Crown Cache | 3 (1 per bay), 2 Abilities each | r ≈ 19 in the bays | sealed, then opens |
+| Sentry | 3, Crown only, active from GO | r ≈ 27 on plinths | no Shard Sentries in v1 |
+| Warden slot (reserved) | 3 | inner corner of the Safe-spoke Shards (30°, 150°, 270°), near the start of the spoke, not on the connector | hypothesis, relocate if Safe routes become systematically worse |
+| Elite slot (reserved) | 1 | Dais | nothing spawns in v1 |
+
+- **Forward Cache rule (settled in review, confirmed by the developer).** *A Forward Cache must be clearly farther from spawn than the Home Cache pair, positioned toward the Gate / contested side of the Shard, while respecting the lethal-edge margin and remaining fully inside valid Shard geometry.* The old 60–75 studs from the pad did not fit an about 80 × 82 Shard with a 15-stud lip margin (the farthest valid point toward the Gate is about 50–58), so **the structural rule takes priority over the number**. The Home band (35–50) is unchanged. About 50–58 from the pad is a tunable starting target. If one Shard's geometry needs a Forward Cache slightly outside it to meet the rule cleanly, keep the rule. The Forward Cache must not overlap the Home Cache band and must not sit on a connector or apron.
+- **PvE spawn-safety rule (fixed form):** an aggro-capable PvE slot is at least `pveSlotClearance` from every pad, **including its own Shard's pad**. `pveSlotClearance` is a planning constant (**tunable**, 45, which is the hypothetical 25-stud aggro range plus a 20-stud buffer), used only by the validator. The real Warden aggro range is not locked here. The Warden slot at a Safe-spoke Shard's inner corner is tight against this, so if it does not fit, move the slot, never the pad rule.
+- **Ability deal (settled in review).** The deal must hold these invariants for any seed:
+  1. Exactly `drops / pool size` copies of each Ability (6 each for 24 drops and 4 Abilities).
+  2. **Each Shard's three local drops (Home A, Home B, Forward) are three different Abilities.**
+  3. The Crown Caches hold exactly the remaining 6.
+  4. No Crown Cache holds the same Ability twice.
+  5. Crown Ability counts differ by at most 1, so the Crown is not skewed toward one Ability.
+  6. Which Shard gets which triple, and which of its three drops is Home A, Home B or Forward, is random per Match. No physical Shard is tied to a pattern.
+  7. Consequence: **no Shard offers a duplicate, so Rank 2 is impossible from a Shard's own drops.**
+- **Reference algorithm for the current 4-Ability pool** (verified; the spec checks the invariants, not this algorithm). Each Shard omits exactly one Ability and takes the other three. Let `o(X)` be the number of Shards that omit X. X then appears in `6 − o(X)` Shards, and the Crown bag holds `o(X)` copies, so every Ability totals 6 and the Crown holds `Σo = 6` drops. Six omissions over four Abilities cannot be equal (1.5 each), so use the balanced multiset **{2, 2, 1, 1}**: **randomise each Match**: pick at random which two Abilities are omitted twice (the other two once), then shuffle the six omissions over the six Shards. The balance {2, 2, 1, 1} is fixed, but which Abilities and which Shards get which counts is not. The Crown bag is then 2, 2, 1, 1 copies. Deal it to the three Crown Caches by listing it grouped by Ability and giving item *i* to Cache *i* mod 3, which never repeats an Ability inside a Cache (each Ability has at most 3 consecutive items), then shuffle which bay gets which. Pair partners may end up with the same triple. That is acceptable, because any two different triples overlap anyway.
+- If the pool cannot meet the invariants (a pool of fewer than three Abilities, or a size that does not divide 24), the deal refuses with a reason and Matches are disabled, as `validate` already does. A larger pool needs the invariants re-verified.
+- This replaces `LootRules.deal`'s Outer/Central dealing and its best-effort `nearestPairs` variety, which becomes unnecessary.
+- Intended opening: spawn → first Home Cache → second → Forward Cache → functional Kit → choose rotation, Crown, PvP or Rank. Targets (**hypotheses, to measure**): full Kit about 25–35 s; Rank 2 about 60–80 s at 2 players and 70–90 s at 6.
+
+#### Crown seal (in scope: implemented and tested here)
+
+- `crownOpenSeconds` = **60** (**tunable**, range about 45–90), measured on the Match clock, so **from GO, not from character creation**. Before it, the three Crown Caches are **visible and their value readable, but cannot take damage, open or drop loot**. The server rejects damage at the single Cache damage entry, whatever its source.
+- Each Crown Cache record owns its own `opensAt`, so staggering is possible later. **No stagger in v1.**
+- At the open there is a clear world-visible and audible Rift event (a placeholder is fine, final VFX/audio is later). The server publishes it through the existing world state, in a shape that passes `Protocol.validate`, and logs `CrownOpened`.
+- **Config edge cases:** `crownOpenSeconds` must be a finite number, at least 0 and less than the Match length. `0` opens at GO, so the sealed state is never seen but the event still fires. Anything else disables Matches with a reason, never a silent default. If the Match ends before the open, nothing fires.
+- Sentries are active from GO, sealed or not. The seal does not depend on the Collapse.
+- Structural requirement: one seal object or anchor per Crown Cache (chains + glyph) that a later presentation can fracture and release.
+
+#### Void and elimination model
+
+- Physical fall, and the Match loop (every `loopSeconds`) eliminates at **`voidKillY` = −40** (**tunable**, see the fall-time measurement). `FallenPartsDestroyHeight` (−500) is only a safety net. No hidden volumes, no Fall state, no recovery, no Dash ledge guard.
+- **Scope:** only Alive players in a Running Match on the Rift Crown, after GO. Never in the Hub, the Reference environment, the arrival hold or Results. A fall during the end's resolution window still counts, because the phase is still Running. A player who dies by health first is a normal `Died`, and a first elimination wins if two things race (`MatchRules.eliminate` already returns false the second time).
+- Elimination cause **`Void`** is added beside `Died`, `Removed` and `Left`. The consumers that list causes (the `Protocol` comment and validation, results rows, feed text, specs) must accept it.
+- `voidKillY` must be below the lowest authored underside with a margin (a rule for the map, checked by the validator), so a falling player is never killed while still beside geometry.
+- **Kit drop after a void death (simplified in review).** No navmesh and no edge database.
+  1. Start from `lastGrounded[id]` (already a stable floor point updated every loop).
+  2. Inward = the horizontal direction from the point where the player left the map (their position at the kill) back toward `lastGrounded`. If that distance is under 0.5 studs, use the direction toward `CollapseCenter`.
+  3. Candidate = `lastGrounded` moved about **6 studs** inward (**tunable**).
+  4. Valid if a downward ray from above the candidate hits a part of the map at about the same height (±3) as `lastGrounded`. Otherwise try half the distance, then use `lastGrounded` itself.
+  5. **Each dropped item's spread point (`dropSpreadStuds`) is validated the same way**, and collapses to the origin if it is off the floor. Today the spread points are not checked, so a Kit dropped at a lip could place items over the void.
+  6. Never drop into the void.
+
+#### Environmental kill attribution
+
+- One **displacement-credit record** per victim: the **most recent valid hostile player displacement** (Rift Hook pull or Knockback): attacker, time, source. A newer one replaces the older. There is no assist system. Starting expiry (**tunable**): cleared after about 1 s of **continuous** floor contact, hard expiry about 6 s. Any airborne frame restarts the 1 s, so a one-frame brush with a cliff, bridge side or debris does not clear it.
+- A fall with a live record: **killer credit, cause `Void`**, source and the record's age kept for telemetry. No record: self-fall, cause `Void`, no killer. Records are cleared at the start and end of a Match.
+- **Sentry pushes and future PvE displacement award no player kill and neither create nor clear a record.**
+- Record the action at the existing hit path (`Combat`, where `applyKnockback` is called with the attacker known) and at Rift Hook's pull. Read it in the elimination path (`Session.killerOf` returns nil for falls today). Re-read both before building.
+
+| Case | Rule |
+|---|---|
+| Attacker leaves or is eliminated before the victim reaches the plane | Credit stands while the attacker was on the roster. Their kill count updates even if they are Eliminated or back in the Hub. |
+| Pushed by A, then by B | The most recent valid player displacement wins, B. No sharing. |
+| Brief contact while falling | Does not clear the record (needs 1 s of continuous floor contact). |
+| A Sentry pushes after a player did | The player's record stays and gets the kill credit. The Sentry's part is logged only. Accepted simplification. |
+| Dashes off on purpose several seconds after a push | Credit stands until the 1 s grounded or 6 s expiry. Telemetry records the age so the 6 s can be tuned. |
+| Character destroyed or killed before the plane | A health death is `Died` through the normal path. `Removed` and `Left` carry no credit. `Void` applies only at the plane. |
+| Fall during the hold, Results or the Hub | No `Void` (out of scope). The hold cannot move anyone. |
+| Fall at the same moment as the last other player's death | `MatchRules` already resolves simultaneous ends. The spec covers one case. |
+
+#### Edge categories (the categories are **fixed**, the numbers are **tunable** and greybox-validated)
+
+1. **Lethal edge:** open lip, sheer face of at least about 12 studs before any catching geometry, seam trim, no parapet. The danger band is **greybox-validated**: tune against the measured tap and charged Tidal pushes, and never derive it from either figure in the existing docs (see the Tidal measurement). If charged Tidal turns out to be much larger than assumed, **re-grill whether it is a map or combat issue** instead of widening every edge.
+2. **Safe edge:** a drop that is not void: Dais face, ruin platforms, ramps, steps. Solid floor within about 4 studs. Plain chamfer or step, no seam.
+3. **Protected connector edge:** Safe connectors only, continuous parapet.
+4. **Risky connector:** exposed deck, nothing at the sides, nothing hanging beneath with collision.
+- **No railings** on Shards, the Crown, Risky bridges or Dash gaps.
+
+#### Collapse-compatible section partition
+
+| Layer | Radius (**tunable**) | Contains |
+|---|---|---|
+| 1 Outer | r ≈ 85–130 | outer Shard portions, pads, most Home Caches, outer perimeter, Risky rim bridge, Dash pinch regions |
+| 2 Middle | r ≈ 48–85 | inner Shard portions, Forward Caches, Warden platforms, **the three Safe pair links** |
+| 3 Approach | r ≈ 24–48 | six spokes, Crown landings, outer Crown band, Sentry plinths |
+| 4 Inner Crown | r ≈ 14–24 | inner terrace, Ribs, Crown Caches |
+| 5 Dais | r < 14 | the Dais, **structurally supported, use by the Collapse not decided** |
+
+- Each physical section becomes unsafe **as a unit**. The map is not a shrinking circle cutting through geometry.
+- **All Shards share the layer order** (no Shard stays an outer island). Jitter is allowed within a layer, **never reordering the inward chain**.
+- **Parent rule:** `CollapseParent` exists and has a strictly later layer. The route to the parent stays walkable while the section is active, needs no Dash, no lethal-gap jump, and no earlier-collapsed route. Section splits avoid cutting through ramps, platforms, Caches, Warden slots, pads and aprons.
+- **Narrow-route rule:** the Collapse never forces an on-time player across a Risky connector.
+- **Inward escape:** a player's inward route outlives the section they leave.
+- **Geometry:** sections are real slabs about **12+ thick** with a rock/structure underside, so a removed neighbour reveals a lethal face, never a thin plate or a hole that disagrees with collision. The Dais and Ribs may extend down as pillars.
+
+#### Section, connector and slot metadata
+
+| Object | Attributes |
+|---|---|
+| Section | `SectionId` (unique), `CollapseLayer`, `CollapseParent`, `ShardId` (Shard sections) |
+| Connector | `ConnectorType` (Safe, Risky, Dash), `CollapseLayer`, section/Shard association |
+| Dash gap | marker/data object, not geometry |
+| Cache, Sentry, Warden, spawn markers | reference a `SectionId` |
+| Map | one authoritative `CollapseCenter` marker |
+
+Exact folder layout, attribute names for Cache kinds and the marker model are an implementation decision recorded when built. **No generic hazard-marker framework.**
+
+#### Shattered Crown identity and construction kit
+
+*A ruined citadel shaped like a shattered crown. The six Shards are the broken points, the Crown is the circlet, the Dais the empty jewel setting.* Generic gladiator arena and natural floating landscape are rejected.
+
+**Ten-piece kit (fixed):** 1 slab (12+ thick, chamfered playable lip, faceted underside); 2 Rift seam (lethal edges and Collapse-readable fractures only); 3 masonry; 4 column stumps; 5 arch/rib segment (signature silhouette); 6 iron bands/chains (visually distinct from Hook amber-orange); 7 parapet (Safe connectors only); 8 plinth (Sentries, Dais, future bases); 9 paving/apron (arrivals, Gate transitions); 10 crystal clusters, sparingly.
+
+- **Shard distinction:** one landmark per Shard from the same kit, no separate biomes.
+- **Sentries** read as carved guardians of the citadel, future **Wardens** belong to the same Stone/Rift family without being confused with Sentries. No monster appearance is finalised.
+- **Colour:** avoid leaning on Tidal blue, Arc lightning, Hook amber-orange or Stone Guard grey/amber, and never resemble active Hook VFX, Ability pickups or Reaction indicators. Palette is a later art pass.
+- **Authored Part/Model geometry only**, no Terrain (Hook sweeps, line of sight, camera collision and floor raycasts read the folder roots).
+- **Visible geometry and collision agree.** No invisible blockers at lethal edges, decorative walls without collision, oversized proxies, or hanging chains/crystals that can catch a Hook pull.
+- **Section seams are visible**, subtle, not grid lines, so the Collapse reads as the world following fracture lines.
+- **The greybox must carry:** slab thickness; lethal lip trim; Safe parapets; Risky exposed decks; aprons; Ribs; Dais plinth; Sentry plinths; one seal anchor per Crown Cache; one landmark placeholder per Shard; visible section seams; undersides believable once a section is removed.
+
+#### Arena v1 hazard policy (**fixed**)
+
+- Environmental pressure is only void/lethal edges, Crown Sentries, future Wardens and the future Collapse. **No map hazard deals damage**, and the environment eliminates only through Void.
+- No vents, pulses, eruptions, temporary zones, collapsing bridges, disappearing floors or moving platforms or cover. **No placeholder scripts, hazard anchors or generic hazard-marker framework.**
+- A vent or eruption may return later under the constraints in [`rift-crown-design.md`](rift-crown-design.md) (Point 11), each with its own ticket and data model referencing `ShardId` and `SectionId`.
+
+#### Required configuration values
+
+Everything below lives in `Config` (or the existing tuning module), not in logic. Names are an implementation decision. All current values are **tunable** starting points unless noted.
+
+| Key | Start |
+|---|---|
+| `arrivalHoldSeconds` | 3 (0 = off) |
+| `crownOpenSeconds` | 60 (45–90), finite, ≥ 0 and below the Match length |
+| `voidKillY` | −40, below the lowest underside with a margin |
+| `maxPlayers` (Arena v1) | 6 (also the number of pads) |
+| `displacementCredit` grounded seconds / hard expiry | 1 continuous / 6 |
+| `kitDropInwardOffset` | 6 |
+| `pveSlotClearance` | 45 (planning constant for the validator only) |
+| Cache kinds `Home`, `Forward`, `Crown` | health 75, 75, 120 and drops 1, 1, 2 (carried over) |
+| Pad radius; Home band; Forward rule | 100; 35–50; farther than both Home Caches, Gate-facing, about 50–58 as a tunable target only |
+| Section layer radii | per the partition table |
+| Spread table | 2→opposite … 6→all, with random rotation |
+| Parapet height/thickness, connector widths, gap bands | per the tables above |
+
+The loot bag is the pool times equal copies. 24 drops across 4 Abilities is 6 each, and `Tuning.loot`'s comment ("4 each of 16") must be updated.
+
+#### Build and swap strategy (settled in review, confirmed by the developer)
+
+**Locked:** *Build and structurally validate the new Rift Crown outside the active gameplay query roots first, then perform a reversible swap into the named active folders for combat and runtime validation.* The old and new maps are never active together, because Hook, Tidal, Sentry line of sight, Cache discovery and the rest read only the named roots. The old map stays as a **reference**, not a playable map: after this ticket's code and data changes it is not required to run. The swap is explicit, reversible and minimal, and is not a multi-map framework.
+
+- **Build alongside, never in the live map.** The existing `Workspace.MatchMap` (46 parts at about x 0, z −450) is not touched. The Rift Crown is built as `Workspace.RiftCrownBuild`, centred at about **x +600, z −450**, clear of the old map (±127), the Arena (±52 at the origin) and the Hub (z about 300).
+- **Why that is safe.** Every world query reads only the three folders in `Environment.FOLDER_NAMES` (`Arena`, `MatchMap`, `Hub`), and pad, Cache and Sentry discovery read `Workspace.MatchMap`. So a differently named folder causes no raycast ambiguity, duplicate pads or marker conflicts, and no multi-map framework is needed.
+- **Consequence.** While it is the build folder, Hook sweeps, Sentry line of sight, camera and floor raycasts ignore it. So before the swap you can run the structural validator (it takes the root as an argument) and the movement measurements that need only physics (walk times, jump, Dash, fall time, pad sight lines, part count). **Anything that needs the world queries (Hook, Tidal against parapets, Sentry sweeps, the seal, a full Match) runs after the swap.**
+- **Swap (Edit mode, reversible):** move the old `Workspace.MatchMap` to `ServerStorage.MatchMapGreybox`, rename `RiftCrownBuild` to `MatchMap`, and start a new Play session. Reverse it to go back. No folder-discovery code changes.
+- **What the swap does not protect.** The old greybox's markers use the `Outer` and `Central` Cache kinds, which this ticket replaces, so the old map would not run on the new code. Treat `MatchMapGreybox` as a reference. The rollback for code is the last published checkpoint (check the Checkpoints table at the start) and Studio version history, as ADR-0005 says.
+- Order: (1) the shell, markers and metadata in the build folder; (2) the structural validator and its specs; (3) the pure Rules and their specs (spread table, roster cap, the Ability deal, credit, hold timing, seal timing, drop offset); (4) the swap and the server integration (hold and GO, seal, kill plane, Cache kinds); (5) the measurements and play checks; (6) telemetry. Each step is testable before the next.
+- Logic goes in `Rules` with specs. Anything that reads the world (kill plane, floor test, raycasts) is passed in, as elsewhere. The hold, the seal, the void kill and the credit are server-only, and the client gets presentation events only.
+- Use `CLAUDE.md`'s division of work: the main session designs and reviews, `studio-implementer` makes exactly specified edits, `studio-tester` runs long tests. Read `docs/testing/studio-mcp-quirks.md` first and record new quirks there.
+
+#### Assumptions that no longer apply
+
+- Ticket 18's Cache kinds (`Outer`, `Central`), counts (10 and 3), the 16-drop bag and `Tuning.loot`'s "4 each of 16" comment.
+- `LootRules.nearestPairs` and its best-effort variety, replaced by the guaranteed triples.
+- Ticket 18's and Ticket 20's pacing evidence and hypotheses for the old map (for example the first-Ability and full-Kit times recorded there). The Rift Crown sets a **new baseline**.
+- `assignSpawns` wrapping past the pad count, and the spec that tests it.
+- Marker names used by `CachesSpec` and `MatchMapSpec` (for example `CacheOuter01`, `CacheCentral2`).
+- A fall below −500 as the usual way out of the map (`Removed`, with `lastGrounded` as the drop). With the Rift Crown it is a safety net only.
+
+#### Structural validator (data only, runs in `RunAll` against a root passed in)
+
+Fails the ticket unless **all** hold:
+1. Every `CollapseParent` exists and has a strictly later `CollapseLayer`.
+2. Every collapsible section has a unique valid `SectionId`, and every Shard section has a valid `ShardId`.
+3. Every Cache, Sentry, Warden and spawn marker references an existing section.
+4. Every connector has valid `ConnectorType` and Collapse metadata.
+5. No required inward parent route depends on a Dash-only route or a Risky connector.
+6. Exactly one `CollapseCenter`, six pads, 12 Home + 6 Forward + 3 Crown Caches (24 drops), 3 Sentries.
+7. Placement rules: no Cache or drop point within its lip margin, no marker on a connector or apron, no PvE slot within `pveSlotClearance` of any pad, `voidKillY` below the lowest underside, and for every Shard's **Forward Cache**: it is farther from the pad than **both** Home Caches, it lies in the Gate-facing half of its Shard, it satisfies the lip margin, it is on no connector or apron, and it is inside valid Shard geometry. **50–58 studs is not checked as a pass or fail band.**
+8. Connector widths and gaps are inside their bands, and no Shard-to-Shard gap exceeds about 30.
+
+It also fails on deliberately broken copies (a missing parent, a duplicate `SectionId`, a Cache on an apron). The Sentry push sweep and the pad sight-line check need raycasts, so they are Edit-mode check scripts run on the build folder or the swapped map, with their results recorded in the ticket.
+
+#### Acceptance checks (automated, structural and spec-level)
+
+These prove rules and data. They do not prove that anything feels fair.
+
+1. The validator passes and fails on its broken copies, and the placement checks and sweeps above pass.
+2. **Deal specs** (many seeds): the six invariants hold, a pool of the wrong size is refused, and Shard triples and slot order vary between seeds.
+3. **Spawn and roster specs:** the spread table for 2–6 players with rotation; **seven eligible players form a six-player roster and leave one in the Hub, still eligible**; `assignSpawns` refuses more ids than pads without wrapping.
+4. **Hold and GO specs:** before `goAt` movement is frozen and `canAct`, collection and Sentry targeting are refused; forged movement and cast requests during the hold have no effect; after GO they work; `startedAt` is set at GO; `arrivalHoldSeconds` = 0 starts at once; leaving during the hold works.
+5. **Seal specs:** a sealed Cache ignores every damage source and produces no loot; Sentries are active from GO; all three open at the configured time measured from GO, not from the hold or character creation; `crownOpenSeconds` = 0 opens at GO; invalid values disable Matches with a reason; the Match ending first fires nothing.
+6. **Void specs:** the `Void` cause is accepted end to end; kill only for an Alive player in a Running Match after GO; credit rules (Hook, Knockback, expiry, replacement by a newer record, Sentry gives none, self-fall, attacker gone, brief contact does not clear); the drop offset, its validation, fallback and spread-point check.
+7. The Reference environment and the Hub are unaffected by `voidKillY`.
+8. After the swap, a solo Match and a two-client Match reach Results, `RunAll` and the Ticket 20 regression still pass, and the specs listed in Scope are updated.
+9. **Every measurement below has its value recorded in this ticket, and its consequence applied or explicitly kept.** That is the check, not the value.
+
+#### Measurements that must be verified in Studio
+
+Each row gives what we expect, whether there is a pass threshold, and what the result can change. An expected value is **not** a threshold. A row without a threshold only has to be recorded and its consequence applied.
+
+| # | Measurement | Expected (not a pass criterion) | Threshold | It decides |
+|---|---|---|---|---|
+| 1 | Running and standing jump distance | about 8.7 running (computed, never measured) | none | the jumpable-gap band, and whether the 10–14 Dash gaps are also jumpable (if so, widen them) |
+| 2 | Dash distance, and Dash + jump chaining | Dash about 21 | **Dash gaps cross in at least 9 of 10 attempts; the 18–24 bridge-required gaps do not cross reliably.** Otherwise widen those gaps toward 24, and escalate if 24 is still crossed (never past 30) | Dash gap and bridge-required gap widths |
+| 3 | Does gravity act on a target during Hook's 0.25 s pull, and does Hook carry a target over each intended gap | unknown | none | whether Hook kills over Dash gaps and Risky bridges work as designed |
+| 4 | Smallest obstruction that stops Hook, Hook against a parapet, and from a lower caster | unknown | **a Safe-connector parapet blocks a sideways Hook 10 of 10** | parapet height, the Dais pull behaviour |
+| 5 | **Tidal Bolt tap and charged displacement** | the docs disagree (see below) | none | the lethal-edge band, Risky bridge width, every lip margin (Cache 15, platform 10, pad 25–30), the Sentry buttress and the 10-stud rule |
+| 6 | Parapet against Tidal (tap and charged), minimum height and thickness | unknown | **a tap does not push a player over a Safe parapet, 10 of 10** | the Safe connector geometry |
+| 7 | Melee and Arc Burst reach across +4 and +5 | Basic Attack ±5 and Arc Burst ±8 allowance | none | ruin platform and Dais heights (adjust local geometry first) |
+| 8 | Fall time from y = 0 to `voidKillY`, default fall damage, whether a falling player can Dash back | about 0.64 s for 40 studs (computed, never measured) | **`voidKillY` is below the lowest underside by a margin and elimination follows the lip crossing within about 1 s** (proposed, tunable) | `voidKillY`, and whether "no recovery" stays |
+| 9 | Walk times: pad → first connector, → Crown, → neighbouring pad, opposite pad | the settled targets (2–3.5 s, about 6 s, 8–9 s, about 17 s) | **within about ±25%** (proposed, tunable) | Shard and pad geometry |
+| 10 | Pad-to-pad sight lines and lip margin | none between any two pads, margin 25–30 or more | **no unobstructed pad-to-pad line; margin at least 25** (settled) | pad placement |
+| 11 | Sentry push direction and range against each bay | pushes toward the Dais | **no standable point is pushed over a lip** (settled rule) | the buttress and Sentry positions |
+| 12 | **Part-count baseline** (see below) | the old map is 46 parts | none, no ceiling | whether to simplify before any polish |
+
+**The Tidal contradiction stays visible.** `docs/testing/studio-mcp-quirks.md` says in one place that a Tidal Bolt pushes its target **25 studs on a tap and 40 on a full Charge**, and in a later note that a tap moves its target **about 5 studs** (25 studs/s for 0.2 s) and that the 20–25 seen earlier included the target's own movement and falls. Older docs also give the charged push as 8 or 40. **No lethal-edge band, Risky bridge width or lip margin may be derived from either figure.** Measure the tap and the charged displacement first, then set those values. If the charged push is far larger than the lip margins can absorb, re-grill whether it is a map or a combat problem.
+
+**Part-count and performance baseline (row 12).** `StreamingEnabled` is false. After the structural greybox is complete (before any visual pass), record: the total `BasePart` count under the Rift Crown, whether client or server frame behaviour visibly regresses in a 2–6 player Studio test, and any construction pattern that repeats parts obviously (for example many identical seam strips that could be one part). Set no ceiling unless the project already has one, and open no optimisation work from it.
+
+#### Studio play checks (judgement, recorded as notes, not unit tests)
+
+These need a human and the real combat. They cannot be proved by specs. Run the first four counts below at 2, 4 and 6 players.
+
+| Question | 2 | 4 | 6 |
+|---|---|---|---|
+| Is the opening spread readable, with no pad sight line and no instant fight? | ✓ | ✓ | ✓ |
+| Is a full Kit reachable on the home Shard in about 25–35 s, with no Rank 2 from it? | ✓ | ✓ | ✓ |
+| Does the Crown opening create useful convergence, and does an early rush gain no loot? | ✓ | ✓ | ✓ |
+| Does the Arena feel alive rather than dead at this player count? | ✓ | ✓ | ✓ |
+| Do Hook and Tidal kills feel fair on Risky bridges and lips, and are they impossible on Safe parapets? | ✓ | | |
+| Are Safe, Risky, Dash shortcut, lethal edge and safe edge understandable at a glance? | ✓ | ✓ | |
+| Are accidental self-falls (and falls after Dash) rare enough? | ✓ | ✓ | |
+| Does the Kit drop after a void death land somewhere reachable without a lip fight? | ✓ | ✓ | |
+| Are unused Shards playable and lootable, and is every Shard reachable without Dash? | ✓ | ✓ | |
+| Does a roster of seven form a six-player Match and leave the seventh in the Hub? | | | ✓ |
+
+Also walk each Safe, Risky and Dash route once, fight on the terrace and the Dais ramps, retreat with Stone Guard, and use Arc Burst across a Rib.
+
+#### Telemetry and pacing evidence
+
+Add (names are an implementation decision): `CrownOpened match= seconds= alive= nearCrown=` (players within 70 of the centre); `CacheBroken kind=Home|Forward|Crown`; time to a full Kit and to Rank 2 per player; whether the first Crown break came before or after the open; `Void` eliminations with source (Hook, Knockback, Sentry, self), the credit record's age, and `fallsAfterDash`; Match duration and how it ended; the part-count baseline.
+
+**Pacing risk (recorded concern):** before the Collapse exists, the real Arena may permit mid-match stand-offs or inactivity. Do **not** solve it with hazards. Capture: Match duration; time between meaningful interactions; time spent with players in different Shards; time from a full Kit to the first PvP; stretches with no PvP damage, Cache interaction, PvE interaction or rotation; and where survivors are during long idle spans. A dead mid-game becomes evidence for the Collapse or a later hazard ticket.
+
+#### Known future hooks
+
+- **Rift Collapse:** `SectionId`, `CollapseLayer`, `CollapseParent`, `CollapseCenter`, slab undersides, seams, the structural validator, the Dais as an optional final island.
+- **PvE:** reserved Warden and elite slots, Sentry plinths, spawn-safety rule, Stone/Rift visual family.
+- **Match Intro:** controlled Rift insertion as presentation only, over server-placed positions, with `arrivalHoldSeconds` as the timing contract.
+- **Larger maps:** free-drop reconsidered only for materially larger Arenas and populations.
+
+#### Deferred and unresolved
+
+- Rift Collapse mechanics, timing, telegraph, damage, and whether it ends at the Inner Crown or the Dais.
+- Fate of **Crown Sentries** (Layer 3) and of **loose Pickups and Kit drops** on a collapsing section.
+- Warden stats, AI and aggro range, and the Warden slot hypothesis.
+- XP, equipment/Relic slot, loot beyond the 24 drops, Rank pacing tuning.
+- Cache stagger after the seal, the Match Intro, final art, audio and palette.
+- Kill attribution for any future hazard or PvE displacement.
+- Whether the six-player cap is permanent, and a Dash ledge guard (only on telemetry evidence).
+- Whether a dead mid-game justifies any hazard.
+- Which six players are kept when more are eligible (random for now, "longest waiting" later if Hub order is ever recorded).
+
+#### Dependencies, risks and ADRs
+
+- Depends on Tickets 15–20 (Kit, Pickups, Match flow, Caches and Sentries, Hook, run-test readiness). After the swap the Ticket 20 regression must still pass.
+- **Part count:** measure it as above, and simplify before polish, not after.
+- **Greybox first.** Resizing at the greybox stage is the intended way to fix a wrong number.
+- **No ADR required.** The existing ADRs record durable architecture (authority, movement, the status model, hitboxes, the MCP workflow, charging, one life). `voidKillY`, the kill-plane model and the 24-drop economy are tunable gameplay design, recorded here and in the design archive. Revisit only if one of them becomes hard to reverse.
+- The glossary terms for this map were reviewed against this ticket and carry no tunable numbers.
+
 ## Later, after evidence from the run test
 
 - non-Ability world items, under the principles above
