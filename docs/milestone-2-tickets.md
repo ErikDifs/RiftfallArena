@@ -35,7 +35,7 @@ Roblox version history is the code's history, as [Milestone 1's checkpoints](mil
 - All normal world loot spawns at Rank 1. Collecting a duplicate upgrades the owned Ability to Rank 2.
 - The maximum Rank is a config value, set to 2, so Rank 3 can return later without redesigning the system.
 - Ranked loot from Elites and events waits until those systems exist.
-- Ticket 18's two new Abilities get sensible Rank 2 values, and no Rank 3 behaviour.
+- Ticket 19's two new Abilities get sensible Rank 2 values, and no Rank 3 behaviour.
 - No upgrade currencies, trees or modifiers.
 - The purpose: once Q and E are full, duplicates still give a reason to explore and contest loot. Keeping everything at Rank 1 would make duplicates dead loot, and would need a stand-in for the death rule's Rank loss.
 
@@ -166,7 +166,7 @@ Roblox version history is the code's history, as [Milestone 1's checkpoints](mil
 - **HUD.** Q and E show the equipped Ability's name and colour, its Rank pips, and a clear empty state. The Equip Lock has its own look, distinct from a cooldown sweep, so a player can tell "cooling down" apart from "just equipped".
 - **Out of scope:** final icons and an asset pipeline, minimap loot markers, detailed tooltips, inventory UI, elaborate rarity effects.
 
-**The two new Abilities: Rift Hook and Stone Guard (2026-11-08).** Ticket 18 isn't just two more Abilities: it tests whether finding different pairs changes how players approach a run and a fight. Both use the existing Instant Casting Style. No new Charging Ability and no new Status chain. All numbers are Ticket 18's starting tuning.
+**The two new Abilities: Rift Hook and Stone Guard (2026-11-08).** Ticket 19 isn't just two more Abilities: it tests whether finding different pairs changes how players approach a run and a fight. Both use the existing Instant Casting Style. No new Charging Ability and no new Status chain. All numbers are Ticket 19's starting tuning.
 
 With two slots, the four Abilities make six different Kits:
 
@@ -1145,6 +1145,139 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - Rank 2 values and specs for the sequence and burst limits.
   - Both added to the loot bag.
 - **Starts only after** the loop works with the existing Reference Abilities, so new content adds to a working loop rather than hiding architectural problems.
+
+**Settled 2026-11-09, before building.** Settled from the docs only: the Studio MCP wasn't connected in the session, so none of it is checked against the code. **Implementation waits for the developer's go-ahead, and for the Studio MCP being reconnected (`/mcp`), a fresh `list_roblox_studios`, and an inspection of the code paths named below.** Any material mismatch with the code is reconciled before architecture changes.
+
+1. **Rift Hook's pull.**
+   - **Destination:** about 4 studs in front of the caster, on the caster→target line flattened onto XZ and normalised (caster position + direction × 4). Vertical separation plays no part, and the Hook adds no vertical velocity.
+   - **Already close:** a target within about 4 studs still takes the hit, the ~8 damage and normal hit interactions, with no displacement. It is never pushed through or past the caster.
+   - **Geometry:** a character-sized authoritative sweep from the target toward the destination, against the same static-world roots as projectile line of sight. The pull never passes through or embeds in geometry, and stops short by the target's radius or a safe clearance. Other characters don't block it, and body-blocking isn't part of the Hook this milestone. The sweep primitive follows the existing Knockback and Movement Validation code, and no second collision system is added.
+   - **Ledges:** no ledge-stop rule. If the horizontal path is clear, a target may be pulled past supported ground, and gravity takes over. That is horizontal forced displacement, not a vertical launch, and it's deliberate. If Ticket 20 shows environmental Hook kills are too easy or frustrating, revisit map geometry or add a grounded constraint then.
+   - **Duration:** a single tuning value, `pullDuration = 0.25 s` (range about 0.2–0.3 s), through the same authoritative forced-movement path as Knockback where practical. Not a teleport, not a slow drag.
+   - **Movement Validation** must explicitly allow the server-authoritative pull displacement, just as it already accounts for Knockback and forced movement, rather than reading it as invalid player motion.
+   - **Target states:** a Charging target's Charge ends through the existing Knockback rule, with no Hook-specific cancel. An Evading target is unaffected. Frozen and Stunned targets are pulled like any Knockback, if those states exist in the code.
+2. **Pulls on non-players.** The pull depends on target capabilities, not target names.
+
+   | Target | Result |
+   |---|---|
+   | player, dummy | damage + pull, through the server NPC forced-movement path for dummies, generalised rather than a dummy-only Hook |
+   | Sentry | damage, no displacement, using the existing "this target can't move" behaviour with no Hook exception |
+   | Cache | Hook damage at the caster's Rank through Ticket 18's plain-object path. No pull, Knockback, Status, Reaction, Evade or Kill Recovery |
+
+   - **One target:** the Hook is non-piercing and stops at the first player, dummy, Sentry, Cache or blocking geometry. A Cache or Sentry protects what stands behind it.
+   - **No confirmed hit, no pull:** a miss, a wall impact or an Evaded target does no damage and no pull. Nothing moves on projectile proximity or predicted contact, and the client's cosmetic projectile never moves a target.
+   - **Regression invariants:** Sentry immobility must not become Knockback immunity for players or dummies, and the new pull mode must not change Tidal Bolt's push. Same forced-movement foundation, different displacement calculation. Both directions are verified in the code before building.
+3. **Stone Guard's Shield.** One server-owned pool, with current Shield, max and expiry. Clients only present it.
+   - **Absorption:** each damage instance absorbs from Shield first and takes any overflow from Health, then continues normal death and elimination handling. The Shield is not a separate extra life. A hit that breaks the Shield and overflows can kill.
+   - **Reactions:** hit damage and Reaction damage stay separate damage instances through the same absorber. Reaction events, feedback, `Triggered By` attribution and accounting are unchanged. Shield subtraction lives in one generalised server-side absorber, never inside individual Abilities.
+   - **Expiry:** at 3 s or at 0. A timed expiry removes the remainder with no Health conversion, refund or cooldown benefit.
+   - **No stacking:** the newest Shield replaces the current one, with no carried remainder.
+   - **Evade:** an Evaded hit uses no Shield and counts as no absorbed damage.
+   - **Through the Shield:** a valid Shielded hit still applies Wet, Reactions, Knockback and any future Statuses, even at `health damage = 0`. It is never treated as an Evade, and Knockback still interrupts a Charge.
+   - **Clearing:** death, Match elimination and a fresh Character lifecycle clear it. Nothing carries into Spectate, the Hub, the next Match or a Reference-mode respawn.
+   - **Natural Recovery:** absorbed damage, partial or full, resets the timer.
+   - **Tracking:** a fully absorbed valid hit is still a hit, for combat state, killer attribution and fight history. `damageDealt` keeps meaning Health actually lost. A separate `shieldAbsorbed` counter goes in the session log only, not in the Ticket 17 results table.
+   - **Low-health feedback** reads Health only.
+   - **Replicated state:** character attributes `Shield`, `ShieldMax` and `ShieldEndsAt` (server time, if the client needs it for presentation). Clients never decrement it as authority.
+   - **`CombatResult`:** `damage` is Health actually lost, `absorbed` is the Shield consumed by that instance, `shieldLeft` is the Shield after resolution. Examples: 12 into 25 gives 0 / 12 / 13; 20 into 8 gives 12 / 8 / 0; 12 into none gives 12 / 0 / 0. The semantics hold even if the existing result contract needs a slightly different shape, and `Protocol` validation isn't weakened for convenience fields.
+   - **Presentation:** a translucent stone-grey shell with warm amber accents that thins with the remaining Shield, readable to opponents, distinct from Evade, Charge, Frozen and Wet, and not hiding the character. A Shield broken by damage gets a break flash and sound. A timed expiry fades quietly. The local player gets a Shield bar beside the Health bar, which doesn't replace it. A fully absorbed hit has its own Shielded hit marker: not a miss, not an Evade, not ordinary damage.
+4. **Rank 2.** Both values live in the normal authoritative per-Rank config, resolved by the existing server Kit path. There is no new Rank transport and the client never supplies a Rank.
+
+   | Ability | Rank 1 | Rank 2 | Unchanged |
+   |---|---|---|---|
+   | Rift Hook | range 30 | range 36 | damage 8, cooldown 7 s, projectile speed and width, 4-stud destination, 0.25 s pull |
+   | Stone Guard | Shield 25 | Shield 35 | 3 s duration, 12 s cooldown |
+
+   - **Upgrades affect future Casts only.** An in-flight Hook keeps its parameters. An active Shield keeps its cast-time values, and the next Stone Guard grants the Rank 2 value.
+   - **Long pulls:** with the fixed duration, a Rank 2 pull of about 32 studs is faster than Rank 1's. That's accepted for now. If it reads as a teleport in Play, the first lever is a duration that grows with the actual distance, to a small cap. It isn't designed or built now.
+   - **No Rank 3 behaviour** for either Ability. If the config schema needs a Rank 3 entry structurally, it follows the existing convention and Milestone 2's cap stays authoritative.
+5. **Instant in the Q/E slots.** The behaviour comes from `castingStyle = "Instant"` in the Ability data. Generic Input never branches on `RiftHook` or `StoneGuard`.
+   - **Input:** a press Casts once on key-down with the current Aim Point. Release does nothing, holding doesn't repeat, there is no auto-fire, and it never enters Charging. No Tap Window, threshold, slowdown, Telegraph, Charge percentage, release or expiry.
+   - **Protocol:** the existing `CastRequest` only. No `ChargeStart` or `ChargeRelease`, no Instant-specific Remote, and strict validation is kept, so extra fields are rejected.
+   - **F replacement:** unchanged. While F is held, Q and E are replacement choices and never Cast, for Chargeable and Instant Abilities alike. A key consumed for replacement can't Cast on F's release, since a fresh press is required.
+   - **Client suppression** of a slot on cooldown, Equip Locked or Charging is UX only. The server independently enforces every gate, and a rejection wins and spends no cooldown.
+   - **While Charging:** an Instant Cast is rejected, spends no cooldown and leaves the Charge running and releasable. It never cancels a Charge, so Stone Guard can't cancel an unsafe Charge into defence and the Hook can't be fired mid-Charge.
+   - **Other gates:** the same as other Abilities. In a Match the caster must be Running, Alive, not Stunned or Frozen, past the Equip Lock, off cooldown and not Charging, with the Rank from the authoritative Kit. Reference mode keeps its existing gates and doesn't start requiring a Match.
+   - **Aim:** Rift Hook uses the Aim Point and the Ticket 14 hand origin, with its safe-origin and cover rules, and no Hook-specific origin calculation. Stone Guard ignores the Aim Point. If `CastRequest` requires one, the client sends the normal one and the server ignores it, and the Protocol isn't forked.
+   - **Prediction:** the Hook may draw a Cosmetic Projectile, cancelled by a Rejected Cast. Collision, damage, target, pull and Charge interruption wait for Server Confirmation. Stone Guard's Shield state is never predicted, and only the cooldown sweep is. A rejection restores the cooldown and shows no Shield.
+   - **HUD:** the normal slot presentation (key, name, colour, Rank pips, cooldown sweep, Equip Lock) with no Charge meter and no Shield countdown on the slot. The replacement prompt is unchanged.
+   - **No Telegraph** for either. The Hook's counterplay is its visible, narrow, travelling projectile and cover. Stone Guard's is the shell appearing.
+6. **Visuals and animation.** Procedural, with built-in placeholder sounds and **no uploads in Ticket 19**: no animation, sound, mesh or VFX asset.
+   - **Hook projectile:** a new cosmetic style in the existing Cosmetic Projectile system. It's thin, bright and tether-like, in amber-orange, distinct from Tidal Bolt blue and Arc Burst lightning. No second projectile-rendering system.
+   - **Pull feedback:** a rift Beam from the caster's hand toward the target for about the 0.25 s pull, plus a small impact flash. It shows only after the server has confirmed a valid hit, a movable target and an actual pull. A Sentry or Cache hit gets the normal impact feedback and no pull tether. The Beam is cosmetic and never drives movement.
+   - **Hook animation:** reuse the uploaded ChargeRelease once on the Cast, with no ChargeHold beforehand. Selection is data-driven, for example a `castAnimation` presentation field in the existing config style, so `CastAnimations` doesn't hard-code the Hook. Chargeable Abilities keep their hold and release behaviour. The code is checked first: if ChargeRelease is tied to Chargeable release, the presentation data is generalised slightly.
+   - **Stone Guard:** no character animation, since ChargeRelease would read as offensive. The shell carries the readability. If Play shows the activation feels disconnected, that's a later animation task.
+   - **Sounds:** distinct built-in placeholders for the Hook, Guard activation, Guard break and a hit absorbed by the Shield. Each must be unused for another gameplay cue and report `IsLoaded`. Absorbed-hit feedback stays readable without being noisy.
+   - **Pickups and HUD:** per-Ability presentation config feeds the Pickup colour and shape, slot colour and name. Hook is amber-orange, Stone Guard is stone grey, each with a distinct existing `pickupShape`, and no new mesh format.
+   - **If the Hook needs its own animation after Play,** key a draft, preview it, bring it back for review, and ask before any upload.
+7. **Specs and checks.**
+   - **Specs:**
+     - **`ShieldRulesSpec`:** the three worked examples (12 into 25, 20 into 8, 12 into none), zero damage, exact depletion, and overflow that kills. A new Shield replaces rather than adds, timed expiry leaves Health alone, and death or elimination clears it. Rank values are 25 and 35, and upgrading mid-Shield leaves the current Shield, `ShieldMax` and expiry unchanged, with the next Cast using the new Rank.
+     - **`HookRulesSpec`:** the XZ flattening, so changing only the target's Y leaves the destination unchanged. The destination is about 4 studs from the caster, a close target gets zero displacement and is never pushed past the caster, and no vertical component is introduced. An unobstructed path reaches the full destination, and blocking geometry shortens it by the clearance. Characters aren't supplied as geometry. Range is 30 and 36, and the duration is 0.25 s at both Ranks. If the collision and sweep belong to an existing generalised forced-movement Rules module after inspection, those assertions go there rather than being duplicated.
+     - **Combat:**
+       - Hit and Reaction damage are separate instances through the same absorber.
+       - An Evaded hit uses no Shield.
+       - A fully absorbed hit counts as a hit, applies Wet and Knockback, triggers a Reaction by the normal rules and resets Natural Recovery.
+       - `damageDealt` isn't inflated, and `shieldAbsorbed` accumulates separately.
+       - `CombatResult` pins `damage`, `absorbed` and `shieldLeft` with the worked examples.
+       - Pull eligibility comes from target capabilities: player and dummy pulled, Sentry damaged but not moved, Cache on its own path. Tidal Bolt's push is unchanged.
+     - **`CastsSpec`**, generic through `castingStyle`:
+       - An Instant Cast while Charging is rejected, spends no cooldown, and leaves the Charge releasable.
+       - Equip Lock, cooldown, Stunned or Frozen, and the Match and Alive gate are enforced server-side.
+       - The authoritative Kit Rank is used, a forged `rank` or extra field is dropped, `ChargeStart` for an Instant Ability is refused, and `ChargeRelease` can't manufacture an Instant Cast.
+       - Tidal Bolt still pushes away while the Hook pulls toward its safe destination.
+     - **`LootRulesSpec`:** the real pool is four Abilities with four copies each (16 drops). The seed sweep, about 2000 seeds if cheap, requires for every seed exact 4/4/4/4 counts, central Cache entries that differ, every drop assigned once, a repair that terminates, the same seed reproducing the same deal, and a reported `variety=ok|partial` that matches the nearest-pair state. **Zero partial cases isn't a contract** unless the algorithm and geometry guarantee it. Equality stays strict and early variety stays best effort, so a zero from the sweep is evidence only.
+     - **Burst limits:** the values are calculated from the authoritative Ability config, with no handwritten totals pinned. Principles: no ordinary single hit above about 40% of 100 Health, and no intended setup and payoff above about 60%, for every Hook and Guard pairing at the configured Rank values. The Hook is untyped and creates no Wet or Reaction setup. Stone Guard only adds defence and can't raise offensive burst.
+   - **Play checks, by `studio-tester`, with the render and state inspected before each interaction group:**
+     - **Hook:**
+       - A normal hit pulls a player to about 4 studs in front of the caster.
+       - A target already inside that distance takes the hit and doesn't move.
+       - A wall shortens the pull safely, without embedding the target, and characters don't body-block.
+       - A pull past a ledge is allowed, with no artificial vertical launch and gravity taking over.
+       - A miss, a wall impact and an Evaded target give no damage and no pull Beam.
+       - A Charging target is hit and pulled, and its Charge ends through generalised Knockback with no Hook shortcut.
+       - A Sentry takes about 8 and doesn't move, a Cache takes Hook damage with no Status, Reaction or displacement, and a dummy is pulled through the server NPC path.
+       - Rank 2 range, with a target around 33 studs and near the boundary: Rank 1 can't hit and Rank 2 can.
+       - Movement Validation shows no violation or snap-back after short and long pulls, with the long Rank 2 case inspected.
+     - **Stone Guard:**
+       - After a Cast, the replicated attributes and the shell are correct.
+       - Tidal Bolt into Guard absorbs first, still applies Wet and Knockback, shows as a real Shielded hit and resets Natural Recovery.
+       - A real Wet → Arc Burst sequence is tested where the hit takes some Shield, the Reaction takes the rest and its overflow reaches Health, with attribution unchanged.
+       - A timed expiry with some Shield left fades quietly with no Health change.
+       - A break shows the flash and sound and clears the attributes.
+       - Replacement is tested through the smallest legitimate setup, without changing production cooldowns, since the pure spec is the main contract.
+       - Death clears the Shield, and an Evaded hit consumes none.
+       - A mid-Shield upgrade leaves 25 / 25 unchanged, and the next Cast gives 35 / 35.
+     - **Instant input**, both Abilities on real Q and E:
+       - One key-down gives one Cast, holding doesn't repeat, and release does nothing.
+       - While F is held, Q and E only replace.
+       - Releasing F with the key still held doesn't Cast, and a fresh press is required.
+       - A press during a Charge is refused with no cooldown spent and the Charge continuing.
+       - Forged and malformed requests go through the existing Protocol test path.
+     - **Loot and upgrades:**
+       - One Match deal holds Tidal Bolt, Arc Burst, Rift Hook and Stone Guard four times each, taken from `LootDeal` or `LootContents`, and one player needn't collect all 16.
+       - Enough Caches are broken to see both new Pickups, with correct names, distinct colours and shapes, and replacement prompts naming them.
+       - A duplicate upgrades an owned Rank 1 Ability to Rank 2, and the new values apply to the next Cast.
+     - **Reference Kit regression:** Tidal Bolt pushes as before, Chargeable input and Arc Burst are unchanged, and the dummies behave as before except where the Hook is deliberately granted. No Match-only system disturbs Stage 3.
+   - **Main-session review after the runs** (judgement calls, not delegated):
+     - **Long Rank 2 pull:** fast forced movement (keep) or teleport-like (record for tuning). The duration isn't changed in this ticket unless clearly broken.
+     - **Shield shell:** visible to opponents, distinct, the silhouette stays readable, and the draining is understandable.
+     - **Guard audio:** activation, absorbed hit and break are distinguishable and repeated hits aren't noisy.
+     - **Hook projectile:** visible against the Reference arena, `MatchMap` and common cover. No asset is uploaded because a placeholder needs tuning.
+   - **Ticket 20 watch list** (recorded, not solved):
+     - **Stone Guard effective health:** +25 or +35 temporary capacity changes the Tidal → Arc payoff and overall time to kill. Guard isn't weakened pre-emptively, because absorbing much of a combo is its defensive identity.
+     - **Environmental Hook kills:** ledge pulls, falls caused by the Hook, and whether they read as fair and how often they happen. No ledge protection in this ticket.
+   - **Test-aid hygiene:**
+     - Temporary helpers may grant Abilities or Ranks, set Health, arrange Shield scenarios or position players.
+     - The mechanic under test uses the normal authoritative paths.
+     - Before finishing, the helper is deleted and a search of the runtime code for its exact script and API names finds nothing. The word `TEMPORARY` isn't searched repo-wide, because these docs legitimately contain it.
+     - Any temporary tuning is reverted, `startingKit` is back to `"Reference"`, and the aid is never committed.
+   - **Done when:**
+     - The specs pass: `ShieldRules`, `HookRules`, the updated system specs, four-Ability loot and the burst limits.
+     - The Hook, Guard, Instant Q/E and Reference regression checks pass, and Movement Validation accepts the pulls.
+     - The Hook and Shield readability has been reviewed.
+     - The temporary aids are gone, `startingKit` is `"Reference"`, and `code-structure.md` and `studio-mcp-quirks.md` carry anything new.
+     - No unapproved asset was uploaded, and nothing from Ticket 20 has started.
 
 ### 20. Run test readiness
 
