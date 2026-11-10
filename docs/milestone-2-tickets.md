@@ -1549,7 +1549,26 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **Sound pass, 2026-11-10** (item 7). The developer listened in solo Play with the Reference Kit temporarily set to Rift Hook and Stone Guard, which was restored afterwards. All four cues loaded (`IsLoaded`) and all four are **kept**: Hook cast (`swordlunge.wav`), Guard activation (`metal.ogg`), absorbed hit (`hit.wav`) and break (`glassbreak.wav`). Nothing was replaced or uploaded. For the run-test notes, not fixed:
   - **The hit sound is a bit weak.** The developer noted this as acceptable.
   - **Dash's sound (`action_get_up.mp3`) is quiet.** At first the developer heard nothing on a Dash, then heard a quiet sound. It loads and the code plays it on every local Dash. It's an older cue, outside Ticket 19.
-- **Next:** Run R, then Run M with the security matrix, the pacing walkers and the Hook leftovers.
+- **Run R solo, 2026-11-10,** by `studio-tester` and reviewed by the main session: **10 of 10 pass**.
+
+  | Check | Result |
+  |---|---|
+  | `RunAll` | 427 passed, 0 failed |
+  | Progression dormant | No Match attributes, `MatchState`, Caches, Sentries, Pickups, or Match or loot lines. Arena pad, and the Kit is Tidal Bolt and Arc Burst at Rank 1. |
+  | Basic Attack | Damage 6 |
+  | Tidal Bolt | A tap did 12.0 and a 1.3 s Charge did 15, and Wet was applied |
+  | Wet → Arc Burst | `WetReaction`, damage 30 (14 + 16) with `reactionAppliedBy` set, and Wet consumed |
+  | Dash | A real Dash moved 21 studs and was accepted. `NoCharge` came back with charges 0 and the client reconciled. A Dash after the recharge worked. |
+  | Evade | A server-timed Basic Attack into a forged Dash was `Evaded` with no damage. The control did 6. |
+  | Charge interruption | Ended by a Knockback hit and by a Hook pull. The Charge attributes cleared, there was no Cast, and the later release was `StaleAttempt`. |
+  | `CastRejected` | `OnCooldown` with `cooldownRemaining` 0.4, and no effect |
+  | Telemetry silent | No `HookPull`, `MatchEnd`, `MatchResult` or `Eliminated`. `Fight` had no Match fields, and `Summary` had no `guards`. |
+
+  - **Forging:** the combat checks used forged remotes from the client, and only the Dashes were real input. Feel wasn't judged.
+  - **A Hook pull ends a Charge with `cause=Knockback`.** That's by design: forced movement travels as a Knockback with its own duration.
+  - **Cooldown rejection was exercised only with Basic Attack.**
+  - **Clean afterwards:** the helper was deleted, and the Config is still Reference and 480.
+- **Next:** Run R's two-client part, then Run M with the security matrix, the pacing walkers and the Hook leftovers.
 
 ### 21. Rift Crown Arena layout
 
