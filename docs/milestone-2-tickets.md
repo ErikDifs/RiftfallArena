@@ -2781,14 +2781,375 @@ If a documented number differs slightly in code, update the tuning assumption an
 
 #### Future work
 
-**Regular monsters are intentionally deferred to the next PvE ticket.** Wardens are elite-tier, mini-boss-style guardians, not the baseline monster population. The next PvE design should explore weaker, quicker-to-kill regular monsters scattered through the Arena, reusing only the Warden infrastructure that proves genuinely reusable.
+**Regular monsters are intentionally deferred to the next PvE ticket, now specified as [Ticket 24](#24-regular-monsters).** Wardens are elite-tier, mini-boss-style guardians, not the baseline monster population. Ticket 24 starts by extracting the Warden primitives that prove genuinely reusable, and is implemented only after this ticket is built.
 
 Also deferred: an elite Dais Warden or boss, Match XP and Relics, patrol, respawn, a ranged or leap attack if telemetry shows kiting dominates, final art, audio and animation.
+
+### 24. Regular Monsters
+
+**Status: specified 2026-11-10 and reviewed adversarially the same day, not built. Implementation starts only after Ticket 23 is built** (and with it Tickets 21 and 22), because Ticket 24 reuses primitives the Warden proves and must not be built against speculative Warden infrastructure. Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`regular-monster-design.md`](regular-monster-design.md) and [ADR-0008](adr/0008-pve-actors-are-kinematic-server-models.md). This entry is the build contract. Values carry the same four labels as Tickets 22 and 23: **settled initial value**, **tunable**, **measurement-dependent**, **test-only**.
+
+**Targets and balance expectations are not pass criteria.** The 4 to 4.5 s Basic-only kill, the 0 to 8 Health cost for a competent player, the backstep watch item, pair burst, outside-fire share, reward feel and visual smoothness produce tuning notes. Only the **Completion criteria** decide completion.
+
+#### Summary
+
+The **regular monster** is the Arena's baseline PvE population: weak, quick to kill and numerous, scattered near loot and routes. Its role is **ambient PvP pressure first**: it comes to players, makes noise and gets pulled into fights. A small, hidden chance of one ordinary Rank 1 Ability Pickup is a second-order reward. The first is the **Riftling**, a small melee chaser (placeholder name). It is not a weaker Warden, not a Monster Family member, and it never gates a route, Cache, Kit step or the Crown.
+
+#### Scope
+
+- **Step 0, shared primitives extracted from the built Warden** (see below).
+- `MonsterRules` (pure): selection and deal, FSM, edge hold, reset, wake stagger, targeting glue and locomotion goals over the extracted primitives.
+- `Monsters` (server): runtime, registration, motion, attacks, reward, `finish`, `removeSection`, telemetry.
+- The authored pool of 12 Home markers, the static validators, and the Layer and fallback review.
+- `Match` integration, `MonsterVisuals`, `Feedback` additions, `Protocol` and `Tuning` entries, the PvE actor-id predicate, specs, the Studio matrix, `CONTEXT.md`, `monsters.md` and `ranks-and-pickups.md` terms.
+
+#### Non-goals
+
+- A `MonsterService`, behaviour trees, `PathfindingService`, a generic enemy framework, dynamic avoidance or repulsion, pack AI, and any tuning of the Warden.
+- Match XP, levels, currency, Relics, Equipment, a second reward type, Kill Recovery, permanent progression.
+- Respawn, patrol, a leap, a lunge, a ranged or second attack, any Status, Root, Slow, Stun or player Knockback, cross-Shard or connector pursuit, Crown monsters.
+- Monster Families, themed or weighted Drop Tables, an Elite, an outside-fire gate, a per-target Telegraph cap or a Match drop budget (each is added only on evidence).
+- Final art, audio and animation, a nameplate, an overhead Health bar, a Territory ring. **No upload without explicit approval.**
+- Analytics backend, heatmaps, positional sampling.
+- Changing the 24-drop Cache economy, `LootRules.validate`, the Warden deal, kill attribution, or the shared Match `random` draw order.
+
+#### Dependencies
+
+**Blocking dependency on Ticket 23.** Ticket 24 implementation begins only when Ticket 23 is implemented, green and committed. The design and this entry may be finished earlier.
+
+**Relies on (Ticket 21):** the six Shards and `ShardId`, pads, Home and Forward Caches, Crown Sentries, Warden slot markers, `SectionId` on markers, `goAt`, the structural validator.
+
+**Ticket 24 adds to the built map:** 12 Home markers (two per Shard, variant `A` and `B`), each with `HomeId`, `ShardId`, `Variant`, `SectionId`, `TerritoryRadius` and two slot offsets. Exact folder and attribute layout is recorded when built, and no generic marker framework is introduced.
+
+**Relies on (Ticket 22):** `Collapse.sync(now)`, Section removal as one non-yielding step, restore before marker discovery, and the rule that a combat event accepted before the removal boundary resolves under the old world and one accepted at or after it under the new world.
+
+**Requires from Ticket 22:** its object-cleanup step calls `Monsters.removeSection(sectionId)`, as it does for Caches, Sentries and Wardens, and never destroys monster instances itself. This is a one-line addition to the built cleanup step.
+
+**Relies on (Ticket 23):** `warden` target registration and `immovable`, the target-level `gate(hit)` veto, the Resisted result reason, the players-only server cast filter, the shared ground-circle cast form, PvE elimination attribution and the exclusion of PvE damage from PvP numbers, the Telegraph visual conventions, the `source` tag on Pickup log lines, and `StatusVisuals` on a non-player model.
+
+#### Step 0: shared primitives (first implementation step)
+
+Extract **only** what both real implementations genuinely need, from the built Warden, in **its own commit**, with every existing Warden spec and Studio check unchanged and green. Names are chosen at build and none contains "Monster":
+
+| Primitive | Content | Class |
+|---|---|---|
+| Motion and Territory | pure step toward a goal with a bounded turn rate, a clamp into the Territory circle, the nearest edge point, the Home-return step, and the floor check using an injected `floorAt` (align Y, refuse a step with no floor or over the step limit, Fault conditions) | extract |
+| Threat | the recent-damage window, the sticky target, the challenger margin, the absolute minimum and the switch cooldown, as pure functions | extract |
+| Action record | the nullable `action` (`kind`, `impactAt`, `endsAt`, `resolved`, locked facing or centre, optional target id) and its step that yields `Impact` and `ActionEnded`. **Not** the FSM and not attack choice | extract |
+| Telegraph builder (client) | the wedge and disc that fill to `impactAt` from attributes | extract |
+| PvE actor-id predicate | one `Protocol` helper so `CacheRules.mayDamage`, attribution and `SessionRules` stop growing `warden` or `monster` or `sentry` cases. Not a namespace | extract |
+
+**Reuse directly:** `characters.registerTarget`, `immovable`, the Sentry sight helper (`canSee`), `casts.castFromServer`, Status and Reaction participation, the telemetry sink. **Keep separate:** each system's `setup`, `clear`, Heartbeat loop and `removeSection`, each rules module's FSM and each `*Summary`.
+
+**Rule.** If a supposed primitive is tangled with Warden-specific behaviour, do not force the extraction. Leave it in the Warden and implement the monster version separately, and record which primitive was not shared and why. The Warden's behaviour and numbers do not change. Review the extraction diff before any monster code is written.
+
+#### Population and selection
+
+Chosen once at Match setup, after `assignSpawns` and after Wardens (monsters do not depend on occupied pads). **Tunable starting rule, not scaled by player count:**
+
+| Item | Value | Label |
+|---|---|---|
+| Authored pool | 12 Homes, two per Shard: variant A and variant B | settled |
+| Active per Match | one Home per Shard, so 6 Homes | settled |
+| Group sizes | 4 singles and 2 pairs, so 8 monsters | settled initial value, tunable |
+| Crown | 0 monsters | settled |
+| Maximum per Home | 2 | settled |
+
+`monsterRandom` is a dedicated stream, injected (`deps.monsterRandom`, default `Random.new()`). It never draws from `Match`'s shared `random`, the Cache deal, the spawn assignment or `wardenRandom`. **Fixed draw order**, so specs are deterministic: (1) one A or B draw per Shard in ascending `ShardId`; (2) the two pair Shards, drawn without replacement (no Gate constraint; the assignment is evidence); (3) for each monster in Home then slot order, **always** one flag draw and one Ability draw, whether or not the flag is set. The population is never changed after GO. One life per monster is final.
+
+#### Territory, aggro and targeting
+
+| Rule | Value | Label |
+|---|---|---|
+| Home Territory | circle around the Home marker, never left | settled |
+| `TerritoryRadius` | geometry-derived, about 7 (6 to 9) | measurement-dependent |
+| `AggroRadius` | `Territory + 4` (never more) | tunable, geometry-validated |
+| Acquire | Running and past `goAt`, player Alive and valid, inside `AggroRadius`, clear authoritative line of sight (the Sentry sight helper) | settled |
+| Retention | validity and distance, not line of sight | settled |
+| Damage wake | any accepted player damage, from any distance. The damager is the initial target | settled |
+| `AttackReach` | 5.5 | settled initial value |
+| Contestable | `distance(Home, target) <= TerritoryRadius + AttackReach` | settled rule |
+| Initial target | nearest valid player, tie by id order | settled |
+| Threat, switch | the extracted Threat primitive with the Ticket 23 values | tunable |
+| Wake stagger | one random 0.3 to 0.7 s before the **first** attack after each acquisition or re-engagement (Idle to Engaged, or Returning to Engaged). Not after a target switch, and never ongoing jitter | settled rule, tunable |
+| Edge hold | 1.5 s, starting only once the monster has arrived at the nearest Territory edge point and the target is still beyond `Territory + AttackReach` | settled |
+| No-target hold | 1.5 s in place, then Return, when the target dies, leaves or is Eliminated and no other valid target exists | tunable, an assembly default |
+| Return | normal speed, targetable and damageable. **Accepted hits do not re-engage it, from any attacker.** Only a valid player inside the Territory re-engages | settled |
+| Reset on reaching Home | Health full at once, Statuses, Threat and target cleared, Idle. No gradual regeneration | settled |
+
+The monster is inert before `goAt`: no aggro, movement, attack or targeting. It must check `goAt` as Sentry targeting does, not rely on the Match phase. A committed attack never retargets.
+
+**Between the circle and `Territory + AttackReach`** the target is contestable: the monster fights it from the edge, and there is no hold and no reset.
+
+**Outside fire.** There is no gate. Damage from beyond `Territory + AttackReach` is accepted normally, applies Statuses and Reactions, and wakes the monster. The reset is the cost: after the hold and the Return the monster returns to full Health, so a ranged player must burst it down in that window. Telemetry names this `outside*` and defines it as **beyond `Territory + AttackReach`** (uncontestable), because inside that range the monster can fight back. Outside fire that also lands during the Return is counted and never re-engages.
+
+#### Combat
+
+**Identity:** a small melee chaser with one readable claw swing. Exactly one attack.
+
+| Item | Value | Label |
+|---|---|---|
+| Shape | flat frontal sector, reach 5.5, about 50 degrees | settled initial value, tunable |
+| Lock | facing at Telegraph start, no tracking afterwards | settled |
+| Telegraph | 0.45 s, rooted | tunable (toward 0.55 s before lowering damage) |
+| Impact | one authoritative evaluation at `impactAt` | settled |
+| Damage | 8 | tunable |
+| Recovery | 0.8 s rooted, then a 0.4 s movement-allowed attack gap, so about 1.65 s per cycle | tunable |
+| Attack start | target inside reach and within about 20 degrees of facing, else chase | tunable |
+| Health | 45 (range 40 to 50) | tunable (toward 40 first if kills run long) |
+
+A hit shape hits every valid player inside it once per attack, never monsters, Wardens, Sentries, Caches, Pickups or map objects (the explicit players-only filter). The monster chooses one target and aims at one target. There is **no** single-target damage filter and no deliberate cleave. An impact resolves only while the Match is Running and past `goAt`.
+
+| Item | Value | Label |
+|---|---|---|
+| Damage to players | normal damage and Shield pipeline, no scaling by player count, Rank or time | settled |
+| Evade, Stone Guard | accepted Dash negates it, Shield absorbs, both with normal feedback and no monster exception | settled |
+| Statuses, Knockback, Root, Stun against players | none | settled |
+| Wet, Reactions, Arc Burst | work on the monster normally | settled |
+| Forced movement against it | immune (Tidal Knockback, Hook pull move nothing), damage and Statuses still apply, shared Resisted result | settled |
+| Falling | cannot be displaced or fall, no monster Void kill | settled |
+| Kill Recovery | none | settled |
+| Kill credit | `hit.attackerId` of the accepted lethal player hit (Last Hit), attribution only | settled |
+
+A player killed by a monster is eliminated with **no killer** and no Kill Recovery, using the Sentry and Warden convention. Monster damage to players is real combat damage, kept out of PvP kill and damage numbers (as Sentries and Wardens are in `SessionRules`) and logged separately. **Kill attribution is not changed in this ticket**, including when a monster finishes a player another player had damaged (`finishedAfterPlayerDamage` is evidence only).
+
+**Dogpile.** No simultaneous-attacker cap. A maximum of 2 per Home, the first-attack stagger, and overlap telemetry. Add a per-target Telegraph cap only if testing shows pairs routinely sync into unfair bursts.
+
+#### Locomotion
+
+Anchored, kinematic, server-moved ([ADR-0008](adr/0008-pve-actors-are-kinematic-server-models.md)), over the extracted Motion primitive.
+
+| Item | Value | Label |
+|---|---|---|
+| Chase speed | 13 studs/s (range 12 to 14.5), below the player's 16 so a player can always disengage | tunable |
+| Approach spacing | about 3.5 studs, an approach target and never a repulsion radius | tunable |
+| Goal | inside target: Home to target direction, spacing 3.5, clamped into the Territory. Beyond contest: the nearest Territory edge point, held there | settled |
+| Pair offset | each pair member's goal adds a small lateral offset by slot index (about 1.5 studs, perpendicular to Home to target), so two members never share an exact attack position. Idle positions are the authored slot offsets. **No dynamic avoidance or repulsion** | tunable |
+| Dead zones, turning, rooting, collision, floor check, Fault, no progress | the Warden's values and results as built (an assembly default), with the monster's own Territory | tunable |
+| Fault result | despawn, no reward, no credit, `MonsterFault` | settled |
+| No-progress result | Chase: abandon target and Return. Return: snap Home as recovery, log, no reward | settled |
+
+Open combat circle: no collidable authored prop inside the usable movement circle plus a small clearance. Decals, non-colliding rubble and floor variation inside the step tolerance are allowed. If a blocker is found, move it or the Home. **Never add pathfinding.**
+
+#### Reward
+
+| Rule | Value |
+|---|---|
+| Source | a separate monster bonus deal. The 24-drop Cache bag and the Warden deal are untouched |
+| Per monster | an independent hidden flag at setup, **12.5%** (`Config`) |
+| Per flagged kill | exactly one ordinary Ability Pickup, **Rank 1**, identity uniform over the four Abilities, drawn at setup, **repeats allowed** |
+| Cap | none. No pity, no guarantee after N kills |
+| Budget | about 0.5 expected drops per Match at 4 kills of 8, and 1.0 at a full clear, below the guaranteed Warden supply |
+| Personalisation | none. No killer, collector, Shard or Kit logic |
+| Collection | normal Pickup rules, no ownership delay, no reservation |
+| Collapse, Fault, Match end | no drop, no credit |
+| Not in this ticket | XP, currency, Relic, Kill Recovery, a second Pickup, Rank 2 or 3 world Pickups |
+
+The flag and Ability live only in the server record. **Nothing replicates before death**, and flagged and unflagged monsters look identical. The Pickup is spawned through `Pickups.drop` at the death position with the normal spread, with `source = "Monster"` and the monster id in the normal collect, consume and clear log lines.
+
+**Loot-safe Territory.** The Territory edge keeps a lip margin of `lethalLootMargin + maximumPickupDropSpread`, about 15 studs, **verified from the actual `Pickups.drop` spread before it is locked**.
+
+**The old fast-opening rule does not apply.** Regular monsters, like Wardens, are excluded from the rule in `ranks-and-pickups.md` that an empty Ability slot guarantees the next eligible monster kill. A regular monster's reward is a pre-dealt flag and never a Monster Family Drop Table roll.
+
+#### Placement and validators (static, Edit-mode safe)
+
+All distances are **starting values, greybox-validated against the built map**.
+
+| Relative to | Rule |
+|---|---|
+| Spawn pads | at least `max(45, AggroRadius + 20)` from **every** pad, own Shard's included. 45 is Ticket 21's `pveSlotClearance` and is the stricter value here (aggro + 20 is about 31 to 33), so it governs |
+| Home Caches | Home at least 20, so the Cache and its drop spread (about 5) sit outside aggro with margin |
+| Forward Cache | Home about 20 to 32 away. A neighbour that fights can drift into, never a guard. Cache standing spots and drop spreads stay outside the aggro ring |
+| Warden | the monster's aggro circle (`Territory + 4`) and the Warden's (`Territory + 4`) must not intersect, plus 2. Checked against **all three Warden slots** whether or not occupied this Match |
+| Crown Sentries | at least 50 from every Sentry |
+| Lethal lips | the Territory edge at least 15 from any lip (the loot-safe margin) |
+| Connectors and aprons | the aggro ring clear of every connector and apron, plus 2. A bridge traversal never wakes a monster |
+| Section | the whole circle on live floor of **exactly one** Section. A circle straddling Sections fails |
+| Floor and props | floor steps at most about 2.5 sampled across the circle, no collidable authored prop inside the circle plus clearance, and the two slot offsets inside the circle with at least 2 spare |
+| Radius | `TerritoryRadius` present, about 6 to 9, and `AggroRadius <= TerritoryRadius + 4` |
+| Counts | exactly two Homes per Shard, one A and one B, and `Variant` values unique per Shard |
+
+- **An ignoring route exists** from every pad toward the Crown that never enters an aggro ring, without Dash, fighting or unavoidable damage. This is a Studio playtest requirement, with a simple sampled clearance check allowed to support it. No pathfinding is built to validate it.
+- **Section and layer.** Prefer a Layer 2 Home on the inward, Forward side where geometry allows, and allow Layer 1 where necessary. **Layer 2 is not hard-required.** A Layer 1 Home lives to the Layer 1 removal, a Layer 2 Home to the Layer 2 removal. No Layer 3 or Crown Home.
+- **Feasibility fallback**, in this order: (1) relax the Forward Cache 20 to 32 relationship; (2) allow or move variant B further outward, or onto Layer 1. **Never relax spawn safety, Home Cache safety or the lethal-lip margin merely to force a slot.**
+- If a Shard genuinely cannot support **one valid Home at all**, that is a **Ticket 21 map-placement contradiction**. Review that local geometry. Do not silently drop the Shard from the population rule, and do not redesign the Arena globally.
+
+#### Runtime architecture and interfaces
+
+- **FSM:** phases `Idle`, `Engaged`, `Returning`, `Dead`, in `MonsterRules`. Telegraph, impact, Recovery, the attack gap, the wake stagger, the edge-hold start and the no-target hold are timestamps on the record. The nullable `action` is the extracted record. `Engaged` with a target beyond contest moves to the edge point and starts the hold on arrival.
+- **Events** returned by `MonsterRules` (`Acquired`, `TargetSwitched`, `AttackStarted`, `Impact`, `ActionEnded`, `HoldStarted`, `ReturnStarted`, `ReturnedHome`, `ResetComplete`, `Faulted`). The runtime does the world effects. `MonsterRules` never touches `Workspace`.
+- **Loop:** one Heartbeat connection for all monsters, connected at `setup` and disconnected at `clear`. AI decisions at about **5 Hz** from an accumulator (tunable up to about 10 Hz only if acquisition feels late). Motion, timestamps, impact and removal every frame. **No `task.delay` and no per-monster coroutine.** Impact is checked each frame so a 0.2 s Evade stays meaningful. An Idle monster does only cheap proximity checks.
+- **`Monsters` API:** `start(deps)`, `setup(matchId)`, `clear()`, `step(dt)` (manual mode for specs), `removeSection(sectionId)`, `get(id)`. Dependencies are injected as for `Sentries` and `Wardens`: `characters`, `casts`, `statuses`, `pickups`, `collapse` (its `sync`), `clock`, `markers`, `canSee`, `floorAt`, `folder`, `log`, `monsterRandom`, and the `goAt` source.
+- **Records** cache `id`, `matchId`, `homeId`, `shardId`, `sectionId`, `home`, `slotIndex`, `territoryRadius` and the hidden reward from the marker and the deal at setup. They never rediscover geometry.
+- **`setup`** begins with `clear` and is idempotent. Order: read markers, select Homes, deal, build, register, log `MonsterDeal`.
+- **`Match`** (stays the lifecycle owner): calls `monsters.setup(matchId)` after `assignSpawns` and after `wardens.setup`, and before placement, and `monsters.clear()` at Results. Monsters are rebuilt after Ticket 22's restore, like Caches, Sentries and Wardens. It never reads angles, radii or Territory. The `MatchSpec` order expectation covers this.
+- **Registration:** `characters.registerTarget` with `kind = "monster"` (explicit, never inferred from names or folders), `immovable = true`, `grantsKillRecovery = false`, `onKilled(hit)`, and a `gate(hit)` containing **only** the Collapse check: it calls `collapse.sync(now)` first and refuses a hit when the record is gone. It has **no range check**. If the Ticket 23 build shows the existing hit gates already sync before any target is resolved, the gate can be dropped. It is also where an outside-fire gate would hook in if evidence ever asks for one.
+- **Result reasons:** Resisted (damage landed, forced movement ignored) is the shared one from Ticket 23. A monster never produces a Warded result.
+- **Attacks:** `casts.castFromServer` with the monster id as caster, the claw as a sector, using the players-only filter from Ticket 23. No separate hit-detection module.
+- **`Protocol`:** `Protocol.monsterId` (an id kind the cast, attribution and `CacheRules.mayDamage` paths recognise), the tag, the folder name and the attribute names (`MonsterState`, `MonsterAction`, `MonsterImpactAt`, `MonsterEndsAt`, a locked facing, `MonsterHome`, `MonsterRadius`, `MonsterDamageStage`), through the one actor-id predicate. No generic monster namespace, and **no reward attribute**.
+- **`finish(record, cause)`:** idempotent, first call wins. Causes `Killed`, `Collapsed`, `Fault`, `MatchEnd`. Order: mark terminal, clear the action, stop motion and AI, unregister the target, clear Statuses, do the cause-specific work, update presentation. **Only `Killed` on a flagged record spawns a reward**, exactly once.
+- **Death presentation:** a killed monster is already unregistered, non-damaging and non-blocking, and removal is a short `removeAt` timestamp. A Collapse removal destroys it at once.
+- **Collapse ordering:** `removeSection(sectionId)` is idempotent and **non-yielding**, so it fits Ticket 22's atomic removal. A lethal hit accepted before the removal boundary kills normally and its Pickup may then be swept as loose loot on doomed ground. A hit accepted at or after the boundary finds the monster gone, with no kill and no drop. A pending impact resolves only if accepted before removal.
+- **Stale guards:** record identity and `matchId` checks before any side effect, with a counter and not a log line.
+- **Dormancy:** with the Reference Kit no monster exists and no loop runs.
+
+#### Presentation
+
+Server owns gameplay state, an anchored root, the fixed Hitbox and the attributes. A sibling client module **`MonsterVisuals`** draws everything else, from attributes only. It owns no authority and cleans up completely. Health comes from the target's replicated Health exactly as built for the Wardens. **There is no Health bar and no nameplate.**
+
+| Element | Requirement |
+|---|---|
+| Body | a small, low-profile rift crawler about 3.5 studs long: dark stone, violet-teal emissive seams, an oversized forelimb, built from Parts, no uploaded mesh |
+| Damage state | three coarse stages (healthy, wounded, nearly dead) at about 66% and 33%, shown by the seams dimming and cracking. Deliberately not an exact Health substitute |
+| Territory | **no ring** by default. Hold-and-return body language shows the leash |
+| Idle | crouched, dim seams, a slow breathing pulse, no wandering |
+| Wake | authoritative state is Engaged at once. The rise, hiss and one seam flare (about 0.25 s) are presentation and play **during the wake stagger**, so players see "it noticed me" before the first Telegraph |
+| Chase and Return | a low scuttle with brighter seams. Return: seams dim and a slower pace with a short stand-down cue. State reads from pose and motion, not colour alone |
+| Claw | the locked wedge (reach 5.5, about 50 degrees) filling to `impactAt` over 0.45 s, lighter than the Warden's, with the forelimb wind-up, a short intake cue, then a slash flash and snap at impact. Built by the shared Telegraph builder |
+| Hit, Evade, Shield | existing feedback unchanged, plus a 0.1 s seam flicker and flinch with no displacement and no hit-stop |
+| Resisted movement | the shared Resisted response from Ticket 23, distinct from Evade and Shield |
+| Death | about 0.4 s: the body collapses, seams flare then go out, a dust puff, the body fades by about 1 s. A distinct kill-confirm for the killer. No corpse, no loot sparkle |
+| Drop | **flagged and unflagged monsters look identical before death.** On a flagged kill the real Pickup appears at once, plus the **Cache-break reward cue**, visual and audio |
+| Collapse or fault | a quiet fade with no kill-like effect |
+| Spectators | see the same monster information |
+
+Hostile Telegraphs use red, which no Ability uses. Confirm against Ticket 22's world telegraph so the two never read alike. Visuals and sounds run only within about 60 studs of the camera. At most six cues (wake, wind-up, impact, hit, death, return), each distinct from the Sentry and Warden cues. **Status visuals:** if Ticket 23 already generalised Wet and Reaction visuals to non-player PvE targets, reuse them. If not, do not create a second competing implementation: fix or extract the shared PvE Status presentation once. Audio uses existing suitable sounds or placeholders. **No upload without explicit approval.**
+
+**Small-screen readability is blocking** (see the completion criteria).
+
+#### Telemetry
+
+Console `[Riftfall]` `key=value`, no coordinates, timed from GO, attempted once, failures contained, and it never blocks gameplay. **Keep it lightweight:** if the per-Home summary becomes complicated, prioritise the counters that directly answer gameplay questions. No aggregation system for eight monsters.
+
+- **Events (capped at about 32 per Match):** `MonsterDeal` (players, the selected Homes with variant and size, the pair Shards, and `home/id -> none|ability`, enough to reconstruct which authored monster carried which hidden reward; server console only), `MonsterKill` (id, seconds, killer token, whether the lethal hit was outside, whether any player was hit during the engagement, drop), `MonsterPlayerDeath` (`alone`, `multiMonster`, `finishedAfterPlayerDamage`), `MonsterFault`.
+- **`MonsterSummary`:** one line at Match end with a header and one compact block per Home. Header: `players`, `spawned`, `homes`, `pairs`, `activeAtEnd`. Per Home: first aggro and its cause (`Proximity`, `DamageInside`, `DamageOutside`), kills and engaged seconds to kill, unique engagers, resets by reason (`Unreachable`, `NoTarget`, `Other`) and total hold seconds, Collapse removals by layer (`removedEngaged`, `removedUntouched`), `outsideFirstHits`, `outsideHits`, `outsideDamage`, `outsideKills`, attacks started, hits, misses, Evades and Shield absorbed, damage to players and `playersHit` with context (`solo`, `pvpContext`, `multiMonster`), overlap (`overlapImpacts`, `pairBurstMax`, `maxConcurrentTelegraphs`), reward (`flagged`, `flaggedKilled`, `dropped`, `flaggedUnkilled`), and health (`faults`, `escapes`, `snapHome`, `maxOutsideDistance`).
+- **Derived fields:** `accidentalEngagements` (a Proximity engagement with zero accepted damage to the monster that ended in a NoTarget reset) with `routeTaxDamage`, and `flawlessKills` (a kill with no damage ever dealt to a player).
+- **Reward fate:** collection is joined offline from normal Pickup and `Equip` lines through the `source` tag and the pickup id, never duplicated here.
+- **Not logged:** positions, per-attack events, Heartbeat or movement samples, Threat internals.
+
+Three tiers. **Correctness (blocking, hard):** `MonsterFault` = 0 and `snapHome` = 0 in normal play, with `maxOutsideDistance` within the Fault threshold; the population exact (6 Homes, 4 singles, 2 pairs, 8 monsters, one variant per Shard); no aggro or attack before `goAt`; no hit on a non-player (`nonPlayerHits` = 0); **`dropped` equals `flaggedKilled`**, exactly one Pickup per flagged legitimate kill and none for an unflagged kill, Collapse, Fault or Match end; `reengagedByOutsideHitDuringReturn` = 0; `holdShortResets` = 0 (a reset whose hold ran under 1.5 s from arrival at the edge); `resetNotFull` = 0; `aliveOnRemovedSection` = 0; no leaked targets, connections or models after `clear`; the shared `Match` random, Cache deal and Warden deal unchanged with and without monsters; a stale-rejection counter with one diagnostic if unexpectedly non-zero; no coordinates in any line.
+
+**Balance evidence** (observed, never pass or fail): kill rate and engaged time to kill against the 4 to 4.5 s target, damage taken per engagement by context, attack hit, miss and Evade rates, outside-fire and reset rates, overlap and burst figures, flawless kills, accidental engagements, drop counts and wasted flags, all split by player count and Home variant.
+
+**Role-level review triggers.** Initial signals only, not read until there are about 10 Matches with a spread of player counts, and **combined with actual playtest feedback**. Never decide balance from a tiny sample.
+
+| Question | Initial signal | First lever |
+|---|---|---|
+| Ignored? | kills under about 25% of spawned, or most Homes `removedUntouched` | placement closer to routes, then count |
+| Farmed? | kills over about 75% in most Matches | count or reward chance, not damage |
+| Mostly route tax? | `accidentalEngagements` over about half of engagements | aggro or placement, then the ignoring route |
+| Outside fire dominating? | `outsideKills` over about 30% of kills | the Warden-style `gate(hit)` for monsters |
+| Unfair pair burst? | repeated `overlapImpacts`, or `pairBurstMax` at about 40 Health or more | a per-target Telegraph cap |
+| Meaningful PvP pressure? | `pvpContext` under about 10% of monster damage | placement and aggro |
+| Monsters stealing PvP kills? | `finishedAfterPlayerDamage` recurring | review the attribution rule, in a later ticket |
+| Lethal alone? | any `MonsterPlayerDeath` with `alone` from a single monster | damage, then the Telegraph |
+| Reward feel? | average drops per Match under about 0.3 or over about 1.0 | `p`, read with tester feedback (no drop in about 59% of 4-kill Matches is expected) |
+
+#### Tests
+
+**Specs (pure and fixture-based).**
+- **S1** Deal and selection: one variant per Shard, 6 Homes, 4 singles and 2 pairs, 8 monsters, deterministic from an injected stream with the fixed draw order (both draws always taken), flag rate at the `p` boundary, Ability uniform with repeats allowed, the shared `Match` random, Cache deal, spawn assignment and `wardenRandom` untouched.
+- **S2** FSM: acquire (needs line of sight), damage wake from any distance with the damager as target, sticky target and Threat switch through the primitive, the no-target hold, vulnerable Return, **outside hits during Return do not re-engage**, a valid player inside the Territory does, the full reset on arrival (Health, Statuses, Threat, target, Idle) and no gradual regeneration.
+- **S3** Contest and hold: the `Territory + AttackReach` boundary, the edge-point goal, the hold starts **only on arrival at the edge point**, a target that becomes reachable first cancels it, a brief boundary crossing while the monster is still far does not reset, and a target between the circle and the contest distance is fought with no hold.
+- **S4** Action timeline: Telegraph 0.45 s, exactly one impact, rooted recovery, the movement-allowed gap, about 1.65 s cycle, no retarget mid-Telegraph, the wake stagger **only on the first attack after acquisition or re-engagement**, none after a target switch, and a deterministic cycle afterwards.
+- **S5** Locomotion: the extracted maths (clamp, goal, spacing as an approach target only, turn limit, the 20 degree attack gate), the pair lateral offset, no shared exact attack position, no-progress results (Chase abandons, Return snaps), and the Fault conditions.
+- **S6** Registration and `gate`: `kind = "monster"`, `immovable`, no Kill Recovery, the Collapse-only gate accepts before the removal boundary and refuses at or after it with no range check, and a forced-movement hit returns Resisted with damage and Statuses applied.
+- **S7** `finish`: first wins, one Pickup only for `Killed` on a flagged record, none otherwise, idempotent, both orderings against Collapse, a lethal hit inside the Warning accepted normally.
+- **S8** Lifecycle: `setup` and `clear` idempotence, no duplicate connections or targets, stale guards, `removeSection` idempotent and non-yielding, inert before `goAt`, inert with the Reference Kit.
+- **S9** `MatchSpec`: setup after `assignSpawns` and `wardens.setup`, before placement, rebuilt after the Collapse restore, clear at Results.
+- **S10** Validators, including the fallback ordering, the one-valid-Home-per-Shard contradiction report, and a deliberately failing fixture for each rule (a straddled Section, a lip margin, a connector overlap, a Warden aggro overlap).
+- **S11** Telemetry through a fake sink: `MonsterDeal` reconstructs `home/id -> none|ability`, capped events, `MonsterSummary` fields, the `outside*` definition, failures contained, no coordinates.
+- **S12** Extraction regression: every existing Warden spec passes **unchanged** after Step 0, the primitives have their own specs, and a note records any primitive that was not shared.
+- **S13** The PvE actor-id predicate recognises Sentry, Warden and monster ids in `CacheRules.mayDamage` and attribution, and `SessionRules` keeps monster damage and kills out of PvP numbers.
+
+**Studio S1 (solo Play).**
+- **P1** Idle through Countdown and the Arrival Hold: no aggro, movement, attack or damage.
+- **P2** Idle, wake (the cue plays during the stagger), chase, claw, disengage, Return, full reset, with no teleport.
+- **P3** The wedge matches the Telegraph, one evaluation, players only, and a second player inside the wedge is also hit.
+- **P4** Evade negates the claw. **P5** Stone Guard absorbs.
+- **P6** Wet then Lightning Reaction on a monster, with the Status visible through the single shared presentation.
+- **P7** Hook and Tidal damage and Wet, no movement, and the shared Resisted feedback distinct from Evade and Shield.
+- **P8** Outside fire: damage accepted from beyond `Territory + AttackReach`, the edge point reached, the 1.5 s hold timed from arrival, the Return, hits during it not re-engaging, a full reset on arrival, a burst that kills in the window accepted, and `outside*` counters correct.
+- **P9** A no-drop kill has the full kill-confirm and no Pickup. A flagged kill (through a TEMPORARY hook that calls the **real** `monsters.setup` with an injected stream, never hand-built monsters) drops exactly one Rank 1 Pickup of the dealt Ability, collectable at once with the Cache-break cue. Flagged and unflagged monsters look identical before death.
+- **P10** No body-blocking, no push and no Movement Validation correction. Over a full fight `maxOutsideDistance` stays in tolerance and the monster never reaches a connector or lip.
+- **P11** Match reset leaves no monster, target or effect, with a fresh deal.
+- **P12** Real log lines match what happened.
+- **P13 (blocking)** **Small-screen readability:** on the Studio device emulator at a phone-sized viewport, or on a phone, the monster, its wake cue, the claw wedge, a pair's two overlapping wedges and the damage stages are readable. The result is recorded as a developer keep or replace judgement.
+- **P14** A pair's independent cycles and the first-attack stagger observed, with the overlap counters recorded.
+
+**Studio S2 (two clients).** **T1** a real 2-player Match with all 8 monsters. **T2** one client kills a flagged monster and the other collects the Pickup with no reservation or delay. **T3** a claw hits both players when both stand in the wedge. **T4** a spectator sees the same monster state.
+
+**Real map placement.** **M1** run `setup` on the real built Rift Crown many times: 6 Homes each time, one per Shard, every A and B variant exercised, every validator green, no Shard without a valid Home. **M2** the ignoring route from every pad checked in Studio. These are evidence for the placement rules and the fallback order, and any failure is a map contradiction to review, never silently ignored.
+
+**Coexistence.** **X1** Wardens and monsters in one Match: no aggro-circle overlap, no interference, distinct deals, and the Warden specs and Studio matrix still green.
+
+**Cleanup and fault.** **C1** `removeSection` for each layer, a forced Fault and Match end leave no Pickup, credit, leaked target, connection or model. **C2** a monster alive at Match end is cleared with no drop.
+
+**Method.** Exact timing lives in specs with a fake clock. Studio is for engine and visual behaviour. Run specs through `RunAll` on the Server in Play. Read [`docs/testing/studio-mcp-quirks.md`](testing/studio-mcp-quirks.md) first. Standing in monster range between tool calls is damaging as with Sentries: arm everything, then approach, act and leave within one call. Real 4 and 6 player Matches are evidence only, since the tooling cannot reliably drive them.
+
+**Evidence only (recorded, never gating).** The claw backstep, the Basic-only kill time, outside-fire share, pair burst and overlap, the real Territory radius, loot margin and Layer split, reward counts against the 0.5 expectation, route tax, visual smoothness, and the `MonsterSummary` triggers.
+
+#### Implementation notes (not part of the gameplay specification)
+
+- Follow `CLAUDE.md`'s division. The main session builds the rules, the runtime, registration, the actor-id predicate, the Collapse hook and the Match integration, and reviews Step 0. `studio-implementer` writes mechanical specs from the written list, the Home markers from an exact brief, and cosmetic `MonsterVisuals`. `studio-tester` runs the Play matrices and returns compact tables. One agent drives Studio at a time.
+- **Build order:** (0) **extract the shared primitives from the built Warden and its specs, in its own commit, Warden specs unchanged and green;** (1) `MonsterRules` with its specs; (2) the `Monsters` runtime with injected dependencies, registration, the actor-id predicate, the Collapse hook, and the removal, finish and reset specs; (3) the Home markers and the validator extension on the real map; (4) the Match integration; (5) `MonsterVisuals` and the `Feedback` additions, reusing the shared Telegraph builder and Status presentation; (6) telemetry; (7) the Studio matrix, M1 and M2, X1, and P13; (8) cleanup, documentation and the commit. Each step is testable before the next.
+- Do not implement against speculative Warden infrastructure. If Ticket 23's built interfaces differ from this entry's assumptions, adjust the monster side and record the difference.
+
+#### Verify before building
+
+- Which Ticket 23 primitives were actually built as separable, pure code, and which are tangled with Warden-only behaviour (Step 0's outcome).
+- Whether the existing hit gates already call `collapse.sync(now)` before a target is resolved, which decides whether the monster `gate` is needed.
+- How the Warden represents Health for the shared Resisted and damage-stage presentation, and whether `StatusVisuals` already works on a non-player model.
+- The actual player numbers used for tuning (Health, walk speed, Dash, Evade, Basic, Tidal, Arc Burst, Hook, Stone Guard, **and the Rank 2 values**), read from code, not these docs. If Rank 2 adds about 10%, the Tidal then Arc combo can kill outright, which is accepted but must be confirmed.
+- The actual `Pickups.drop` spread, to verify the loot-safe margin.
+- Which existing record gives the last player damage within a window, for `finishedAfterPlayerDamage` and `pvpContext`, and whether the hit pipeline reports per-target hit, Evade and Shield outcomes (if not, count through the shared `CombatResult` path).
+- Whether Pickup and `Equip` log lines carry ids and accept a `source` tag.
+- The Home Cache, Forward Cache, Warden slot, Sentry and pad distances at the real marker positions, and whether a valid Home exists on every Shard.
+- Whether Ticket 23's built `Match` order calls `wardens.setup` where this entry assumes.
+
+If a documented number differs slightly in code, update the tuning assumption and keep the settled role unless the difference materially breaks it.
+
+#### Completion criteria
+
+**Implementation complete** (nothing else holds the ticket open):
+- Step 0 landed as its own commit, with every Warden spec unchanged and green.
+- All blocking specs (S1 to S13) green in `RunAll` on the Server in Play.
+- The blocking Studio matrix (P1 to P13, T1 to T4, M1, M2, X1, C1, C2) green, with the presentation checks observed. **P13 small-screen readability is blocking**, recorded as a developer judgement.
+- The correctness tier above holds: `MonsterFault` = 0, `snapHome` = 0, no leaked targets, connections or models, exactly one Pickup per flagged legitimate kill, and the `dropped` equals `flaggedKilled` check.
+- Docs and results recorded in this ticket, the quirks doc updated, and every TEMPORARY hook removed (grep the word).
+- A clean commit.
+
+**Publish checkpoint** (separate manual step): the developer publishes and the version is recorded in [Checkpoints](#checkpoints).
+
+#### Future work
+
+Deferred, each on evidence from the run test: a ranged or mixed regular-monster family, Monster Families with themed Drop Tables, Match XP and Relics, an outside-fire gate for monsters, a per-target Telegraph cap, a Match drop budget, an attribution rule for monsters finishing damaged players, Crown monsters, patrol and respawn if telemetry shows the Arena empties, an elite Dais Warden or boss, final art, audio and animation.
+
+#### Assembly defaults (not individually grilled, recorded so they are reviewable)
+
+The no-target hold of 1.5 s; the pair lateral offset of about 1.5 studs; the turn rate, dead zones, floor step limit, Fault and no-progress values copied from the Warden; the 5 Hz decision cadence for 8 actors; the telemetry event cap of about 32; the 60-stud effect distance; and the definition of telemetry `outside*` as beyond `Territory + AttackReach`.
+
+#### Review notes (2026-11-10)
+
+An adversarial pass against Tickets 21 to 23, ADR-0008 and the existing combat, Pickup and Collapse rules found **no blocking contradiction**. Fixes applied to the documents:
+
+- **Spawn clearance:** Ticket 21's `pveSlotClearance` (45) and its superseding `aggro + spawnSafetyBuffer` rule both exist. Monster Homes use the stricter, `max(45, aggro + 20)`, so 45 governs, and the wording no longer implies the superseded constant alone.
+- **The fast-opening guaranteed-drop rule** in `ranks-and-pickups.md` contradicted Point 1's no-guarantee rule. Regular monsters are now explicitly excluded, as Wardens already were. Ticket 18 already had no guaranteed-first-kill rule.
+- **`monsters.md`** called the Stone/Rift Knockback slam a trait of "future regular monsters". The Riftling has no Knockback, so that is now stated as a trait of a later family, and the Riftling is recorded as a family-less first monster.
+- **`monsters.md` and ADR-0008** described direct movement with pathfinding when stuck. ADR-0008 already rejects that for PvE actors. `monsters.md` now says the Riftling follows ADR-0008, and the ADR notes its second user.
+- **Collapse safety without a range gate:** a monster has no outside-fire gate, so the ticket gives it a Collapse-only `gate(hit)` (or drops it if the existing hit gates already sync), so a hit at or after the removal boundary cannot land on a removed monster.
+- **"Outside" in telemetry** is defined as beyond `Territory + AttackReach`, because inside that range the monster can fight back.
+- **Return rule difference from the Warden** (hits during Return do not re-engage a monster) is stated explicitly as intended, and the design doc records why.
+- **Glossary:** `CONTEXT.md` gains **Riftling**, and the Regular monster entry now describes the Home and the approved role.
+
+Accepted, with evidence to follow: pair burst, outside-fire share, Layer 2 fit, monsters feeling pointless (about 59% of 4-kill Matches pay nothing by design), and a monster finishing a damaged player.
+
+Correctly deferred: see Future work. Review result: **no new ADR required.** ADR-0008 already covers the kinematic model, and this ticket's decisions are tunable gameplay and Rules plus system work.
 
 ## Later, after evidence from the run test
 
 - non-Ability world items, under the principles above
 - ~~the smallest Rift Collapse~~, now specified as [Ticket 22](#22-rift-collapse); what remains is what its evidence asks for (an Unstable stage, roster-band timing, overtime)
-- ~~the first Rift Warden~~, now specified as [Ticket 23](#23-rift-warden); what remains is **regular monsters (the next PvE ticket)**, an elite Dais Warden or boss, and Rank 3 behaviour changes
+- ~~the first Rift Warden~~, now specified as [Ticket 23](#23-rift-warden), and ~~regular monsters~~, now specified as [Ticket 24](#24-regular-monsters); what remains is an elite Dais Warden or boss, Monster Families, Match XP and Rank 3 behaviour changes
 - the real Hub, with batches of players into several Matches at once
 - testing two slots against three, once there are about 6–8 Abilities

@@ -38,6 +38,8 @@ A Pickup's Rank is also its rarity:
 
 **Rift Wardens** ([Ticket 23](milestone-2-tickets.md#23-rift-warden)) are an exception to "stronger monsters produce Rank 2". Each killed Warden drops exactly one ordinary **Rank 1** Ability Pickup, pre-dealt at Match setup (uniform random, distinct across the Match's Wardens) as bonus supply on top of the 24-drop Cache economy. Rank 2 comes only from collecting a duplicate, as for every other source. Milestone 2's Rank cap of 2 stands, and Rank 3 is not reachable.
 
+**Regular monsters** ([Ticket 24](milestone-2-tickets.md#24-regular-monsters), [design](regular-monster-design.md)) are a second exception. They are weak and numerous, and are not Monster Family members. Each of the 8 spawned monsters independently gets a hidden **12.5%** flag at Match setup, and a flagged monster drops exactly one ordinary **Rank 1** Ability Pickup, uniformly drawn from the four Abilities (repeats allowed) from a dedicated stream, when legitimately killed. That is about 0.5 expected bonus drops per Match at an assumed half of them killed, clearly below the guaranteed Warden supply, with no cap, no pity, no killer-specific loot and no drop on Collapse, Fault or Match end. It is bonus supply outside the 24-drop Cache economy, and Rank 2 still comes only from collecting a duplicate.
+
 ### Monster Families
 
 Each family has recognizable territory or encounter locations and a themed, weighted Drop Table. Players learn where Build pieces come from, players pursuing compatible Builds cross paths, and contested areas become organic PvP objectives. For example: "I have Tidal Bolt, so I should head toward the Storm area for Arc Burst."
@@ -57,7 +59,7 @@ Rift Caches sit along useful routes, including routes from the spawn points. The
 
 Players begin each Match with a Basic Attack, a Dash and empty Ability Slots, with no random starting Ability. Milestone 2 has two slots, on Q and E. The long-term number is unresolved, with three kept as a likely test, as set out in [Milestone 2](milestone-2-tickets.md).
 
-While a player has at least one empty Ability Slot, their next eligible monster kill guarantees a Pickup from that family's Drop Table. Normal chance-based drops then resume. The rule is configurable, because playtesting may show that filling the slots needs to happen faster. It applies only to normal eligible monster rewards, so killing trivial or invalid targets cannot generate extra drops. A Rift Warden is not an eligible monster for this rule.
+While a player has at least one empty Ability Slot, their next eligible monster kill guarantees a Pickup from that family's Drop Table. Normal chance-based drops then resume. The rule is configurable, because playtesting may show that filling the slots needs to happen faster. It applies only to normal eligible monster rewards, so killing trivial or invalid targets cannot generate extra drops. A Rift Warden is not an eligible monster for this rule, and **neither is a regular monster** ([Ticket 24](milestone-2-tickets.md#24-regular-monsters)): its reward is a hidden flag pre-dealt at Match setup, never a guaranteed or Drop Table roll, so killing one with an empty slot guarantees nothing. The rule describes the later Monster Family design and is not in force in Milestone 2.
 
 ## Pickup readability and ownership
 

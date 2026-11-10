@@ -102,5 +102,5 @@ The reasoning behind [Ticket 23](milestone-2-tickets.md#23-rift-warden). The tic
 
 ## Deferred
 
-- **Regular monsters** (weaker, quicker to kill, scattered through the Arena) are intentionally the next PvE ticket. Only the Warden infrastructure that proves reusable carries over.
+- **Regular monsters** (weaker, quicker to kill, scattered through the Arena) are intentionally a separate ticket, now specified as [Ticket 24](milestone-2-tickets.md#24-regular-monsters) ([design](regular-monster-design.md)). Only the Warden infrastructure that proves reusable carries over, extracted as its first implementation step.
 - An elite Dais Warden or boss, Match XP, Relics and Equipment, patrol, respawn, a ranged or leap attack, final art, audio and animation, and Rank 3 behaviour.

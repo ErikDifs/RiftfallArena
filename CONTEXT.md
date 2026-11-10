@@ -285,8 +285,12 @@ An optional, contested, elite-tier (mini-boss-style) PvE guardian that stands on
 _Avoid_: Monster, boss, elite, mob
 
 **Regular monster**:
-A weak, quick-to-kill (about 3 to 5 seconds for a competent solo player), more numerous PvE enemy scattered near loot and routes, clearly different from a Rift Warden. Its role is ambient PvP pressure first: it comes to players, makes noise and gets pulled into fights, and a reward source only second. One rarely kills a healthy player alone and it deals no Knockback. It is dangerous in groups, in PvP overlap or near a Collapse edge. Most drop nothing. A kill may roll a small, configurable chance of one ordinary Rank 1 Ability Pickup, tuned as expected bonus drops per Match and kept clearly below the guaranteed Warden supply. It gives no XP, never respawns, gives no drop when its Section collapses, and never gates a route, Cache or the Crown. Planned for Ticket 24, not built yet.
+A weak, quick-to-kill (about 3 to 5 seconds for a competent solo player), more numerous PvE enemy scattered near loot and routes, clearly different from a Rift Warden. Its role is ambient PvP pressure first: it comes to players, makes noise and gets pulled into fights, and a reward source only second. One rarely kills a healthy player alone and it deals no Knockback. It is dangerous in groups, in PvP overlap or near a Collapse edge. Most drop nothing. A kill may roll a small, configurable chance of one ordinary Rank 1 Ability Pickup, tuned as expected bonus drops per Match and kept clearly below the guaranteed Warden supply. It gives no XP, never respawns, gives no drop when its Section collapses, and never gates a route, Cache or the Crown. It has a small circular Home Territory with a hard leash, never follows across connectors or Shards, and takes a short hold at the edge then a full reset if its target stays out of reach. The first is the Riftling. Specified in Ticket 24, not built yet. It is not a Monster Family member, and it is not an "eligible monster kill" for any guaranteed-drop rule.
 _Avoid_: Warden, mini-boss, mob
+
+**Riftling**:
+The placeholder in-world name of the first regular monster: a small, low-profile rift crawler with one narrow claw swing, 45 Health, deals 8 damage per hit, and carries a hidden 12.5% chance of one Rank 1 Ability Pickup. Eight appear per Match, one Home per outer Shard (four singles and two pairs), and none on the Crown.
+_Avoid_: Monster Family, Elite
 
 ### Interactions
 
