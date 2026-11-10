@@ -285,8 +285,8 @@ An optional, contested, elite-tier (mini-boss-style) PvE guardian that stands on
 _Avoid_: Monster, boss, elite, mob
 
 **Regular monster**:
-A planned weaker, quicker-to-kill, more numerous PvE enemy scattered through the Arena, clearly different from a Rift Warden. Not built yet. It is the next PvE ticket after the Rift Warden.
-_Avoid_: Warden, mini-boss
+A weak, quick-to-kill (about 3 to 5 seconds for a competent solo player), more numerous PvE enemy scattered near loot and routes, clearly different from a Rift Warden. Its role is ambient PvP pressure first: it comes to players, makes noise and gets pulled into fights, and a reward source only second. One rarely kills a healthy player alone and it deals no Knockback. It is dangerous in groups, in PvP overlap or near a Collapse edge. Most drop nothing. A kill may roll a small, configurable chance of one ordinary Rank 1 Ability Pickup, tuned as expected bonus drops per Match and kept clearly below the guaranteed Warden supply. It gives no XP, never respawns, gives no drop when its Section collapses, and never gates a route, Cache or the Crown. Planned for Ticket 24, not built yet.
+_Avoid_: Warden, mini-boss, mob
 
 ### Interactions
 

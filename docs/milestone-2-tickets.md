@@ -1546,7 +1546,10 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - **The Hook pull isn't cleared at the death itself,** because the elimination that reads it follows the death. It clears at the elimination, a fresh character, Return to Hub, and the start and end of a Match. The 5 s window and the Match id stop a stale pull from naming anything.
   - **The session `Summary` line is unchanged:** `guards` appears only on `MatchResult`, so Reference mode logs nothing new.
 - **Specs** (item 8), by `studio-implementer` from a written list and reviewed by the main session: a new `SessionSpec` (17 tests on a fresh `Session` in manual mode) and additions to `SessionRulesSpec` (7), `CombatSpec` (3), `CastsSpec` (3), `KitRulesSpec`, `CachesSpec` (`kind=Central`) and `MatchSpec` (1 each). `RunAll` on the Server in Play: **427 passed, 0 failed**, up from 394.
-- **Next:** the developer's sound listening pass (item 7), then Run R, then Run M with the security matrix, the pacing walkers and the Hook leftovers.
+- **Sound pass, 2026-11-10** (item 7). The developer listened in solo Play with the Reference Kit temporarily set to Rift Hook and Stone Guard, which was restored afterwards. All four cues loaded (`IsLoaded`) and all four are **kept**: Hook cast (`swordlunge.wav`), Guard activation (`metal.ogg`), absorbed hit (`hit.wav`) and break (`glassbreak.wav`). Nothing was replaced or uploaded. For the run-test notes, not fixed:
+  - **The hit sound is a bit weak.** The developer noted this as acceptable.
+  - **Dash's sound (`action_get_up.mp3`) is quiet.** At first the developer heard nothing on a Dash, then heard a quiet sound. It loads and the code plays it on every local Dash. It's an older cue, outside Ticket 19.
+- **Next:** Run R, then Run M with the security matrix, the pacing walkers and the Hook leftovers.
 
 ### 21. Rift Crown Arena layout
 
