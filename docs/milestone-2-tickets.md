@@ -1573,7 +1573,21 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - **`Kill`** changes from `impact_explosion_03.mp3` at speed 1.7, which sounded too much like the Reaction, to **`victory.wav` at speed 1.25**, volume 0.8. The developer chose it by ear in Play, from 11 built-in candidates heard through a temporary audition in `Feedback` that has since been removed.
   - Nothing was uploaded.
   - **Quirk:** sounds played by `execute_luau` on the client reported `IsPlaying` but the developer heard nothing. The same sounds were audible through the game's own `Feedback`. Audition sounds in game.
-- **Next:** Run R's two-client part, then Run M with the security matrix, the pacing walkers and the Hook leftovers.
+- **Run R two-client, 2026-11-10,** by `studio-tester` on a developer-started Server & Clients session, and reviewed by the main session: **9 of 9 pass**, with player against player. **Run R has passed.**
+
+  | Check | Result |
+  |---|---|
+  | Dormant | No Match attributes. Both Kits are Reference at Rank 1, on Arena pads. |
+  | Basic Attack | 6, and the `CombatResult` reached both clients |
+  | Tidal Bolt tap | 12, with Wet and a push of about 5.4 studs. The other client got `CastStarted` and drew the Cosmetic Projectile. |
+  | Wet → Arc Burst | `WetReaction`, 30, with Wet consumed and `reactionAppliedBy` set to the caster |
+  | Charge Telegraph | The other client saw `ChargingAbility`, `ChargingRank` and `ChargingSince`, and drew the `ChargeOrb`. WalkSpeed went 16 → 12 (×0.75) and back. |
+  | Evade | `Evaded` against a real player's hit, with no damage |
+  | Kill and respawn | The `Kill` line named the killer, and `killRecovery` was 0 because the killer was at full Health. The victim respawned in the Arena with the same Kit, with no Hub and no `Eliminated` or `MatchEnd`. |
+  | Charge interrupted | A player's Tidal Bolt ended a Charge with `cause=Knockback`, and there was no Cast |
+  | Telemetry silent | No Match lines. `Fight` lines had no Match fields, and their `opponents` named the other player. |
+
+- **Next:** Run M, with the security matrix, the pacing walkers and the Hook leftovers.
 
 ### 21. Rift Crown Arena layout
 
