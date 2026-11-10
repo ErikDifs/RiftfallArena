@@ -1569,7 +1569,7 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - **Cooldown rejection was exercised only with Basic Attack.**
   - **Clean afterwards:** the helper was deleted, and the Config is still Reference and 480.
 - **Two sound changes the developer asked for, 2026-11-10,** after Run R solo, both in `Tuning.feedback.sounds` and both cosmetic and client-only, so Run R isn't rerun for them:
-  - **`ReactionConfirm`** (lightning on a Wet target) drops from volume 1.0 to **0.6**.
+  - **`ReactionConfirm`** (lightning on a Wet target) drops from volume 1.0 to **0.6** and speeds up from 1.1 to **1.5**.
   - **`Kill`** changes from `impact_explosion_03.mp3` at speed 1.7, which sounded too much like the Reaction, to **`victory.wav` at speed 1.25**, volume 0.8. The developer chose it by ear in Play, from 11 built-in candidates heard through a temporary audition in `Feedback` that has since been removed.
   - Nothing was uploaded.
   - **Quirk:** sounds played by `execute_luau` on the client reported `IsPlaying` but the developer heard nothing. The same sounds were audible through the game's own `Feedback`. Audition sounds in game.
