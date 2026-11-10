@@ -1709,7 +1709,7 @@ Replace the greybox `MatchMap` with the first real Arena, the **Rift Crown**: a 
 
 #### Non-goals
 
-- **Rift Collapse.** Ticket 21 builds and validates `SectionId`, `CollapseLayer`, `CollapseParent`, `ShardId`, connector metadata, slot `SectionId` and `CollapseCenter`, and nothing more. It does **not** remove sections during play, damage players with the Rift, time Collapse phases, add Collapse UI, resolve loose Pickups on collapsing floor, decide what Crown Sentries do late, or decide Dais overtime.
+- **Rift Collapse.** Ticket 21 builds and validates `SectionId`, `CollapseLayer`, `CollapseParent`, `ShardId`, connector metadata, slot `SectionId` and `CollapseCenter`, and nothing more (amended 2026-11-10: plus the presentation metadata set out under [Presentation metadata for Ticket 26](#presentation-metadata-for-ticket-26-added-2026-11-10), which adds no gameplay scope). It does **not** remove sections during play, damage players with the Rift, time Collapse phases, add Collapse UI, resolve loose Pickups on collapsing floor, decide what Crown Sentries do late, or decide Dais overtime.
 - **Rift Wardens.** Ticket 21 provides only reserved slots, spawn-distance compatibility and section metadata. It does **not** build Warden AI, aggro, attacks, XP, loot or an elite. The roughly 25-stud aggro range from the design is an example, not a requirement. [Ticket 23](#23-rift-warden) settles the Warden and refines these slots: a `GateId` and `TerritoryRadius` on each slot, a `GateId` on each pad, and a preferred +15 to +20 degree offset toward the Gate seam (the +10 degree position is the fallback).
 - XP, levelling, equipment or Relic slots, new Abilities, loot tables beyond the 24-drop layout.
 - Any active environmental hazard, hazard anchors or scripts.
@@ -2062,7 +2062,7 @@ Add (names are an implementation decision): `CrownOpened match= seconds= alive= 
 - ~~Fate of **Crown Sentries** (Layer 3) and of **loose Pickups and Kit drops** on a collapsing section.~~ Resolved by Ticket 22 (Sentries are removed with Layer 3, loose loot is consumed, Kit drops use a live-floor fallback).
 - Warden stats, AI and aggro range, and the Warden slot hypothesis.
 - XP, equipment/Relic slot, loot beyond the 24 drops, Rank pacing tuning.
-- Cache stagger after the seal, the Match Intro, final art, audio and palette.
+- Cache stagger after the seal, the Match Intro, final art, audio and palette. (The Collapse's art, audio and palette are staged in [Ticket 26](#26-rift-collapse-visuals-and-atmosphere), added 2026-11-10.)
 - Kill attribution for any future hazard or PvE displacement.
 - Whether the six-player cap is permanent, and a Dash ledge guard (only on telemetry evidence).
 - Whether a dead mid-game justifies any hazard.
@@ -2075,6 +2075,18 @@ Add (names are an implementation decision): `CrownOpened match= seconds= alive= 
 - Each player's **start Shard** (from the pad `Match` assigns) is available to server code after setup.
 - A **Shard-membership lookup** from a position or a `SectionId`, using the `ShardId` metadata this ticket already adds.
 - (Stage 3 only) the Kit-drop spread points and their validation must cope with **up to three** dropped items, not two.
+
+#### Presentation metadata for Ticket 26 (added 2026-11-10)
+
+[Ticket 26](#26-rift-collapse-visuals-and-atmosphere) (Collapse presentation, **specified, not built**) needs a little authored presentation metadata so that warning effects match the real geometry. This amends the "and nothing more" in the Rift Collapse non-goal above: it adds **presentation metadata only**, with **no gameplay scope, no runtime geometry system and no change to the layout**. It is built during this ticket or as the first step of Ticket 26's Stage 1.
+
+- Each Section and connector carries an ordered **`CutLine`** set of Attachments along its inward breaking boundary, with the fewest points that represent it accurately.
+- Each Section has a **`VfxGroup`** attribute, defaulting to `ShardId` unless the authored layout needs different grouping. Rim links and connectors are assigned during review.
+- One **`BeaconAnchor`** per `VfxGroup` **per `CollapseLayer`**, because a Shard spans several layers.
+- Anchors are **generated once at authoring time** from the authored geometry and reviewed for irregular boundaries.
+- The structural validator gains **additive** checks: the required anchors exist and `CutLine` points lie on or near the Section's boundary. A missing required anchor fails validation before release.
+- A missing anchor at runtime never disables a warning. Ticket 26 logs it and omits a cut-line it cannot draw accurately.
+- Attachments are not geometry. They don't affect collision or queries and travel with their Section model.
 
 #### Dependencies, risks and ADRs
 
@@ -2566,7 +2578,7 @@ These produce tuning notes and do not keep the ticket open:
 
 #### Deferred and unresolved
 
-- The final visual and audio treatment of the telegraph, the beacon, the sting and the tick.
+- The final visual and audio treatment of the telegraph, the beacon, the sting and the tick. (Staged in [Ticket 26](#26-rift-collapse-visuals-and-atmosphere), added 2026-11-10. This ticket still builds the minimal functional telegraph below.)
 - Warden stats, AI, XP, drops and credit, and their behaviour in the Last Stand.
 - Whether a dead mid-game or Dais stall justifies any new mechanic.
 - Whether the Layer 4 timing, the 30 s Warning and the 45 s gap suit real play (tuned from telemetry).
@@ -2580,6 +2592,17 @@ These produce tuning notes and do not keep the ticket open:
 - A **Section lookup from a position**, and each Section's **Warning flag**, available to server code (the `CollapseWarning` state already exists for clients).
 - The **applied** removal time and the end of the settle window for each removal, so Pressured Exit uses the same stalled-or-shifted time the Collapse used.
 - (Stage 3 only) the Kit-drop live-floor fallback must handle **up to three** dropped items.
+
+#### Integration contract for Ticket 26 (added 2026-11-10)
+
+[Ticket 26](#26-rift-collapse-visuals-and-atmosphere) (Collapse presentation, **specified, not built, staged**) builds on this ticket's replicated state and **changes no gameplay contract**: not the schedule, atomic and phase-locked removal, collision, the removed-geometry invariant, the settle window, the server-authoritative timing or the optional Layer 4. These are the points to keep in mind when building this ticket:
+
+- **Replace, don't duplicate.** This ticket still builds its **minimal functional** world telegraph and placeholder cues, and its criterion 9 and matrix rows still apply. When Ticket 26's Stage 1 is built, it **replaces or extends that client presentation in place**, in the same module and on the same attributes, rather than adding a second controller or duplicate warning effects and audio. Keep the client telegraph in as few modules as practical so that swap stays small.
+- **State Ticket 26 reads, so it must stay as specified here:** `CollapseLayer`, `CollapseWarning`, `CollapseWarningAt` and `CollapseRemovesAt` on the Workspace, and `CollapseState` and `CollapseRemovesAt` on each Section or connector model. A Section leaving its home parent at removal is a signal Ticket 26 relies on, and the holding-folder ancestry behaviour is checked at build.
+- **No new `CollapseState` transition is added for Ticket 26** unless its testing proves the existing signals insufficient.
+- **Authored Section `CollapseLayer`** must be readable by clients.
+- **Cue semantics stay:** the 30 s announcement and sting, the Urgent presentation at 10 s, the per-second cue only for players on Warning ground in the last 5 s, a positional removal cue, and no global per-second ticks.
+- **Cosmetic debris and the art pass** listed under Future work belong to Ticket 26, client-side and non-interactive, with no authoritative collision or query role.
 
 #### Dependencies, risks and ADRs
 
@@ -3587,10 +3610,311 @@ An adversarial pass against the Match, Combat, Kit, Pickup, Collapse and PvE spe
 
 Accepted, with evidence to follow: the recorded risks above. Correctly deferred: see Future work. Review result: **ADR-0009 is warranted and written.** The other decisions are tunable gameplay and rules plus system work.
 
+### 26. Rift Collapse Visuals and Atmosphere
+
+**Status: Specified, Not Built. Specified 2026-11-10 and reviewed adversarially the same day.** The ticket is **staged** behind a metadata prerequisite: Stage 1 starts only after Tickets 21 and 22 are built, and the developer approves every stage before the next begins. Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`collapse-visuals-design.md`](collapse-visuals-design.md); this entry is the build contract. Exact module names and folder layout are provisional and recorded when built. Every value carries one of these labels:
+
+- **fixed:** an approved requirement. Changing it is a design change and is recorded here.
+- **tunable:** a starting value that can change from evidence or the art pass without a redesign.
+- **check:** an implementation verification, performed and recorded at build. The result picks a named fallback and never invents a fact in advance.
+- **deferred:** not built here.
+
+**Expected values and art quality are not pass criteria.** Luminance, contrast, haze, hue and frame-time figures, audio balance and "feels like the Unmaking" produce tuning notes. Only the **Completion criteria** decide each stage.
+
+#### Summary
+
+Ticket 26 gives the Rift Collapse its presentation, **the Unmaking**: the arena is being **erased**, not burned or darkened. The world loses colour and substance as layers are consumed, each Warning Section visibly destabilises, each removal is an **Unravel**, and the Dais ends as the last surviving piece of reality. **Disappearing ground remains the only Collapse hazard.** Everything here is client-side, cosmetic, non-interactive and derived from state [Ticket 22](#22-rift-collapse) already replicates. It adds **no gameplay change, no new RemoteEvent and no schedule change**, and no effect may obscure PvP information.
+
+#### Stages and gates
+
+| Stage | Contents | Can be built | Stops for |
+|---|---|---|---|
+| **Prerequisite** | The authored presentation metadata and its additive validator checks (below) | With the [Ticket 21](#21-rift-crown-arena-layout) build, or as the first step of Stage 1 | Nothing separate |
+| **1. Readable Collapse** | The scoped client controller and lifecycle, the Warning vocabulary, the Unravel, the distant pulse, the basic stage presets, Full and Lite tiers, placeholder Collapse audio, the Results hold and the Hub restore, regression against Tickets 21 and 22 | After Tickets 21 and 22 are built | The developer's go-ahead. **Stage 1 alone is a complete, playable Collapse.** |
+| **2. The Unmaking atmosphere** | The procedural horizon, damage-recording far-field fragments, dust, the ambience bed, positional hums, the audio identity pass, the full capture matrix and the identity checklist | After Stage 1's Studio validation and go-ahead | The developer's go-ahead and visual identity sign-off |
+| **3. The Last Stand** | The Last Anchor light, the final draining sound, the Last Stand ambience, six-player Dais readability, Layer 4 enabled and disabled validation | After Stage 2's go-ahead | The developer's go-ahead |
+
+Pure rules and their specs touch nothing in the map and may be built early. Everything else waits for Tickets 21 and 22.
+
+#### Scope
+
+- `CollapseVfxRules` (pure, provisional name) and a client `CollapseVfx` controller (provisional name).
+- **Stage 1 replaces or extends Ticket 22's minimal client telegraph and placeholder cues in place.** No second controller, no duplicate warning effects and no duplicate audio. The module names are not given in Ticket 22, so the first step is a **check** that finds them.
+- The authored metadata, the effect budgets and tiers, the stage presets, the audio groups and levels, the diagnostics, specs, matrices and release gates.
+- `CONTEXT.md` terms, and the amendment notes on Tickets 21 and 22.
+
+#### Non-goals (fixed)
+
+- **Any Rift hazard:** damage, slowing, blinding or pushing volumes, fog gameplay, an advancing wall, an airborne Rift volume. Fog and storm are atmosphere only.
+- **Any change to Ticket 22's gameplay contracts:** the schedule, atomic and phase-locked removal, collision, the removed-geometry invariant, the settle window, server-authoritative timing, or Layer 4 being optional.
+- **Pre-Warning cues** of any kind on a Section, Shard or place, per-Shard foreshadowing, ghost geometry, Riftlight scars and floor-level afterimages.
+- **Camera movement or FOV changes** (shake, kicks), screen flashes, vignettes, and full-screen audio-linked effects. A very short FOV or vignette dip is a named fallback, **not built** without separate approval.
+- A **permanent exposed-edge trim.** Ticket 21's authored edge treatment is used first, and any trim needs test evidence and approval.
+- **Uploads and new assets:** textures, meshes, skyboxes, sounds. Placeholder built-in sounds first. **No upload without explicit approval.**
+- Adaptive music, a ducking system, an adaptive quality manager, startup benchmarking, a third tier, a runtime colour registry or hue validator, new RemoteEvents, client-to-server telemetry or an analytics backend, and a Last Stand feature flag.
+- Concurrent-Match infrastructure (see Lifecycle), a Hub restyle, and changes to Tickets 23 to 25.
+
+#### Dependencies and amendments
+
+- **Ticket 21 (amended, presentation metadata only).** See [Presentation metadata for Ticket 26](#presentation-metadata-for-ticket-26-added-2026-11-10). This is the only change to Ticket 21, and it adds no gameplay scope.
+- **Ticket 22 (relied on, unchanged).**
+  - **Replicated state used:** the Workspace attributes `CollapseLayer`, `CollapseWarning`, `CollapseWarningAt` and `CollapseRemovesAt`, the per-Section `CollapseState` and `CollapseRemovesAt`, and the existing `MatchId`, `MatchPhase` and per-player `MatchState`. The authored Section `CollapseLayer` must also be readable by clients (**check**).
+  - **No new `CollapseState` transition** unless testing proves the existing signals insufficient.
+  - Ticket 22's criterion 9 and its presentation, spectator and six-roster matrix rows must still pass after the replacement.
+  - The Ticket 22 cue semantics stay: a global sting and announcement at 30 s, the Urgent presentation at 10 s, the local per-second cue **only for players on Warning ground** in the last 5 s, a positional removal cue, and no global per-second ticks.
+  - Ticket 22's local alert, arrow and HUD line are not changed.
+- **Ticket 23 (Warden).** Warden telegraphs use hostile red as filled wedges and discs. A Collapse removal destroys a Warden at once, and the Unravel only draws cosmetics at cached bounds.
+- **Ticket 24 (Riftling).** Violet-teal seams on a moving body are the creature's own look.
+- **Ticket 25 (Milestones).** Its Feedback sounds and cues must stay above Collapse audio in the mix. Its Highlight-style visuals count against any Highlight budget (see the outline fallback).
+
+#### Identity and colour roles (fixed unless marked)
+
+- **Start:** a cold, muted stone world. **Escalation:** progressive desaturation and bleaching of sky and distance, hardest in the final stages. **Void:** pale, never black. **No literal white-out:** dark stone and structural contrast are preserved, so players, Abilities, the HUD and lethal edges stay readable. Escalation must feel dramatic and must not be flattened for contrast.
+- **Riftlight** is rose-magenta in about the 315° to 330° hue band (**tunable**, exact values in the art pass). It means ground instability and reality erasure, never combat damage. It appears in **exactly four places:**
+  1. static baseline seams
+  2. the Warning vocabulary on Warning Sections
+  3. the Unravel flash and fragments
+  4. the non-spatial horizon (Stage 2), which never uses the Warning rhythm, because the same rhythm must always mean the same deadline
+
+  It is never ambient fog.
+- **Roles:** hostile red means an incoming enemy attack. Ability colours (Tidal blue, Arc Burst yellow-white, Hook and Stone Guard amber and grey) mean Abilities and Pickups. Violet-teal is the Riftling. Riftlight is reserved as environmental identity. A future Ability may use related hues only if its shape and meaning stay clearly distinct and explicit visual testing passes.
+- **Priority ladder (fixed):** HUD, then players, Ability effects and Pickups, then ground warnings, then the Unravel, then atmosphere and horizon. No Riftlight effect exceeds the peak luminance of an Ability effect it overlaps. A Warden attack overlapping a Collapse warning stays immediately recognisable, and the warning must still read as ground disappearing. Neither erases the other.
+- **Hue separation** of at least about 40° from Ability and Pickup colours is an **initial art target**, not a pass rule. Separation from hostile red rests on shape, placement, motion and luminance, with the hue gap as extra margin.
+
+#### Presentation metadata (prerequisite, fixed)
+
+- Each Section and connector carries an ordered **`CutLine`** set of Attachments along its inward breaking boundary, with the fewest points that represent the boundary accurately.
+- Each Section has a **`VfxGroup`** attribute, defaulting to `ShardId` unless the authored layout needs different grouping (rim links and connectors are assigned during review, **check**).
+- There is one **`BeaconAnchor`** per `VfxGroup` **per `CollapseLayer`**, because a Shard spans layers.
+- Anchors are **generated once at authoring time** from authored geometry, then reviewed for irregular boundaries. They are not runtime sampling.
+- The structural validator gains **additive** checks: required anchors exist, and `CutLine` points lie on or near the Section's boundary.
+- **Fallback:** a missing anchor logs once. A missing `CutLine` **omits** the cut-line, and a guessed boundary is never drawn. Fractures, HUD and audio are preserved. A missing **required** anchor fails validation before release.
+- No runtime geometry sampling or boundary raycasts. Fracture start points use the floor samples Ticket 22 already permits.
+
+#### Controller architecture (fixed)
+
+- A client-only, **state-derived and edge-detected** controller. It uses attribute and ancestry signals, and its per-frame work is limited to effects that animate (the pulse and fracture growth during an active Warning). Tier, pulse phase and growth are pure functions of the server clock and replicated timestamps.
+- **Context** is Participant, Spectator (including a Hub spectator) or None. The controller reads Collapse state through **one `matchId`-keyed accessor**. Atmosphere, global audio and the anchor light apply only in Participant and Spectator contexts. World effects and positional audio exist only inside a scope, so a None client (the Hub, waiting, another Match) gets no Collapse presentation, which matches Ticket 22's status-only Hub viewers.
+- **One scope** per (`matchId`, role) owns every tween (created through one helper), pooled sound, effect object, connection, delayed callback and Lighting claim. Delayed callbacks check a scope epoch and do nothing after teardown.
+- **Stage** is the number of authored layers with **no Sections present**, derived from the world, never from `CollapseLayer = 0`. It is derived **only while Running** and **freezes on leaving Running**, so the server's restore at Results end cannot drop the Results look. Last Stand means Layer 4 is consumed, so with Layer 4 disabled the maximum stage is 3.
+- **Registration** is event-driven by Section appearance, so late replication is handled. Section bounds are cached on registration, before removal.
+- **Unravel trigger:** a registered Section leaving its home parent while the Match is Running, once per `(matchId, SectionId)`. Never on restore, never for a Section the client never saw (a late joiner), never before removal. A coalescing window (about 100 ms, **tunable**) batches a layer's removals and dedupes the per-layer pulse. The holding-folder ancestry signal is a **check**.
+- **Recovery points** (no per-frame reconcile): scope start, `MatchId` change, either Warning attribute changing (an order-independent, idempotent ensure), and after an effect-family error. Out-of-order or delayed observations converge. A late joiner or spectator computes the current target directly and never replays an earlier stage or pulse.
+- **Errors:** protected boundaries around lifecycle operations and effect-family handlers only, with no defensive wrapping of per-frame updates. A family that errors three times is disabled for that Match. A fatal failure tears the scope down and restores Lighting. Cosmetic failures never affect Collapse, movement, combat or Match progression.
+- **Lighting ownership:** a named list of properties and effects Ticket 26 controls, using its own effect instances wherever possible. Restore is **compare-and-restore**, putting a property back only if it still holds Ticket 26's last write. Any other writer gets an explicit coordination rule (**check**: find every other writer first).
+- Effect parts are `CanCollide`, `CanQuery` and `CanTouch` false, outside the authored Section folders, and never move collidable geometry or touch gameplay queries.
+
+#### Warning vocabulary (Stage 1)
+
+Keyed by `CollapseWarning` and the per-Section `CollapseState`, never by a timestamp alone. Present **only** on Warning Sections.
+
+- **Fractures:** branching Riftlight veins across the Section, growing in over the first few seconds (**tunable**, about 5 s) as `f(now - warningAt)`.
+- **Cut-lines:** a jagged, broken line along the `CutLine` anchors, thin (about 0.5 stud or less). It marks where ground ends and draws no path to safety.
+- **Beacons:** a thin, translucent vertical column per `VfxGroup` per layer, identifiable from another Shard.
+- **Pulse:** phase-locked to `CollapseRemovesAt`, with peaks on **whole seconds before removal** and an identical phase for every Section sharing a deadline. Initial rates are **1 Hz, 2 Hz and 2 Hz** for the Early, Urgent and Final tiers (**tunable**), and **3 Hz is the validated ceiling**.
+- **Tiers** (settled by Ticket 22): Early 30 to 10 s, Urgent 10 to 5 s, Final 5 to 0 s. The Final tier intensifies fractures, cut-lines and pulse and **never overexposes the Section**, so silhouettes, Pickups and Ability telegraphs stay visible.
+- Jagged fractures and vertical beacons distinguish Collapse warnings from smooth Ability telegraphs. **Baseline seams** are dim, static and uniform, and carry no timing.
+- Warning ground looks unstable and its inward parent looks stable (Ticket 22). Remaining ground **never** gains wear or instability over the Match. Instability vocabulary is reserved for Warning Sections.
+- Connectors are Sections for this purpose. Dash gaps have no geometry and need nothing.
+
+#### The Unravel (Stage 1)
+
+- Triggered only as above. The ground vanishes completely at frame 0, with no ghost slab.
+- A thin **cut-line flash** (about 0.2 s, **tunable**) reuses the Warning cut-line parts and is mandatory for every Section, including during a simultaneous removal.
+- **Fragments:** small (up to about 1.5 studs), fall and bleach toward the pale void, gone within about 1 s, kept at or below floor level and never in front of survivors. Cosmetic stagger up to about 0.4 s after removal is allowed for fragments and flash only, **never for ground**.
+- A global fragment budget per removal event (below). Fragments degrade first.
+- A **distant pulse** once per layer, global and non-spatial: a small luminance step (about 10% or less, **tunable**) and one low-frequency sound, so the Unravel reads from another Shard.
+- The exposed edge reads as the new lethal edge by **reusing Ticket 21's authored edge treatment** (**check** that interior boundaries have it). A pale, static, non-Riftlight trim is added only if tests prove it necessary, and needs approval.
+
+#### Atmosphere
+
+- **Stage presets** for stages 0 to 4. Atmosphere and ColorCorrection are the primary levers, plus ambient colours. **Not used:** Blur, DepthOfField, SunRays and strong Bloom.
+- Sky and distance bleach progressively while combat geometry keeps contrast. Haze is a capped backdrop, and nothing inside the combat area loses contrast.
+- An active Warning ramps the atmosphere modestly toward the next stage over its 30 s, and removal releases it with the distant pulse before settling at the new baseline. Ramps run only while changing, with no continuous loop.
+- **Stage 1** ships the presets and the ramp, with stage 4 as a plain preset.
+- **Stage 2** adds the **procedural horizon**: capped, distant, restrained Riftlight flickers on irregular timing, far-field fragments that grow in count and size with each consumed layer, and sparse dust. It is non-spatial and truthful (it shows only what already happened). Lite has none.
+- **Stage 3** adds the **Last Anchor** (below).
+- Whether the downward view reads as a pale void depends on the sky and Atmosphere per lighting technology (**check**).
+
+#### The Last Stand (Stage 3)
+
+- It begins **only** after Layer 4 is actually consumed. With Layer 4 disabled it is **dormant by data**, with no flag and no schedule change, and the Inner Crown receives the normal highest stage.
+- The standard Unravel and distant pulse accompany the Layer 4 removal, then the atmosphere eases over about 2 to 3 s (**tunable**) into the strongest permitted stage: the palest void within the readability limits and the strongest horizon.
+- **The Last Anchor:** one client-created, anchored, invisible part at the Dais centre with one neutral cool-white light (not Riftlight or an Ability colour), Shadows off, a capped brightness and a range of up to about 45 studs (**tunable**). It exists only on clients at runtime, so the authored map and the validator are untouched.
+- The Dais is **structurally and visually unchanged**: no Riftlight, runes, decals, mesh swaps or added geometry. No particles, beams or debris rise above floor level in a clear cylinder around it. Void motes appear only below the lip.
+- **The light is an enhancement, not a dependency.** The contrast between dark surviving stone and the pale erased world must carry the identity if the light is disabled or ineffective.
+- Intensity comes from contrast, scale and atmosphere, not extra brightness or particles. The 1.5 s settle window and all gameplay are unchanged.
+
+#### Audio
+
+- **Identity:** eerie, hollow and reality-draining, never generic explosions, earthquakes or fantasy thunder. The world is disappearing, not physically breaking apart.
+- **Stage 1 (placeholder built-in sounds, replacing Ticket 22's):** global stings at 30 s and 10 s, the removal impact, the distant low-frequency thump, and the Ticket 22 on-ground final-5 s cue unchanged. A visible equivalent exists for every cue.
+- **Stage 2:** the stage ambience bed, **positional hums** at the beacon groups (sustained, pitch-rising tones with **no discrete ticks**, so rhythmic ticks stay with the on-ground cue), and the identity pass.
+- **Stage 3:** the final 2 to 3 s draining sound that follows the atmosphere transition, then a sparse Last Stand ambience.
+- Collapse audio has its own sound group with a **fixed ceiling below the combat and Feedback groups** (Ticket 25's cues included). It stays in the low and narrow-band range so combat cues stay clear. No dynamic ducking.
+- Two voices are reserved for the threshold stings. A late joiner hears no historical stings. Spectators hear the global cues and positional cues relative to their camera. Positional hums and impacts are grouped by `VfxGroup`, never per Section.
+- Existing sound groups are a **check**. Any final sound set or upload needs the developer's approval.
+
+#### Readability and accessibility
+
+Numbers are **tunable starting values**, and actual readability under overlapping effects and colour-vision simulation decides acceptance. Blocking gameplay failures must still be fixed.
+
+- The void and horizon's mean luminance is at most about 0.55 relative, and lit stone to void is at least about 2:1, at every stage.
+- A reference high-contrast target keeps at least about 80% of its near-contrast at 100 studs, and at least about 60% at the longest in-arena sightline.
+- HUD text is at least about 4.5:1 against its own backing plate, so it never depends on the sky (**check** the existing plates).
+- **Colour is never the only channel.** Fractures, cut-lines, pulse pattern, beacons, HUD text and arrow, and audio all carry the meaning, and colour-vision simulation runs on the captures.
+- **Photosensitivity:** pulses are at most 3 Hz, nothing flashes a large part of the screen, and the distant pulse is a small step once per layer. Configuration validation rejects any rate above 3 Hz.
+- Everything above must hold with **Atmosphere and ColorCorrection disabled**. Atmosphere is garnish, and its absence never removes a warning. Whether Atmosphere renders on the lowest settings is a **check**.
+- **Outline fallback (conditional, not built):** a subtle, non-through-wall character outline only if the worst-case capture shows a genuine visibility problem. It must first check the Highlight budget alongside Ticket 25's Highlight-style visuals.
+
+#### Quality tiers and budgets (tunable, per layer event)
+
+Two tiers, **Full** and **Lite**, chosen **once at Match start** from Roblox's graphics-quality signals where reliable, with Lite when the signal is unknown, and held for the Match. Touch input alone never means low-end. The exact APIs are a **check**. A forced-tier override exists for Studio testing. Warnings never overlap (Ticket 22's 75 s cadence), so the worst case is always one layer event, Layer 1.
+
+| Item | Full | Lite |
+|---|---|---|
+| Warning effect parts | at most 250 | at most 120 |
+| Fractures per Section | essentials floor of 4, scaled down to fit | same |
+| Cut-lines | complete | complete |
+| Beacons | at most 8 | at most 3 (the group you stand on, then the nearest) |
+| Dust (Stage 2) | at most 2 emitters per beacon group | 0 |
+| Unravel fragments (pooled emitters) | at most 150 from at most 6 | at most 40 |
+| Horizon emitters (Stage 2) | at most 8 | 0 |
+| Concurrent Collapse audio voices | at most 8 | at most 5 |
+| Total Collapse effect instances | at most 400 | at most 200 |
+| Pulse update rate (active Warning only) | at most 30 Hz | at most 20 Hz |
+
+- **Essentials floor (fixed, never tier-dependent):** the minimum fractures, complete cut-lines, the phase-locked pulse, the Unravel flash, the HUD alert and arrow, the local final-5 s cue, and the two reserved threshold voices. Essentials always win over optional budgets.
+- **Drop order under pressure:** dust, far-field, fragments, farthest beacons, the anchor light, the ambience bed.
+- **Budget conflict.** If Ticket 21's Section count makes the fracture floor exceed Lite's budget, that is a **design conflict flagged and resolved before implementation**, preferring a cheaper fracture representation (thin parts, Beams or built-in textures, no upload, **check**) over a larger cap. It never silently becomes acceptable.
+- Pools are prewarmed in Countdown, Warning parts spawn over up to 3 frames, and the Unravel flash reuses existing Warning parts.
+- The numbers are initial engineering budgets, tuned in Studio and on a device. Blocking requirements are correctness, cleanup and essential visibility.
+
+#### Lifecycle (fixed)
+
+- **Match end:** all animation stops immediately (pulses, loops, hums, in-flight debris, warning effects). The final static atmosphere **holds through Results** with no pulses, removal animations or escalation, then eases to the Hub baseline when the player leaves the Match context. If Results is skipped or interrupted, teardown still restores everything.
+- **Mid-Warning cancel:** `stop()` clears the Warning through the attributes, and teardown backstops it.
+- **New Match:** a new `MatchId` creates a new scope, Sections register as they appear, and the atmosphere eases to stage 0 during Countdown. A Section reappearing is never an Unravel.
+- Participant to Spectator in the same Match **keeps the scope**. Switching spectate target restarts nothing. Leaving to the Hub ends the scope and restores Lighting.
+- **Single-Match limitation, documented:** the replicated Collapse state is global Workspace attributes, matching the Milestone 2 one-Match constraint. The `matchId` accessor is the only preparation for concurrent Matches. Per-session state is Ticket 22's deferred item and is not built here.
+
+#### Diagnostics
+
+Concise, event-driven console lines in the existing key=value style with the prefix `[Riftfall][CollapseVfx]`, each carrying `match=` and `t=`. There are no per-frame logs, no remotes and no backend.
+
+`Tier` (with its source: forced, quality or fallback), `ScopeStart`, `ScopeEnd` (with leftover instance, connection and tween counts, which must be 0), `Stage`, `Warning` (parts, fractures, beacons, capped), `Unravel` (sections, fragments, flashes, batch time), `Degrade`, `Error` (family, count), `Restore`, and one `Summary` per scope (peak instances, drops, errors, worst batch time).
+
+#### Tests
+
+Reuse Ticket 22's infrastructure, with small focused fakes and pure functions and no dependency-injection framework. Read [`docs/testing/studio-mcp-quirks.md`](testing/studio-mcp-quirks.md) first.
+
+1. **Specs through `RunAll`:** pure `CollapseVfxRules` (stage derivation, tiers, pulse phase and rate, budget distribution and the essentials floor, drop order, context, configuration validation) and controller lifecycle specs on small fakes. Whether specs can run client-side is a **check**.
+2. **S1 solo Play,** forced Full then forced Lite, on the TEMPORARY accelerated schedule (**test-only**, never committed), with the Edit-mode integrity check afterwards.
+3. **S2 two clients and six rigs:** a Participant and a Hub or Spectator client, late joins, spectate switches and a six-roster Layer 1 removal.
+4. **The capture matrix:** each stage, light and dark avatars, overlapping Abilities, a Warden Swing and Slam over a Final-tier Warning, HUD damage over a Warning, a six-player Dais capture, and Lite with all post-processing off, followed by colour-vision simulation on the captures.
+5. **A real low-end phone pass** and a controller pass, recorded by hand.
+6. **Regression:** the Ticket 21 structural validator, the Ticket 22 specs, and its matrix rows for lifecycle, presentation state, six-roster and spectator.
+
+Timing-critical cases are armed against an absolute server timestamp, as in Ticket 22. A Play test that consumed Sections is followed by an Edit-mode integrity check.
+
+#### Completion criteria
+
+**Stage 1 (all required):**
+
+1. Stage derivation is correct for 0 to 4 consumed layers with Layer 4 enabled and disabled, including `CollapseLayer = 0` while Layer 4 is still present, and a late join computes the target with no replay.
+2. The Unravel plays once per `(matchId, SectionId)`, never on restore, never for a Section the client never saw, and never before removal.
+3. No instability effect exists for a non-Warning Section, before the first Warning or in any stable gap.
+4. Pulse phase is identical for a given `removesAt`, peaks land on whole seconds within a frame, tiers switch at 10 s and 5 s, and no pulse exceeds 3 Hz in any tier.
+5. Every effect part is `CanCollide`, `CanQuery` and `CanTouch` false and outside the authored Section folders. The Ticket 21 and 22 specs, the Dais isolation check and removal timing are unchanged, and Ticket 22's criterion 9 and matrix rows still pass.
+6. Lifecycle: mid-Warning cancel, mid-Unravel end, a static Results hold, an interrupted Results still restoring, the Hub restore, and a 3-Match leak check (instances, connections, tweens, sounds and pools back to baseline).
+7. Isolation: a Hub client's lighting and audio are unaffected while another client is a Participant, Participant to Spectator keeps the scope, and a lighting conflict is never overwritten by restore.
+8. Forced Lite shows every essential within the caps, the tier is fixed during a Match, and unknown signals give Lite.
+9. An injected error disables only its family after three, a fatal error restores Lighting, and a missing asset warns once while visual equivalents remain.
+10. Configuration validation rejects any pulse rate above 3 Hz.
+11. **Readability protocol:** for each capture a reviewer answers yes or no to "can I identify every Ability effect, the HUD and every lethal edge". Any "no" blocks.
+12. The implementation checks are performed and recorded, and the fracture-floor versus Lite-budget check is resolved.
+
+**Stage 2:** the effect caps and cleanup still hold including horizon, dust and hums (Lite has none), hums contain no ticks, the ambience bed stays under the combat ceiling, the criterion 11 protocol is rerun on the full capture matrix, and the identity checklist passes with the developer's sign-off.
+
+**Stage 3:** the Last Stand is dormant with Layer 4 disabled and correct with it enabled (tested under a TEMPORARY configuration, with the shipped configuration restored), the Dais is readable with the light disabled, the six-player Dais capture passes criterion 11, and the transition, Results hold and cleanup are correct.
+
+Each stage also needs a regression run and an Edit-mode integrity check, and **stops for the developer's approval**.
+
+#### Implementation checks
+
+- The holding-folder ancestry signal, and whether a large removal splits across packets.
+- Client access to each Section's authored `CollapseLayer`.
+- Where Ticket 22's client telegraph and audio modules live, since the ticket doesn't name them.
+- Whether Ticket 21's interior boundaries have the authored lip treatment.
+- The graphics-quality APIs, defaulting to Lite when unknown.
+- Every other writer of the Lighting properties and the existing sound groups.
+- The fracture representation against real Section counts and Ticket 21's part-count baseline.
+- The pale-void look when looking down, per lighting technology.
+- The HUD backing plates, and participant detection from `MatchState`.
+- Hub to arena distance and positional audio bleed.
+- That effect parts are excluded from client raycasts, including cosmetic projectiles, aim and camera.
+- Ticket 22's "standing on Section" lookup, reused for Lite's beacon priority.
+- The exact Ability and HUD colours, and the `VfxGroup` assignment for rim links and connectors.
+- Whether specs can run in a client context.
+
+#### Release gates (not implementation blockers)
+
+- A **real low-end mobile Lite pass**, performed and recorded. Lack of immediate access to a device does not block implementation or Studio validation, and it is recorded as an outstanding gate. A failure matters only if essentials are missing or cleanup fails.
+- **Final visual identity** requires the developer's approval, through a written identity checklist (erasure rather than fire or darkness, Riftlight only in its four places, a pale void, stone contrast kept, visible escalation between stages, a distinct Last Stand) and a stage-by-stage capture set.
+- **The Tidal gate** from Ticket 22 decides whether Layer 4, and so Stage 3, ships enabled.
+- Approval for any asset upload.
+
+#### Evidence only (recorded, never gating)
+
+Frame-time and instance-cap tuning, the luminance, contrast, haze and hue values, audio balance and identity, placeholder sound quality, whether the Unravel reads from a distance, fragment counts, and whether the whole thing feels like the Unmaking. A tuning note never keeps a stage open, except where performance makes the game genuinely unplayable or warnings unreliable.
+
+#### Deferred
+
+- Concurrent Matches and per-session Collapse state.
+- A Hub restyle and arrival polish.
+- The final sound set and music, and texture, mesh or skybox assets.
+- The camera fallback.
+- Warden, Monster and Milestone visual reconciliation beyond the colour roles, and the Warden's despawn visuals (Ticket 23).
+- A permanent exposed-edge trim.
+- An Unstable stage and Dais overtime (Ticket 22's).
+
+#### Dependencies, risks and ADRs
+
+- Depends on Tickets 21 and 22 being built, with the presentation metadata authored.
+- **Risks:**
+  - The scope is large, which is why it is staged. Stage 1 is a complete minimum.
+  - Replacing Ticket 22's minimal presentation could regress its criterion 9. The regression run covers it.
+  - Lite shows fewer beacons than Full. This is accepted: every Section keeps fractures and cut-lines, and the HUD names the layer.
+  - A match that ends mid-Unravel hard-cuts the animation. This is rare and accepted.
+  - A light avatar against the pale void is the worst readability case, which is why the outline fallback exists.
+  - Tickets 23 to 25 may add colours and sounds before this is built, so the colour roles and the audio ceiling are rechecked against what exists then.
+- **No ADR required.** The choices are cosmetic and reversible, derived from state Ticket 22 already replicates, and they change no authority, movement, hitbox, workflow or one-life decision.
+- **Glossary:** `CONTEXT.md` gains **Unmaking**, **Riftlight**, **Unravel** and **Last Anchor**.
+
+#### Review notes (2026-11-10)
+
+An adversarial pass against Tickets 21 to 25 found **no blocking contradiction and no gameplay change**. What the review found and fixed in the documents:
+
+- **Ticket 21's "and nothing more":** the Collapse non-goal now carries a dated note allowing presentation anchors, with no gameplay scope.
+- **Beacons per layer:** "one `BeaconAnchor` per group" was wrong, because a Shard spans layers 1 to 3. It is one per `VfxGroup` per `CollapseLayer`.
+- **Registry timing:** a one-shot registry build at the new `MatchId` could miss Sections that restore late, so registration is event-driven by Section appearance.
+- **Results freeze:** Ticket 22 restores Sections when everyone is back in the Hub, so a participant or Hub spectator can still be mid-Results. Stage derivation freezes on leaving Running.
+- **Highlight budget:** the conditional outline fallback must check the Highlight budget alongside Ticket 25's Highlight-style visuals.
+- **Audio priority:** Ticket 25's cues and the Feedback sounds sit above Collapse audio.
+- **None-context clients:** world effects and positional audio exist only inside a scope, consistent with Ticket 22's status-only Hub viewers.
+- **Ticket 22's per-frame derivation:** compatible, because the pulse and growth derive from timestamps every frame while a Warning is active.
+- **Readability criterion:** the "identifiable" test was subjective, so it is a yes or no reviewer protocol where any "no" blocks.
+- **Stage 1 stage 4:** Stage 1 ships a plain preset, and Stage 3 adds the anchor, drain and ambience.
+- **Unnamed modules:** Ticket 22's client modules are not named, so locating them is a **check** and no name is invented.
+- **Dais isolation exemption:** client-side parts never exist in the authored map or validator, so the exemption is untouched.
+- **Hum versus ticks:** hums are sustained tones, so Ticket 22's "no global per-second ticks" and the on-ground final-5 s cue stay intact.
+
+Accepted, with evidence to follow: the recorded risks above. Correctly deferred: see Deferred. Review result: **no ADR required.**
+
 ## Later, after evidence from the run test
 
 - non-Ability world items, under the principles above
-- ~~the smallest Rift Collapse~~, now specified as [Ticket 22](#22-rift-collapse); what remains is what its evidence asks for (an Unstable stage, roster-band timing, overtime)
+- ~~the smallest Rift Collapse~~, now specified as [Ticket 22](#22-rift-collapse), with its presentation staged in [Ticket 26](#26-rift-collapse-visuals-and-atmosphere); what remains is what its evidence asks for (an Unstable stage, roster-band timing, overtime)
 - ~~the first Rift Warden~~, now specified as [Ticket 23](#23-rift-warden), and ~~regular monsters~~, now specified as [Ticket 24](#24-regular-monsters); what remains is an elite Dais Warden or boss, Monster Families, Relics and Rank 3 behaviour changes (Match progression is now specified as Milestones in [Ticket 25](#25-match-milestones), not XP)
 - the real Hub, with batches of players into several Matches at once
 - testing two slots against three, once there are about 6–8 Abilities

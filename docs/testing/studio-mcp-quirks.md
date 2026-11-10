@@ -88,3 +88,13 @@ Code is edited through the MCP rather than Rojo, as [ADR-0005](../adr/0005-game-
 - A Studio debugger entry such as `DebuggerManager.TEMPORARY…Debugger` can mirror a temporary script, so check it's gone after deleting the script.
 - A 3-client Server & Clients session showed "disconnected" in Studio and stopped answering, after a long security run (Ticket 20). Every id then reported "studio_id is not connected". The developer closed it and started a new one, and the clients came back with new ids. Brief testers to record results as they go, so a dropped session still yields data.
 - A `Humanoid:MoveTo` walker can crawl at 0.5–2 studs/s after a Sentry hit, with `MoveDirection` 0 and `WalkSpeed` 16 (Ticket 20). Driving `Humanoid:Move` toward the waypoint each Heartbeat keeps real speed. On `MatchMap` the core blocks a pad's straight line to a central Cache, so approach each central Cache through a waypoint about 52 studs out along its own angle. Expect a spawn-placement jump in the first frame of Running in any per-frame speed check.
+
+## Unverified, to settle when testing Ticket 26
+
+These are open questions, **not found quirks**. [Ticket 26](../milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere) is specified and not built, so nothing here has been tried. Move each one up into the list above, with its result, once it has been tested.
+
+- Whether specs can run in a **client** context, or only on the server in Play. The controller is built on small fakes either way.
+- Whether `get_console_output` and `execute_luau` reach a Play client's console, so `[Riftfall][CollapseVfx]` lines can be read there. Reading Session lines needed the server's `LogService:GetLogHistory()`.
+- Whether `screen_capture` shows client-side Lighting, Atmosphere and ColorCorrection changes, and how Neon effect parts, fragments and the Last Anchor light look in it. It snapshots at the start of its call, as noted above.
+- Whether the Studio device emulator is close enough to a real low-end phone to say anything about Lite. Until that is shown, treat it as evidence for layout only, and the real-device pass stays a release gate.
+- Any Studio Edit-mode state left by a forced-tier override or the TEMPORARY accelerated schedule. Check it is gone, as with other temporary scripts.

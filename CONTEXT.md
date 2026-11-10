@@ -118,6 +118,22 @@ _Avoid_: Destroyed, collapsed, deleted
 The final stage, once the Inner Crown is consumed and only the Dais remains. The Dais is never consumed.
 _Avoid_: Overtime, sudden death
 
+**Unmaking**:
+The visual identity of the Rift Collapse: the arena is being erased, not burned or darkened. The world loses colour and substance as layers are consumed, and the void is pale, not black. It is atmosphere only, and the missing ground remains the only hazard.
+_Avoid_: Storm (it implies a damage zone), fire, corruption
+
+**Riftlight**:
+The rose-magenta accent of the Unmaking. It marks ground instability and erasure, and appears only in static baseline seams, the Warning markings on a Warning Section, the Unravel and the distant horizon. It never means combat damage and is never ambient fog.
+_Avoid_: Rift glow, magic, damage colour
+
+**Unravel**:
+The presentation of one Section being consumed: a brief cut-line flash and a few small fragments that fall and dissolve. It begins when the client sees the Section leave the world, never before, and it is cosmetic only.
+_Avoid_: Shatter, explosion, break
+
+**Last Anchor**:
+The single neutral light on the Dais during the Last Stand, which makes it the last lit, fully coloured thing in the erased world. It is an enhancement, and the Dais is otherwise unchanged.
+_Avoid_: Dais effect, spotlight, beacon (a beacon is a Warning marking)
+
 ### Builds
 
 **Kit**:

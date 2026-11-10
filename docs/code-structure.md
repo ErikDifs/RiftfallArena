@@ -2,7 +2,7 @@
 
 The structure serves the first combat loop: **Basic Attack → Dash → Tidal Bolt → Arc Burst → Wet Reaction**. Anything that does not help implement, test or observe that loop probably does not belong in the first milestone.
 
-[Milestone 2](milestone-2-tickets.md) adds the run progression loop, so systems for Kits, Pickups, the Match, Rift Caches and Sentries now belong, each added by its ticket. A general monster system and an inventory still don't. [Ticket 25](milestone-2-tickets.md#25-match-milestones) (Milestones, staged and not built) would add a pure `MilestoneRules`, a server `Milestones` module and a shared combat-idle signal, with Riposte and Catch Breath rules beside them. Its gated Stage 3 Reserve is **one extra field on the Kit**, not an inventory.
+[Milestone 2](milestone-2-tickets.md) adds the run progression loop, so systems for Kits, Pickups, the Match, Rift Caches and Sentries now belong, each added by its ticket. A general monster system and an inventory still don't. [Ticket 25](milestone-2-tickets.md#25-match-milestones) (Milestones, staged and not built) would add a pure `MilestoneRules`, a server `Milestones` module and a shared combat-idle signal, with Riposte and Catch Breath rules beside them. Its gated Stage 3 Reserve is **one extra field on the Kit**, not an inventory. [Ticket 26](milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere) (Collapse presentation, staged and not built) would add a pure `CollapseVfxRules` and one client `CollapseVfx` controller, with no new remotes and no server code.
 
 ## Layout
 
@@ -212,6 +212,17 @@ From [Ticket 20](milestone-2-tickets.md#20-run-test-readiness), `Session` logs m
 - **Watch list.** `Shields.deliver` returns whether it granted a Shield, and `Casts` then calls `recordGuard`. `Combat` calls `recordPull` for a Hook pull that moves a player, with the server's own displacement. `Session` keeps each player's last pull for `Eliminated`'s `hookPulledAgo` and `hookBy`, and clears it at elimination, a fresh character, Return to Hub and either end of a Match. It is never kill credit.
 - **`MatchResult`'s extra fields** (`firstAbility`, `fullKit`, `guards`, `shieldAbsorbed`) come from `statsById`, which `Match` passes to `recordMatchEnd` beside the rows. The rows that reach clients don't carry them.
 - **Specs.** `Session.start({ manual = true, clock, log, characters })` runs it with fakes, with `handlePlayerAdded`, `handlePlayerRemoving` and `handleCharacterAdded` in place of the Players events (`SessionSpec`).
+
+## Rift Collapse presentation
+
+Specified in [Ticket 26](milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere), **not built**, and staged. Module names and folders are provisional and recorded when built. It is client-only presentation over state [Ticket 22](milestone-2-tickets.md#22-rift-collapse) already replicates, so it changes no authority.
+
+- **Pure rules.** A `CollapseVfxRules` holds stage derivation, tiers, pulse phase and rate, budget distribution and the essentials floor, the drop order, context derivation and configuration validation. It never touches `Workspace`, and `RunAll` covers it.
+- **One client controller.** `CollapseVfx` is state-derived and edge-detected. It reads Collapse state through one `matchId`-keyed accessor, and one scope per Match and role owns every effect, tween, sound, connection, callback and Lighting claim. Teardown is destroying the scope.
+- **Replaces Ticket 22's minimal telegraph in place,** in the same module and on the same attributes, with no second controller and no duplicate warning effects or audio.
+- **No new RemoteEvent and no server code.** The only authored data is the Ticket 21 presentation metadata (`CutLine`, `VfxGroup`, `BeaconAnchor`), generated once at authoring time. Effect parts are `CanCollide`, `CanQuery` and `CanTouch` false and live outside the authored Section folders.
+- **Lighting is client-owned,** through Ticket 26's own effect instances, with compare-and-restore for any shared property. The replicated Collapse state is global, matching the one-Match constraint, and the accessor is the only preparation for concurrent Matches.
+- **Diagnostics** are concise `[Riftfall][CollapseVfx]` console lines, with no per-frame logging.
 
 ## Dependencies
 
