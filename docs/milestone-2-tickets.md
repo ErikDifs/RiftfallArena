@@ -1607,7 +1607,34 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
 - **Hook visibility, 2026-11-10:** the developer looked at Rift Hook on `MatchMap` in a three-client session and judged it good. No tweak was made. **The leftover is closed, and so are all of Ticket 19's leftovers.**
 - **Flood guards, checked in the code by the main session:** only `ReplaceRequest` is guarded, with a token bucket of burst 5 and 5 per second, which drops excess before validation. `CastRequest`, `ChargeStart`, `ChargeRelease` and `DashRequest` have no guard, and each malformed request prints one unthrottled warning. `ReturnToHub` has no guard, but its warnings are throttled to one per second per player.
 - **A test aid for the security matrix and the pacing runs:** `ServerScriptService.Server.TEMPORARYRunMHelper`, with `TEMPORARYRunMHelperFn` in ServerStorage. It grants an Ability with `Kits.grant`, which logs no `Pickup` line, drops a Pickup and reads a Kit. It isn't committed anywhere, and it's deleted before the candidate.
-- **Next:** the security matrix, then the pacing walkers.
+- **Run M part 2, the security matrix, 2026-11-10,** with three clients, by `studio-tester` and reviewed by the main session. **All five pass criteria are met, and there are no findings.**
+
+  | Remote | Guarded | Malformed | Flood | Integrity and recovery |
+  |---|---|---|---|---|
+  | `ReplaceRequest` | Yes, a bucket of burst 5 and 5 per second | String, non-integer, NaN, infinity, extra `abilityId` or `rank`, a missing field, or a non-table payload: dropped `malformed`. Negative or unknown id: `Gone`. Slot 0 or 3: `NoSuchSlot`. | 50 in one tick on distinct Pickups: exactly 5 reached validation. 50 identical: 1 success. 45 over 4.97 s: 29 successes, where the bucket allows about 29.8. | No duplicate mutation and one outgoing drop. A legitimate request worked 0.1–0.5 s after a flood. |
+  | `ReturnToHub` | No. Warnings are throttled to 1 per second. | Extra field or non-table: `malformed` | 50 repeats after a success: harmless, with no duplicate spawn or log line. Heartbeat max 23.9 ms. | Alive: `Alive`, stays in. Hub: `InHub`. |
+  | `CastRequest` | No | (as Ticket 18) | 50 in one tick: 1 accepted, the rest refused. dt mean 16.7 ms, max 18.4. 0 warnings. | Works straight after |
+  | `DashRequest` | No | (as Ticket 13) | 50 in one tick: 1 accepted, 49 `AlreadyDashing`. Max 17.7 ms. | Works straight after |
+  | `ChargeStart` | No | (as Ticket 13) | 50 in one tick: 1 Charge, 49 `Charging`. Max 17.6 ms, and 24.6 ms once afterwards, which recovered at once. | A tap Charge works straight after |
+
+  - **`ReplaceRequest` state gates,** each refused with no outgoing drop, the Pickup kept, and the Kit and Equip Lock unchanged:
+    - `TooFar`
+    - `Charging`
+    - a Kit that isn't full: `SlotEmpty` or `Fits`
+    - Eliminated, Hub, Results and Countdown: all `NotInMatch`
+  - **Race,** twice, with the two requests landing within about 2 ms of each other: exactly one success, the Pickup removed once, one outgoing drop, and the loser got `Gone` with its Kit unchanged. The same player won both times. That isn't pinned, and nothing depends on it.
+  - **Gates outside active play,** from Eliminated, Hub, Results and Countdown: Basic Attack, all four Abilities, Charges and an unknown Ability were all refused `NotInMatch`. Health, Shield, Charging and the Kit were unchanged, and a target 8 studs away kept 100 Health. `DashRequest` was accepted in the Hub, which is by design. From an Eliminated player it was `NoCharacter`, with no mutation.
+  - **Cache damage:** the control did 75 → 69. From an Eliminated player beside the Cache and from the Results winner, 4 and 9 Basic Attacks were all `NotInMatch`, with Health and `CacheStage` unchanged, no Pickup and no `CacheBroken`.
+  - **Covered by the code rather than Play,** as reviewed by the main session:
+    - The Waiting phase takes the same `phase == "Running"` gate as Countdown and Results.
+    - A voluntary Hub spectator is `Hub` on the server, because spectating is client-only.
+    - An Eliminated player's in-range `ReplaceRequest` is refused by `canCollect` before the range check.
+    - Hub-player Cache damage in range can't happen, because the Hub is far from every Cache.
+  - **Observations, not findings:**
+    - An outgoing drop lands within 4 studs, so it was collected back as an Upgrade during the floods. That's the known Ticket 19 quirk.
+    - Throttled warning counters carry over between Matches.
+    - Server-side errors came only from the tester's own snippets.
+- **Next:** the pacing walkers.
 
 ### 21. Rift Crown Arena layout
 
