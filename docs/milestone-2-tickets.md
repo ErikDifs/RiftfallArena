@@ -1587,7 +1587,24 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   | Charge interrupted | A player's Tidal Bolt ended a Charge with `cause=Knockback`, and there was no Cast |
   | Telemetry silent | No Match lines. `Fight` lines had no Match fields, and their `opponents` named the other player. |
 
-- **Next:** Run M, with the security matrix, the pacing walkers and the Hook leftovers.
+- **Run M part 1, 2026-11-10,** with three clients and `startingKit` temporarily `"Empty"`, by `studio-tester` and reviewed by the main session. It took three Matches, each starting with the full roster of three. **The Winner, Timeout and leave paths all pass.**
+
+  | Check | Result |
+  |---|---|
+  | Start | The countdown started from the Hub, with distinct `MapSpawn` pads, 13 Caches, 3 Sentries and no loose Pickups. `MatchStart` and `LootDeal … variety=ok` were logged. |
+  | PvE and loot | Caches were broken with real Basic Attacks. There was an Upgrade (Tidal Bolt and Rift Hook to Rank 2), a `ReplaceRequest` replacement, and Sentry shots taken. `Pickup` lines carry `seconds` and `filled`, and `CacheBroken` carries `kind=Outer`. `kind=Central` is covered by `CachesSpec`, and the pacing central pass will break a central Cache. |
+  | PvP and elimination (Match 1) | Hook pulled 16.5 studs, then Basic Attacks finished the target. The `Eliminated` line has `by=player`, the whole Kit dropped at the body, the body was removed, the banner and Spectate showed, and `ReturnToHub` landed in the Hub. |
+  | No-killer Hook elimination | A void fall 3.8 s after a pull logged `by=none hookPulledAgo=3.8 hookBy=player:-2`. One 28 s after a pull logged `hookPulledAgo=none`. |
+  | Timeout (Match 2) | It timed out by itself at 480 s with all three Alive: `cause=Timeout winner=none alive=3`. All three were `Survived place=none`, and the next Match started from a clean Hub. **No shortened `maxSeconds` was needed.** |
+  | Leaving (Match 3) | A Kick with two Alive gave `cause=Left`, and the Kit dropped before cleanup (`fromElimination`, present during Results). There was no double elimination, the remaining player won, and the leaver's `MatchResult` row survived. |
+  | Results and cleanup | Every `MatchResult` carries `firstAbility`, `fullKit`, `guards` and `shieldAbsorbed`, consistent with the `Pickup` lines and the Guard Cast. After Results there were 0 Caches, Sentries and Pickups, and players were back in the Hub. `Fight` lines carry `match`, `at` and `central`. |
+
+  - **Natural pacing, not a measurement:** first Ability 130–160 s and full Kit 183–202 s in Match 1, and first Ability 28.9 s in Match 3. These include tool latency and test setup.
+  - **`fights=0` in Match 3 is right.** Its five Hooks were 20–60 s apart, each a lone hit that went quiet, which isn't a fight under the existing rule.
+  - **Body on the pull line.** A bystander directly on the line is hit by the Hook projectile instead of the target, because the projectile hits the first character on its path. That's correct and not a pull defect. With the bystander 2.6 studs off the line, the target was pulled past them: 18.6 studs on the client against `HookPull studs=18.4`, over 0.25 s, with a maximum step of 1.23 studs per frame. There was no correction, snap-back or oscillation, and the bystander took no damage. Every sampled pull matched its `HookPull` to within 0.3 studs, and none embedded. **The leftover is closed.**
+  - **Hook visibility isn't settled by the MCP.** The projectile lives about 0.14 s, about 2 frames at 15 fps, and the pull beam about 0.26 s. `screen_capture` snapshots at the start of its call, so it never caught either. The objects exist and are separate from Tidal Bolt's and Arc Burst's. **The developer judges visibility by eye** in a later session.
+  - **Not exercised in Play:** `shieldAbsorbed > 0`, which is covered by the specs. The Guard in Match 1 had expired before any hit.
+- **Next:** the security matrix, the developer's look at Hook visibility, then the pacing walkers.
 
 ### 21. Rift Crown Arena layout
 
