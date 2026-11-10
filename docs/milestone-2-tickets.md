@@ -1664,7 +1664,24 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
     - The time is mostly in breaking, not walking. Cache Health is the obvious lever, but it would also raise the central cost, which is currently the reason to go central at all.
     - Ticket 21 replaces this map with the Rift Crown and sets a new baseline, so tuning `MatchMap` now would be wasted.
     - Carry these numbers into the run-test review. If testers also reach a full Kit well under a minute, revisit loot density on the Rift Crown, not Cache Health on this map.
-- **Next:** the publish candidate.
+- **Reference-safe publish candidate, 2026-11-10.** It's the Studio state at the commit that records this entry. It isn't a Roblox version, and nothing was published or uploaded.
+  - **`RunAll`** on the Server in a fresh solo Play: **427 passed, 0 failed**, with the telemetry specs included. There were no errors and no `MatchPhase`.
+  - **Run R and Run M passed on the same code.** The only changes after Run R were the developer's cosmetic, client-only sound tweaks, as version discipline allows.
+  - **No temporary aid remains.** `TEMPORARYRunMHelper` was deleted, and its BindableFunction only ever existed at runtime. A case-sensitive search of every instance name and every script's source for `TEMPORARY` finds nothing.
+  - **Tuning is restored:** `Tuning.kit.startingKit = "Reference"`, `reference = { "TidalBolt", "ArcBurst" }`, and `Tuning.match.maxSeconds = 480`.
+  - **The git tree is clean** at that commit.
+  - **Changed since version 86:**
+    - the run-test telemetry: `Session`, `SessionRules`, `Match`, `Pickups`, `Combat`, `Casts`, `Shields`, `KitRules.filledCount`, and `Tuning.session.centralRadius` and `hookPullWindowSeconds`
+    - its specs: a new `SessionSpec` and additions to six others
+    - the developer's sound changes: `Kill` is now `victory.wav` at 1.25, and `ReactionConfirm` is volume 0.6 at speed 1.5
+  - **Findings:** none unresolved. The observations for the run-test review are:
+    - the hit sound is a bit weak and Dash is quiet
+    - floor pacing is far ahead of the design targets, with no change recommended
+    - the `MoveTo` crawl, which affects only the test harness
+
+  **Handoff:** the candidate is a clean commit with 427 specs passing and `startingKit = "Reference"`. Run R and Run M have passed and nothing is unresolved. **Publishing is manual**, using the Reference / Stage 3 checklist in item 6. To prepare the progression run test afterwards, follow the **Run test switch** in item 6. Record each resulting version in Checkpoints with its commit.
+
+**Ticket 20 is done,** waiting on the developer's publish and go-ahead.
 
 ### 21. Rift Crown Arena layout
 
