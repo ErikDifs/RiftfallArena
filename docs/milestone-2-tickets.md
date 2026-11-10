@@ -1634,7 +1634,37 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
     - An outgoing drop lands within 4 studs, so it was collected back as an Upgrade during the floods. That's the known Ticket 19 quirk.
     - Throttled warning counters carry over between Matches.
     - Server-side errors came only from the tester's own snippets.
-- **Next:** the pacing walkers.
+- **Run M part 3, pacing, 2026-11-10,** with three clients walking at once, by `studio-tester` and reviewed by the main session. Every value is **floor pacing under perfect route knowledge**: it excludes search, hesitation, reading Pickups, loot decisions, avoiding players, aim and detours. The times come from the server's `Pickup` and `MatchResult` lines.
+
+  | Match | Player (pad) | First Ability | Full Kit | Caches |
+  |---|---|---|---|---|
+  | 2 | P1 (1) | 7.8 | 17.0 | Outer01, Outer10 |
+  | 2 | P2 (6) | 7.6 | 16.7 | Outer09, Outer08 |
+  | 2 | P3 (3) | 7.5 | 16.7 | Outer04, Outer03 |
+  | 3 | P1 (4) | 7.9 | 17.1 | Outer05, Outer06 |
+  | 3 | P2 (1) | 7.9 | 17.1 | Outer01, Outer10 |
+  | 3 | P3 (5) | 7.7 | 16.9 | Outer07, Outer08 |
+  | 4 | P1 (4) | 7.8 | 17.1 | Outer05, Outer06 |
+  | 4 | P2 (1) | 7.8 | 17.1 | Outer01, Outer10 |
+  | 4 | P3 (6) | 7.6 | 16.8 | Outer09, Outer08 |
+
+  - **Outer, over the 9 required runs:** first Ability min 7.5, median 7.8, max 7.9. Full Kit min 16.7, median 17.0, max 17.1. An extra Match 5 gave 7.0–8.5 and 16.4–17.8. There was no disruption, no duplicate, so a third Cache was never needed, and no shared Cache.
+  - **Where the time goes in one Cache cycle of about 8.5–9 s:**
+    - walking 2.0–2.8 s
+    - **breaking 5.2 s** (13 Basic Attacks at 0.43 s)
+    - collecting 0.3–0.6 s
+
+    The walker's own 0.7 s pause after collecting inflates the full Kit slightly, so the true floor is about 16 s.
+  - **Central pass** (Match 8, pad 1 to `CacheCentral1`, Sentries active): a waypoint is needed around the core, and the walk took about 7 s. The break took about 8.3 s (20 Basic Attacks) and `CacheBroken` came at 15.5. First Ability 15.9 and full Kit 16.7, both from that one Cache. Three Sentry shots of 12 each, about 3 s apart, pushed the walker about 5 studs each. Health never fell below 76, and the pass was neither interrupted nor slowed. Two earlier attempts were disrupted and not counted.
+  - **Movement Validation:** real-speed `MoveTo` caused no violation, snap-back or speed correction, and the server logged no warning.
+  - **A harness observation, not a defect:** after a Sentry hit, one `MoveTo` walker crawled at 0.5–2 studs/s for minutes, with `MoveDirection` 0, `WalkSpeed` 16 and nothing attached to it. `Humanoid:Move` on the same character gave 13–16 studs/s. Real player input drives `Move`, so players aren't affected. The central pass used `MoveTo` plus a Heartbeat `Humanoid:Move` driver, which is the ticket's second fallback: continuous movement at real WalkSpeed, with no hops.
+  - **Against the references.** The floor matches Ticket 18's hypothesis for the first Ability (8–10 s), and is faster than its full-Kit estimate (about 25 s), at about 17 s. Milestone 2's design targets are a first Ability at about 30–45 s and a full Kit at about 1.5–2 minutes. The floor is about 4–6× faster for the first Ability and 5–7× faster for the full Kit. The central route costs about 2× an outer Cache to a first Ability, but yields both Abilities at once, so a full Kit from the centre arrives at the same time as from the outer route. In the run tests that ran naturally (Run M part 1), with tool latency and setup included, a first Ability took 29–160 s.
+  - **Recommendation: no config change.**
+    - The human run test is decisive, and a floor that beats the targets isn't a reason to tune by itself.
+    - The time is mostly in breaking, not walking. Cache Health is the obvious lever, but it would also raise the central cost, which is currently the reason to go central at all.
+    - Ticket 21 replaces this map with the Rift Crown and sets a new baseline, so tuning `MatchMap` now would be wasted.
+    - Carry these numbers into the run-test review. If testers also reach a full Kit well under a minute, revisit loot density on the Rift Crown, not Cache Health on this map.
+- **Next:** the publish candidate.
 
 ### 21. Rift Crown Arena layout
 
