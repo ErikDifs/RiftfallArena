@@ -1604,7 +1604,10 @@ Settled 2026-11-08. Each ticket can be tested before the next, and the Reference
   - **Body on the pull line.** A bystander directly on the line is hit by the Hook projectile instead of the target, because the projectile hits the first character on its path. That's correct and not a pull defect. With the bystander 2.6 studs off the line, the target was pulled past them: 18.6 studs on the client against `HookPull studs=18.4`, over 0.25 s, with a maximum step of 1.23 studs per frame. There was no correction, snap-back or oscillation, and the bystander took no damage. Every sampled pull matched its `HookPull` to within 0.3 studs, and none embedded. **The leftover is closed.**
   - **Hook visibility isn't settled by the MCP.** The projectile lives about 0.14 s, about 2 frames at 15 fps, and the pull beam about 0.26 s. `screen_capture` snapshots at the start of its call, so it never caught either. The objects exist and are separate from Tidal Bolt's and Arc Burst's. **The developer judges visibility by eye** in a later session.
   - **Not exercised in Play:** `shieldAbsorbed > 0`, which is covered by the specs. The Guard in Match 1 had expired before any hit.
-- **Next:** the security matrix, the developer's look at Hook visibility, then the pacing walkers.
+- **Hook visibility, 2026-11-10:** the developer looked at Rift Hook on `MatchMap` in a three-client session and judged it good. No tweak was made. **The leftover is closed, and so are all of Ticket 19's leftovers.**
+- **Flood guards, checked in the code by the main session:** only `ReplaceRequest` is guarded, with a token bucket of burst 5 and 5 per second, which drops excess before validation. `CastRequest`, `ChargeStart`, `ChargeRelease` and `DashRequest` have no guard, and each malformed request prints one unthrottled warning. `ReturnToHub` has no guard, but its warnings are throttled to one per second per player.
+- **A test aid for the security matrix and the pacing runs:** `ServerScriptService.Server.TEMPORARYRunMHelper`, with `TEMPORARYRunMHelperFn` in ServerStorage. It grants an Ability with `Kits.grant`, which logs no `Pickup` line, drops a Pickup and reads a Kit. It isn't committed anywhere, and it's deleted before the candidate.
+- **Next:** the security matrix, then the pacing walkers.
 
 ### 21. Rift Crown Arena layout
 
