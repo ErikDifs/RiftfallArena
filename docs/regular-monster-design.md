@@ -13,7 +13,7 @@ The reasoning behind [Ticket 24](milestone-2-tickets.md#24-regular-monsters). Th
 - **Commitment:** about 3 to 5 seconds for a competent solo player.
 - **Lethality:** one rarely kills a healthy player alone. Danger comes from groups, PvP overlap and Collapse edges. No Knockback.
 - **Reward:** most monsters drop nothing. A small, hidden, configurable chance of one ordinary Rank 1 Ability Pickup.
-- **No Match XP in this ticket.** XP needs a level curve, level effects and a HUD, which is a progression system rather than an enemy ticket. Nothing in the docs defines it. This ticket logs kills so a later XP ticket has data.
+- **No Match XP in this ticket.** XP needs a level curve, level effects and a HUD, which is a progression system rather than an enemy ticket. At the time, nothing in the docs defined it. This ticket logs kills so a later ticket has data. That ticket, [Ticket 25](milestone-2-tickets.md#25-match-milestones), specified **Milestones instead of XP** ([ADR-0009](adr/0009-match-progression-through-one-time-milestones.md)), and a Riftling kill is one input to its Explore feat only.
 - **No respawn.** The Match is short and Collapse removes ground, so respawn would mainly create farming.
 - **Never gating.** No route, Cache, Kit step or the Crown requires killing one. They may sit close enough that fighting is sometimes the easiest choice.
 
@@ -158,7 +158,7 @@ All tunable. Sized against the real player values: Health 100, walk 16 studs/s, 
 ## Deferred
 
 - A ranged or mixed regular-monster family, and Monster Families with themed Drop Tables.
-- Match XP, levels, currency, Relics.
+- Match XP, levels, currency, Relics (Match progression is Milestones, [Ticket 25](milestone-2-tickets.md#25-match-milestones), not XP).
 - Respawn, pack AI, cross-Shard pursuit, patrol, a Knockback monster.
 - Monsters on the Crown.
 - An outside-fire gate, a per-target Telegraph cap and a Match drop budget, all added only on evidence.

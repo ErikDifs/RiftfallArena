@@ -2068,6 +2068,14 @@ Add (names are an implementation decision): `CrownOpened match= seconds= alive= 
 - Whether a dead mid-game justifies any hazard.
 - Which six players are kept when more are eligible (random for now, "longest waiting" later if Hub order is ever recorded).
 
+#### Integration contract for Ticket 25 (added 2026-11-10)
+
+[Ticket 25](#25-match-milestones) (Milestones, **Stage 2**) reads from this build. These are requirements, with no change to the layout:
+
+- Each player's **start Shard** (from the pad `Match` assigns) is available to server code after setup.
+- A **Shard-membership lookup** from a position or a `SectionId`, using the `ShardId` metadata this ticket already adds.
+- (Stage 3 only) the Kit-drop spread points and their validation must cope with **up to three** dropped items, not two.
+
 #### Dependencies, risks and ADRs
 
 - Depends on Tickets 15–20 (Kit, Pickups, Match flow, Caches and Sentries, Hook, run-test readiness). After the swap the Ticket 20 regression must still pass.
@@ -2565,6 +2573,14 @@ These produce tuning notes and do not keep the ticket open:
 - The final value of `collapseSettleSeconds` (set by the latency measurement).
 - Whether the Dais is acceptable for Tidal, which sets whether Layer 4 ships enabled.
 
+#### Integration contract for Ticket 25 (added 2026-11-10)
+
+[Ticket 25](#25-match-milestones) (Milestones, **Stage 2**) reads from this build. These are read-only requirements, with no change to the schedule or the Section rules:
+
+- A **Section lookup from a position**, and each Section's **Warning flag**, available to server code (the `CollapseWarning` state already exists for clients).
+- The **applied** removal time and the end of the settle window for each removal, so Pressured Exit uses the same stalled-or-shifted time the Collapse used.
+- (Stage 3 only) the Kit-drop live-floor fallback must handle **up to three** dropped items.
+
 #### Dependencies, risks and ADRs
 
 - Depends on Ticket 21 (see above) and on Tickets 15–20. After the swap to the real Rift Crown, the Ticket 20 regression must still pass with `maxSeconds` at the new baseline.
@@ -2888,11 +2904,20 @@ If a documented number differs slightly in code, update the tuning assumption an
 
 **Blocking dependency on Ticket 22:** until both implementations coexist, only `removeSection` is blocking. The real Collapse plus Warden Studio check then becomes blocking.
 
+#### Integration contract for Ticket 25 (added 2026-11-10)
+
+[Ticket 25](#25-match-milestones) (Milestones, **Stage 2**) reads from this build. These are requirements, with no change to the Warden's mechanics, reward or Last Hit credit:
+
+- A **per-player effective-damage tally per Engagement** (Health actually lost by the Warden, accepted hits only), so the Explore feat can fire when a player reaches about 25% of its maximum Health. The tally clears **when regeneration starts, on a full reset, or on despawn**, and **not** at the start of the walk home (a third party can still finish a weakened Warden during it). This is a Milestone attribution, not a reward split. Last Hit still decides the Pickup.
+- Every hit a Warden deals carries a **`sourceClass`** of Warden. Warden damage is the one PvE source that counts toward Endure.
+- The combat-idle signal is stamped when a Warden deals or takes damage (the stamp point is added with the shared signal).
+- The Warden's per-Engagement tally is **logged** in the existing telemetry so Stage 2's evidence can use it.
+
 #### Future work
 
 **Regular monsters are intentionally deferred to the next PvE ticket, now specified as [Ticket 24](#24-regular-monsters).** Wardens are elite-tier, mini-boss-style guardians, not the baseline monster population. Ticket 24 starts by extracting the Warden primitives that prove genuinely reusable, and is implemented only after this ticket is built.
 
-Also deferred: an elite Dais Warden or boss, Match XP and Relics, patrol, respawn, a ranged or leap attack if telemetry shows kiting dominates, final art, audio and animation.
+Also deferred: an elite Dais Warden or boss, Match XP (now Milestones, [Ticket 25](#25-match-milestones)) and Relics, patrol, respawn, a ranged or leap attack if telemetry shows kiting dominates, final art, audio and animation.
 
 ### 24. Regular Monsters
 
@@ -3230,9 +3255,17 @@ If a documented number differs slightly in code, update the tuning assumption an
 
 **Publish checkpoint** (separate manual step): the developer publishes and the version is recorded in [Checkpoints](#checkpoints).
 
+#### Integration contract for Ticket 25 (added 2026-11-10)
+
+[Ticket 25](#25-match-milestones) (Milestones, **Stage 2**) reads from this ticket. These are requirements on this build, with no change to its mechanics:
+
+- A killed Riftling is reported with its **killer (the Last Hit)** and its **Home's Shard**, so the Explore feat "Riftling on another Shard" can be judged. A Collapse despawn, a Fault or a Return gives no credit (already the case).
+- Every hit a Riftling deals carries a **`sourceClass`** of Riftling, so Endure can exclude it. Riftling damage does not count toward Close Call or Pressured Exit.
+- The combat-idle signal is stamped when a Riftling deals or takes damage (the stamp point is added with the shared signal).
+
 #### Future work
 
-Deferred, each on evidence from the run test: a ranged or mixed regular-monster family, Monster Families with themed Drop Tables, Match XP and Relics, an outside-fire gate for monsters, a per-target Telegraph cap, a Match drop budget, an attribution rule for monsters finishing damaged players, Crown monsters, patrol and respawn if telemetry shows the Arena empties, an elite Dais Warden or boss, final art, audio and animation.
+Deferred, each on evidence from the run test: a ranged or mixed regular-monster family, Monster Families with themed Drop Tables, Relics (Match progression is Milestones, [Ticket 25](#25-match-milestones), not XP), an outside-fire gate for monsters, a per-target Telegraph cap, a Match drop budget, an attribution rule for monsters finishing damaged players, Crown monsters, patrol and respawn if telemetry shows the Arena empties, an elite Dais Warden or boss, final art, audio and animation.
 
 #### Assembly defaults (not individually grilled, recorded so they are reviewable)
 
@@ -3255,10 +3288,309 @@ Accepted, with evidence to follow: pair burst, outside-fire share, Layer 2 fit, 
 
 Correctly deferred: see Future work. Review result: **no new ADR required.** ADR-0008 already covers the kinematic model, and this ticket's decisions are tunable gameplay and Rules plus system work.
 
+### 25. Match Milestones
+
+**Status: specified 2026-11-10 and reviewed adversarially the same day, not built, and conditional on gameplay evidence.** The ticket is **staged**: Stage 1 may be built now, Stage 2 only after Tickets 21 to 24 are built, and Stage 3 (Reserve) only if run tests justify it. Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`milestone-design.md`](milestone-design.md) and [ADR-0009](adr/0009-match-progression-through-one-time-milestones.md). This entry is the build contract. Numbers are **tunable** unless marked fixed, and are starting values, not balance guarantees. Exact module names and folder layout are provisional and recorded when built.
+
+**Targets and balance expectations are not pass criteria.** Riposte's value, Catch Breath's value, Lane completion rates, the 2-player and full-lobby behaviour, and stacking produce tuning notes. Only the **Completion criteria** decide completion.
+
+#### Summary
+
+During a Match a player can earn up to three **Milestones**, one per **Lane**: **Explore**, **Contest** and **Endure**. Each is completed once by a feat that comes out of ordinary play, and grants one defined tactical reward: **Reserve**, **Riposte** and **Catch Breath**. A reward becomes usable once 60 s have passed since GO and the player has had an out-of-combat moment since earning it. Everything is Match-local. There is no XP, level, currency, reward menu or permanent progression. A Milestone is not an Ability Rank, and no reward touches Rank.
+
+**On agency:** with one defined reward per Lane, a player is not choosing a progression path. They are earning three predefined tools through different kinds of play. This is worth building only if the rewards create enough depth, which Stage 1 exists to test.
+
+#### Stages and gates
+
+| Stage | Contents | Can be built | Evidence to proceed |
+|---|---|---|---|
+| **1. Core** | The combat-idle signal, the Milestone engine, **Contest with Riposte**, **Endure with Catch Breath** (Close Call only), Match-local state, minimal HUD, telemetry | **Now**, on the current Match | A Stage 1 run test shows the Lanes are pursued and completed, Riposte and Catch Breath are used, and no unanticipated exploit. If Milestones don't change play, **reconsider the system before expanding.** |
+| **2. Arena and PvE integration** | Pressured Exit, Warden damage as an Endure source, the Explore feats (kept **inactive** until its reward exists) | **After Tickets 21 to 24 are built** | Stage 1 evidence, plus the integration contracts below verified in code |
+| **3. Reserve** | The full Reserve spec below | **Only on evidence**, independent of whether Riposte and Catch Breath succeeded | Loot-saturation evidence (see below). If it proves valuable independently of Milestones, **revisit whether it belongs in the base Kit system.** |
+
+#### Scope
+
+- **Stage 1:** `MilestoneRules` (pure: Lane state, feat detectors, the activation rule), `Milestones` (server: state, events, unlock, banners, telemetry), the shared combat-idle signal, Riposte and Catch Breath (rules, server state, `Combat` integration, Protocol, visuals with placeholder audio), the Contest and Close Call feats, HUD indicators, `Tuning.milestones`, specs, the Studio matrix, the `CONTEXT.md` terms, and the doc updates in this commit.
+- **Stage 2:** Pressured Exit, Warden and Riftling sources, the Explore feats, and the integration hooks in Tickets 21 to 24.
+- **Stage 3:** Reserve in `KitRules`, `Kits`, `Pickups`, `Match` (elimination), client copies, HUD and specs.
+
+#### Non-goals
+
+- XP, levels, currency, Relics, Equipment, permanent progression or cosmetics. A reward menu, a token bank, a bench or a shared Tool slot (all designed, then dropped).
+- Any reward that raises damage, Health, movement speed or Evade uptime, or that changes Ability Rank or Pickup supply.
+- Lobby-size scaling of feats, collusion detection or punishment, a Dais-specific exclusion, or extra combat restrictions without evidence.
+- A generic Lane framework. The gates are flat booleans.
+- Stagger, Knockback or forced movement, projectile or PvE parrying, knockback resistance.
+- Final art, audio and animation. **No upload without explicit approval**: placeholder built-in sounds and simple Highlight-style visuals only.
+- Changing the 24-drop Cache economy, `LootRules.validate`, Last Hit loot ownership, Ability Ranks, or the shared Match `random` draw order.
+- Fixing the recorded discrepancies below.
+
+#### Dependencies
+
+**1. Requires Tickets 21 to 24 to be built first (Stage 2 only):**
+- Ticket 21: a per-player start Shard and each Riftling Home's Shard.
+- Ticket 22: a read-only **Section at a position**, the Warning flag, and the **applied** removal time and settle window (`Collapse.sync`). Pressured Exit uses the applied time, so a stalled Collapse shifts it consistently.
+- Ticket 23: the Warden's Engagement lifecycle and a per-player effective-damage tally.
+- Ticket 24: Riftling kills with Last Hit credit.
+
+**2. Ticket 25 builds itself (Stage 1, testable on the current Match):** the combat-idle signal (stamp points in `Combat`, `Casts` and Charging, with PvE stamps added by Tickets 23 and 24), the Milestone engine, Riposte, Catch Breath, the player-damage window keyed by a **source class** so the Warden and PvE plug in later, input actions, HUD, telemetry and specs.
+
+**3. Integration hooks added to earlier tickets (requirements, not redesign), recorded in each ticket:**
+- **Ticket 21:** expose each player's start Shard and a Shard-membership lookup.
+- **Ticket 22:** expose a Section lookup from a position, the Warning flag and the applied removal and settle times, read-only.
+- **Ticket 23:** keep a **per-player effective-damage tally per Engagement**, cleared when regeneration starts, on a full reset or on despawn, and report a `sourceClass` on its hits. Last Hit still decides loot.
+- **Ticket 24:** report a Riftling kill with its killer and Home Shard, report `sourceClass` on its hits, and give no credit on despawn, Fault or Return.
+
+**Stage 3 additionally relies on** Ticket 21's and Ticket 22's Kit-drop spread and live-floor fallback, which currently assume the drop spread of an existing Kit. They must handle **up to three** items.
+
+#### Feature gates
+
+`Tuning.milestones` holds flat booleans, not a Lane framework:
+
+| Gate | Stage 1 default | Rule |
+|---|---|---|
+| `contest` | on | |
+| `endure` | on | Close Call only until `endurePressuredExit` |
+| `endurePressuredExit` | off | Requires Ticket 22 built |
+| `explore` | **off** | **Requires `reserve`.** A spec asserts `explore` implies `reserve`, so Explore is never active without its reward. |
+| `reserve` | **off** | Stage 3 |
+
+Milestones exist only inside a Match, which is itself dormant under the Reference Kit. With every gate off, or outside a Match, there are no Milestone attributes, tags, remotes or log lines, and the arena, dummies and Stage 3 builds behave as today. **No placeholder reward is introduced for an inactive Lane.**
+
+#### Settle before building Stage 1
+
+- **Input.** Three new actions (Riposte, Catch Breath, and Stage 3's Reserve swap) are reviewed together for keys and accessibility. Keyboard is the only input today (no gamepad or touch handling exists). The actions are device-independent (`Riposte`, `Recover`, `SwapReserve(slot)`) and **no key is assigned here**. Studio tests use placeholder bindings only.
+- **The combat-idle window** and the other values below are placeholders until measured.
+
+#### Milestone engine
+
+- **State** is per player and per Match: for each Lane, `earnedAt`, `unlockedAt`, uses spent. It is created at GO, cleared at Match end and at Elimination, and never persists. There is nothing to carry across a Match or a rejoin.
+- **Completion** is immediate when a qualifying feat occurs, once per Lane, with a banner and a cue. A Lane that is gated off never completes.
+- **Activation rule.** A reward is usable once **both** hold: at least **60 s** (`milestoneUnlockSeconds`) since **GO**, and the player has reached an out-of-combat moment **after earning it** (`unlockedAt` is the later of the two). **The calm requirement applies once, to the unlock.** It never revokes access later, so Riposte can be used in combat after it is unlocked. A reward earned while already calm unlocks as soon as the time gate allows.
+- Eliminated players see no Milestone UI, and a Spectating player's earned rewards do not exist.
+- **Hub and non-Match play:** no Milestone state.
+
+#### The combat-idle signal
+
+One server value, `lastHostileAt[player]`, and one rule: a player is **out of combat** when `now - lastHostileAt >= combatIdleSeconds` (about 3 s, tunable). It is the **same signal** for Catch Breath, the unlock rule and Stage 3's Reserve. It is checked **when an action is committed**, not only when it is opened.
+
+**Stamped by** (server-authoritative, meaningful events only):
+- An accepted hit dealt or taken, **including a fully absorbed hit**.
+- A hit voided by Evade, **for both attacker and defender**, and a hit voided by Parry, for both.
+- The player's own damaging Cast, Basic swing or Charge start.
+- PvE damage dealt or taken (stamps added by Tickets 23 and 24).
+- A Riposte activation.
+
+**Never stamped by:** a rejected or invalid request, a non-hostile Cast (Stone Guard), or proximity. A missed projectile that passes without hitting is **not detected**, so a missed attack doesn't keep a target in combat indefinitely. This is accepted.
+
+The existing 7 s `fightIdleSeconds` (fight logging) and the 7 s Natural Recovery delay are **separate** and are not reused.
+
+#### Contest (Stage 1)
+
+Completed by **any one** of the following. Each path is independent.
+
+| Path | Rule |
+|---|---|
+| **Damage** | About **60 effective damage** to players, **summed across opponents**. Effective means Health actually lost after Shield, with no overkill, from accepted hits on living Match participants. PvE, Collapse and self-damage never count. A Reaction's damage is credited to whoever triggered it. |
+| **Elimination** | Eliminating a player, by the Last Hit rule (a Void or Collapse death with no player credit doesn't count) |
+| **Reaction** | Triggering a Reaction against another player (the `Triggered By` credit) |
+
+Reward: **Riposte**.
+
+#### Endure (Stage 1 for Close Call, Stage 2 for Pressured Exit)
+
+Completed by **either** path. **Only damage from players and Wardens qualifies.** Riftling and Sentry damage does not, and a Warden contributes only once Ticket 23 is built. Damage is **effective Health lost**, not raw incoming damage. The qualifying tally keeps `(time, effective damage, sourceClass)` entries for 10 s.
+
+| Path | Rule |
+|---|---|
+| **Close Call** | After a qualifying hit, Health is about **30 or below**, and the player is alive **10 s** after the last qualifying damage. The timer resets on each qualifying hit, and the player must stay alive throughout. |
+| **Pressured Exit** | About **15 effective damage** in the 10 s before a Section's **applied** removal time, taken while standing on that Section **during its Warning**, and the player is alive on remaining ground after the removal **and the settle window**. |
+
+Reward: **Catch Breath**. Pressured Exit's timing and damage window are server-authoritative.
+
+#### Explore (Stage 2, inactive until Reserve exists)
+
+Completed by **either**:
+- **Kill a Riftling on another Shard:** the player has the Last Hit, and the Riftling's Home Shard is not the player's start Shard. A Riftling consumed by the Collapse, a Fault or a Return gives no credit.
+- **Contribute about 25% of a Warden's maximum Health** as effective damage during **one Engagement**. Counters clear when the Warden's regeneration starts, on a full reset, or on despawn, **not** at the start of its walk home. Credit comes the moment the threshold is reached, and later death, despawn or someone else's kill does not undo it. Last Hit still owns the Warden's loot.
+
+Reward: **Reserve**. Explore is an **early-to-mid-Match opportunity, not a guaranteed Milestone.** Its availability falls as PvE actors die and the Arena collapses, some players will never earn it, and that is intentional and measured.
+
+#### Riposte (Stage 1)
+
+An activated tool, **3 fixed uses per Match, no refunds**. A use is spent on activation. A rejected activation consumes nothing.
+
+- **Stance:** about 0.1 s startup, then an active window of about **0.35 s**. The player can't Cast or Basic during the stance. A Dash ends it.
+- **Eligible hits:** a **Sector** hit from a **player** (Basic Attack, Arc Burst) that lands inside the window, from the front of the defender. **Not** projectiles (Tidal Bolt, Rift Hook, Sentry shots) and **not PvE attacks.**
+- **Order in `Combat`:** Evade is checked first, then Parry, then Shield and the rest. A Parried hit has the **same suppression as an Evaded hit**: no damage, Status, Reaction, Knockback or Kill Recovery. The result kind is `Parried`.
+- **Success:** the stance ends, the defender's **Basic cooldown refreshes**, and the **next Basic within 1 s** has a range of about **9.5** studs instead of 8, using the existing Basic validation. No damage bonus, no stagger and no forced movement. 11 studs is a **tuning ceiling, not a starting value**.
+- **Failure:** if the window ends with no parry (including after a Dash), about **0.4 s** with no Basic or Cast. Dash stays available.
+- **Refused while:** not unlocked, no uses left, Charging, Stunned or Frozen, already in a stance or recovery, or outside an active Match.
+- **Assembly defaults, not individually grilled:** a stance parries **only the first** eligible hit and then ends, so two attackers can't both be negated in one window. A multi-target Arc Burst is negated only for the parrying player. A parried attack's cooldown is still spent.
+- **Authority:** under ADR-0002 facing and movement are client-controlled. The server reads root position and orientation at the check, with a stated tolerance. A client could spin to face an attacker, so the 0.35 s window and the 3 uses are the real limit.
+- The **reach override** has to reach the server's hit spec and the client's drawn Sector (`CosmeticSectors`). What `CastStarted` carries is to be verified when building.
+
+#### Catch Breath (Stage 1)
+
+An activated tool, **2 uses per Match**.
+
+- **Channel:** about **1.5 s**, stationary. **About 30 Health is restored only on successful completion** (clamped to maximum). The checkpoint variant (half at the midpoint) is recorded for use if late interruptions prove too frustrating.
+- **Interrupted by:** movement (a server-checked displacement over a small tolerance from the channel start), a Dash, any Basic, Cast or Charge start, or any accepted hit, **including fully absorbed damage**. **An interrupted channel consumes the use.** A rejected activation (not a channel) consumes nothing.
+- **Refused while:** in combat (the shared signal), Charging, Stunned or Frozen, not unlocked, no uses left, or outside an active Match.
+- **Server-authoritative timing and cancellation.** A visible aura and an audible cue let nearby opponents see the channel.
+- Movement Validation's 0.5 s sampling is too coarse for a 1.5 s channel, so a separate server check is needed. It does not change Movement Validation.
+
+#### Reserve (Stage 3, specified, not to be built without evidence)
+
+The complete approved design is kept here so it isn't lost. **Nothing in Stage 1 or 2 builds any part of it.**
+
+**What it is.** One extra Ability held in storage. It is **not castable**. It is not a third Ability slot, and Q and E remain the only castable slots.
+
+**Entry (displacement only).** When a Pickup replaces a slot **out of combat** and the Reserve is empty, the **displaced Ability goes to the Reserve** instead of dropping. In combat, replacement works **exactly as today** and the displaced Ability drops. With the Reserve full, it drops as today. There is **no automatic collection into the Reserve and no discard action.** To lose a Reserve Ability, swap it into a slot and replace that slot.
+
+**Reserve is inert in combat:** no Ability enters, leaves or swaps with it while the player is in combat. Rank upgrades to a stored Ability are **allowed** in combat, because they change nothing active.
+
+**Swap.** A **Reserve modifier + Q or E** (key undecided, settled in the input review) exchanges the Reserve with that slot, or fills an empty slot. **F + Q or E stays exclusively for Pickup replacement**, and the modifier alone does nothing. The swap is a separate request (`SwapReserve(slot)`), not a replace request. It is out of combat only, validated at commit time. The incoming Ability gets the existing **0.85 s Equip Lock**. A rejected swap consumes nothing, never drops an Ability, doesn't touch cooldowns or Cast state, and shows brief feedback if it was rejected for combat. It uses the existing replacement rate guard (burst 5, 5 per second).
+
+**Ownership and Rank.** One copy of each Ability across Q, E and the Reserve, enforced by a separate `KitRules.owns` lookup. **`KitRules.find` stays slot-only**, so a Reserve Ability can never be cast, on server or client. Rank travels with the Ability, and the cap stays 2. **Cooldowns belong to the Ability and keep running while it is stored** (an existing invariant). A duplicate Pickup **upgrades whichever copy you own**, equipped or stored, by the existing formula, with no Equip Lock. At the cap, the Pickup stays in the world. Auto-collection works for an eligible Reserve upgrade.
+
+**Elimination.** `Kits.takeAll` hands over Q, E and then the Reserve **atomically**, each dropped as its own Pickup at its Rank, and clears the Reserve attributes in the same step. The same rules apply to Eliminations, leaving and Void deaths, including a missing character. Three Pickups need three spread positions, which must stay individually collectible and pass the Kit-drop validation of Tickets 21 and 22. **Verify the three-Pickup spread in Studio before fixing coordinates.**
+
+**Replication and UI.** New attributes (`KitReserveAbility`, `KitReserveRank`), copied into the client's `Casting` and `Replacing` modules (which must ignore the Reserve for casting), a small Reserve icon in the HUD, and while the modifier is held, a preview of the Reserve Ability and the available targets.
+
+**Telemetry:** Reserve stores, swaps and upgrades.
+
+**Tests (Stage 3, blocking):** one copy of each Ability across all three positions, a Reserve Ability can't be Cast, combat upgrades don't permit swapping, no swap in combat, atomic drops including missing-character and disconnect cases, a duplicate upgrades the Reserve copy, and `takeAll` ordering and attribute clearing.
+
+**Known confounds and risks:** it is a half-step toward a third slot, which the docs defer until about 6 to 8 Abilities (it would confound that test), it makes Rank 2 more common (three owned Abilities give more duplicates somewhere to go), and an early advantage for a PvE-first player. These are measured, not assumed harmless.
+
+#### Protocol, authority and guards
+
+- New requests: `RiposteRequest` and `RecoverRequest` (Stage 1), `SwapReserveRequest` (Stage 3). Each is a minimal, validated payload, and **declares its guard**. Following Ticket 20's inventory, only `ReplaceRequest` is rate-guarded today and the Cast, Charge and Dash requests rely on state gates. Riposte and Catch Breath rely on state gates (uses, stance, recovery, unlock), `SwapReserve` reuses the replacement bucket. **Each new remote throttles its malformed-request warning** to one per second per player.
+- Results travel as a `Riposting` tag (like `Evading`), a `Recovering` attribute with its start and end, a `Parried` `CombatResult` kind, and a Milestone event for banners. `Feedback` must treat the new kind explicitly.
+- **Server authority.** The server owns every state, use count, unlock time and validation. Clients display only.
+- **Hit reports** need a `sourceClass` (Player, Warden, Riftling, Sentry) so Endure can filter. Player hits get one in Stage 1.
+
+#### Presentation
+
+Minimal: a Lane banner on completion (naming the feat), a "ready" notice when a reward unlocks, two small indicators near the Dash charges (Riposte uses and state, Catch Breath uses and state), the Riposte stance and parry visuals and cue, and the Catch Breath aura and cue. Placeholder built-in sounds and Highlight-style visuals only, with no new asset upload. Eliminated and Spectating players see none of it.
+
+#### Telemetry
+
+`[Riftfall][Milestone]` lines carrying `match=` and `t=` (seconds since GO), with a capped event count, and failure contained and never blocking play.
+
+- **Earned and unlocked:** Lane, path, source, lobby size, `earnedAt`, `usableAt`. Distinguish rewards earned but never activated from rewards activated but never used.
+- **Riposte:** activations, successes, failures, **prevented damage** (the damage the hit would have dealt before Shield, including a Reaction bonus that would have applied), the unused uses at the end, **by opponent Kit**, and when each use was spent.
+- **Catch Breath:** completions, interruptions by cause, **actual Health restored**, uses, and timing.
+- **Endure:** the **source of each completion** (player or Warden).
+- **A trade flag:** two players' Contest completions within about 5 s of each other from damage against each other with no Elimination in that fight. This marks a suspected pair and **punishes nothing**.
+- **Time-to-all-three** by lobby size and Match outcome, and the rewards held when entering the Dais.
+- **`MatchResult` additions:** the Milestones earned. This line has fixed fields, so any parser is updated with it.
+- **Reserve demand signals, recorded in Stage 1 so the Stage 3 decision has evidence:** replacements, Abilities dropped by replacement, and Pickups left in the world at the Match end.
+
+#### Tests
+
+All blocking specs run in `RunAll` on the Server in Play, and every existing spec stays green (427 at version 98).
+
+- **S1 `MilestoneRules`:** each Lane's feats, one completion per Lane, the 60 s and calm unlock (the later of the two, and not revoked), and clear on Elimination and Match end.
+- **S2 Contest:** the damage path counts effective damage only (Shield, overkill, PvE, Collapse and self excluded, summed across opponents), the Elimination path, and the Reaction path credited to the trigger.
+- **S3 Endure:** Close Call (qualifying hit, 30 or below, the timer reset, death resets, non-qualifying sources ignored), and Pressured Exit's window, Section and settle rules once Ticket 22 exists.
+- **S4 combat-idle signal:** every stamp source, both sides of an Evade and a Parry, rejected requests don't stamp, the window, and commit-time checking.
+- **S5 Riposte rules:** the stance timings, first hit only, Sector and player only, no projectile or PvE parry, the order against Evade and Shield, the refresh and reach override for 1 s, the failure recovery, 3 fixed uses with no refund, and every refusal consuming nothing.
+- **S6 Catch Breath rules:** completion heals once and clamps, every interruption consumes the use, rejected activations don't, and the combat refusal.
+- **S7 Protocol:** each new request's validation, malformed payloads, throttled warnings, and the `Parried` kind.
+- **S8 dormancy:** no Milestone state, attributes, tags, remotes or log lines under the Reference Kit, with the gates off, or outside a Match. The `explore` implies `reserve` assertion.
+- **S9 elimination:** Milestone state clears at the defined point of the Elimination order.
+
+#### Studio matrix (Stage 1, by `studio-tester`, two clients)
+
+- **M1 dormancy:** the Reference Kit Stage 3 arena is unchanged.
+- **M2 Contest:** each of the three paths, with a real second client.
+- **M3 Close Call.**
+- **M4 unlock:** a Lane completed in a fight unlocks only after the calm moment, and never before 60 s.
+- **M5 Riposte:** a success on a Basic and on an Arc Burst, a failure, a failed Riposte against a projectile, the order against Evade, a PvE attack not parried, and 3 uses.
+- **M6 reply:** the 9.5 reach applies once, within 1 s.
+- **M7 Catch Breath:** a completed channel and each interruption type.
+- **M8 forged and flooded requests,** from a second client's real remotes: unlocked, no uses, wrong state, malformed payloads, and bursts.
+- **M9 two clients:** state, banners and cues replicate and clear correctly across a Match and an Elimination.
+- **M10 telemetry:** the lines and `MatchResult` fields.
+
+#### Evidence needed before each stage
+
+- **Stage 1 to Stage 2:** the Lanes are pursued and completed at plausible rates, Riposte and Catch Breath are used, nothing dominates by a wide margin in the telemetry, and no new exploit appears. **If the system doesn't improve gameplay, reconsider it before expanding.**
+- **Stage 2:** Tickets 21 to 24 built and committed, and the integration hooks verified in code, including Sentry and Warden attribution on hit reports.
+- **Stage 3 (independent of Stage 1's rewards):** loot saturation: full-Kit players leaving Pickups unused, how often a replacement drops a useful Ability, time to a full Kit, and Rank progress. Decide whether Reserve belongs in the base Kit system instead. Also settle the confound with the two-versus-three slots test.
+
+#### Recorded risks
+
+- **Explore** may be too easy in 2-player Matches, or unavailable too quickly in full lobbies. Reserve may give an early advantage to a PvE-first player, and players may feel forced to pursue Explore before PvE actors disappear. No replacement feats or lobby scaling without run-test evidence.
+- **Riposte** may be too strong against Basic and Arc and useless against projectile Kits, so the matchup difference is measured by opponent Kit. Its **prevented damage** is measured, not only its success rate. It sits close to Evade in kind.
+- **Total defensive value** (three Ripostes and two Catch Breaths) is large even though it can't be used at once. Hoarding for the Last Stand is a tension, not a flaw.
+- **Collusion:** two consenting players can trade damage to complete Contest and Endure in about 25 s, and Natural Recovery makes that nearly free. **This is a known, accepted risk, not a solved one**, and Catch Breath isn't balanced around it.
+- **Endure** may rarely complete in short Matches. If it rarely contributes, reconsider the Lane, don't make its feats easier. If it is solved through PvE, the first lever is excluding PvE damage from the remaining routes.
+- **Stage 1's pacing evidence** will come from the current Match map. Ticket 20 measured the old map (about 7.8 s to a first Ability and about 17 s to a full Kit, floor pacing), and the Rift Crown establishes a new baseline.
+
+#### Completion criteria
+
+**Stage 1:**
+- All blocking specs green in `RunAll`, with every earlier spec still green.
+- The blocking Studio matrix green.
+- Dormant under the Reference Kit and with the gates off, verified.
+- Docs and results recorded in this ticket and the quirks doc updated, with every TEMPORARY hook removed (grep the word).
+- A clean commit.
+
+**Stage 2 and 3:** their own completion criteria are written when each is approved, from this section.
+
+**Publish checkpoint** (separate manual step): the developer publishes and the version is recorded in [Checkpoints](#checkpoints).
+
+#### Future work
+
+Recorded, none built: a second reward per Lane (Echo, Backtrace, Scout's Sweep, Survey, Cache Cracker, Rift Seals, Feint, Heavy Hand, Read the Kit, Wager, Exposed Opener, Danger Sense, checkpoint healing), an Evade-based Endure path once run-test evidence supports it, and Reserve as a base Kit-system decision.
+
+#### Recorded discrepancies (not changed by this ticket)
+
+| # | Discrepancy | Where |
+|---|---|---|
+| D1 | The loot comment says "4 each of 16", where Ticket 21 uses 24 drops (six each) | `Tuning.loot` |
+| D2 | `Tuning.match.maxSeconds` is 480, where Ticket 22 sets a 600 s failsafe | `Tuning.match` |
+| D3 | Resolved by Ticket 20: `startingKit` was a TEMPORARY `"Empty"` and is `"Reference"` again at version 98 | `Tuning.kit` |
+
+Ticket 25's timings assume Ticket 22's schedule for Pressured Exit only. Stage 1 doesn't depend on D2.
+
+#### Assembly defaults (not individually grilled, recorded so they are reviewable)
+
+- **Riposte:** a stance parries only the first eligible hit and then ends. The stance blocks the player's own Cast and Basic. A Dash ends it, and the failure recovery still applies. Stunned and Frozen refuse an activation (a Rooted player may act). A parried multi-target Arc Burst is negated only for the parrying player.
+- **Catch Breath:** a Basic, Cast or Charge start interrupts the channel as well as movement, a Dash and a hit. The movement tolerance is a small server-checked displacement from the channel start (about 1 stud).
+- **All tools:** refused while Charging, outside an active Match, and when not unlocked, with the refusal consuming nothing.
+- **`milestoneUnlockSeconds` (60)** is measured from GO (the start of the Running phase), not from the Countdown.
+- **`sourceClass` names:** Player, Warden, Riftling and Sentry. Only Player and Warden count toward Endure.
+- **The Contest Elimination path** counts a ring-out Elimination that carries displacement credit (a Hook pull or a Tidal push into the void), because it names a player as the killer. A Void or Collapse death with no credit does not count.
+- **Telemetry** is capped at about 32 Milestone events per Match, and a failure to log is contained.
+- **Banner and cue text and visuals** are placeholders for the developer to review.
+- **Scope:** Stage 1 is a large piece of work, roughly one and a half tickets. If it proves too large for one sitting, split it at **1A** (the signal, the engine, Contest and Riposte) and **1B** (Endure and Catch Breath), each with its own commit, with the Stage 1 evidence gate after 1B.
+
+#### Review notes (2026-11-10)
+
+An adversarial pass against the Match, Combat, Kit, Pickup, Collapse and PvE specifications found **no blocking contradiction**. What the review found and fixed in the documents:
+
+- **Contribution wording:** `monsters.md` said contribution is "never used to split the reward". The Explore feat uses it, so the wording now says a Milestone is attribution, not a reward split, and the Last Hit still owns loot.
+- **"Only upgrade and rarity system":** `ranks-and-pickups.md` now says the only **Ability** upgrade and rarity system.
+- **"An inventory still doesn't belong":** `code-structure.md` now says the Reserve is one Kit field, not an inventory.
+- **Mid-fight spike:** Contest completes at 60 damage, usually while ahead, so an immediate Riposte would be an in-fight spike. The unlock rule (the 60 s gate plus a calm moment) fixes it.
+- **Parry order and multiples:** two attackers could be parried in one window, and the order against Evade and Shield was open. Both are now fixed in the Riposte rules.
+- **A hazard in `KitRules.find`:** extending it to see the Reserve would make a Reserve Ability castable (`canCast` and the client use it). A separate `owns` lookup is specified instead.
+- **Kit-drop spread:** Ticket 21's and 22's drop-spread validation assumes today's drop counts, so three items need a check (Stage 3 dependency).
+- **Source filter attribution:** Endure needs a `sourceClass` on hit reports, which Tickets 23 and 24 must provide.
+- **Far Shard** was dropped as trivially cheap. This also removed the Shard adjacency dependency.
+- **Flood guards:** per Ticket 20's inventory, each new remote declares its guard and throttles its malformed warning.
+- **`explore` without `reserve`:** the gate rule is asserted by a spec.
+
+Accepted, with evidence to follow: the recorded risks above. Correctly deferred: see Future work. Review result: **ADR-0009 is warranted and written.** The other decisions are tunable gameplay and rules plus system work.
+
 ## Later, after evidence from the run test
 
 - non-Ability world items, under the principles above
 - ~~the smallest Rift Collapse~~, now specified as [Ticket 22](#22-rift-collapse); what remains is what its evidence asks for (an Unstable stage, roster-band timing, overtime)
-- ~~the first Rift Warden~~, now specified as [Ticket 23](#23-rift-warden), and ~~regular monsters~~, now specified as [Ticket 24](#24-regular-monsters); what remains is an elite Dais Warden or boss, Monster Families, Match XP and Rank 3 behaviour changes
+- ~~the first Rift Warden~~, now specified as [Ticket 23](#23-rift-warden), and ~~regular monsters~~, now specified as [Ticket 24](#24-regular-monsters); what remains is an elite Dais Warden or boss, Monster Families, Relics and Rank 3 behaviour changes (Match progression is now specified as Milestones in [Ticket 25](#25-match-milestones), not XP)
 - the real Hub, with batches of players into several Matches at once
 - testing two slots against three, once there are about 6–8 Abilities

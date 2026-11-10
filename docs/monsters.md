@@ -48,7 +48,7 @@ Where the Warden deliberately differs from the general rules here:
 - **Individual threat.** It is meant to be individually dangerous enough to need attention, unlike a normal monster.
 - **Reward.** Its Ability Pickup is pre-dealt at Match setup, always Rank 1, never a Drop Table roll, and never counts as an "eligible monster kill" for the fast-opening guaranteed-drop rule in [`ranks-and-pickups.md`](ranks-and-pickups.md).
 - **Targeting and Threat.** Nearest valid player first, then a sticky target with a short recent-damage Threat, as above. Damage can wake it only from inside its contestable range.
-- **Kill credit.** The Last Hit, as above. Contribution data is only logged, never used to split the reward.
+- **Kill credit.** The Last Hit, as above. Contribution data is never used to split the reward. The Warden's per-Engagement damage tally also feeds one Milestone feat ([Ticket 25](milestone-2-tickets.md#25-match-milestones), Explore), which is attribution for a separate reward and leaves the Pickup with the Last Hit.
 - **Scheduler.** It uses one shared Heartbeat loop (decisions at about 5 Hz, motion every frame) instead of the scheduler wording below, and an Idle Warden does only cheap proximity checks.
 
 "Elite Warden", "Boss" and "Crown Boss" stay reserved for genuinely larger future encounters, such as the one the Dais slot is reserved for.
@@ -77,4 +77,4 @@ The first regular monster is the **Riftling** (placeholder name, [Ticket 24](mil
 
 The Last Hit decides the authoritative killer, who receives kill-specific effects such as the fast-opening guaranteed drop (not in force for Wardens or regular monsters in Milestone 2). The resulting Pickup is still a world object that anyone can take.
 
-Lightweight contribution data is also tracked, including which players damaged the monster and their recent damage. It is not used for reward splitting yet, but leaves room for assists, Elite rewards, anti-sniping rules, quests and statistics.
+Lightweight contribution data is also tracked, including which players damaged the monster and their recent damage. It is not used for reward splitting yet, but leaves room for assists, Elite rewards, anti-sniping rules, quests and statistics. [Ticket 25](milestone-2-tickets.md#25-match-milestones) uses the Warden's tally for one Milestone feat only, as noted under the Warden above.

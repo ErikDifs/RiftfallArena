@@ -2,7 +2,7 @@
 
 The structure serves the first combat loop: **Basic Attack → Dash → Tidal Bolt → Arc Burst → Wet Reaction**. Anything that does not help implement, test or observe that loop probably does not belong in the first milestone.
 
-[Milestone 2](milestone-2-tickets.md) adds the run progression loop, so systems for Kits, Pickups, the Match, Rift Caches and Sentries now belong, each added by its ticket. A general monster system and an inventory still don't.
+[Milestone 2](milestone-2-tickets.md) adds the run progression loop, so systems for Kits, Pickups, the Match, Rift Caches and Sentries now belong, each added by its ticket. A general monster system and an inventory still don't. [Ticket 25](milestone-2-tickets.md#25-match-milestones) (Milestones, staged and not built) would add a pure `MilestoneRules`, a server `Milestones` module and a shared combat-idle signal, with Riposte and Catch Breath rules beside them. Its gated Stage 3 Reserve is **one extra field on the Kit**, not an inventory.
 
 ## Layout
 

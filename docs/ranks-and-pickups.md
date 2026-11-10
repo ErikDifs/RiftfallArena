@@ -1,6 +1,6 @@
 # Ranks and Pickups
 
-Ability Ranks are the only upgrade and rarity system for the first version. There is no separate Common, Rare or Epic layer.
+Ability Ranks are the only **Ability** upgrade and rarity system for the first version. There is no separate Common, Rare or Epic layer. [Milestones](milestone-design.md) ([Ticket 25](milestone-2-tickets.md#25-match-milestones)) are a separate, Match-local reward track, and no Milestone reward changes an Ability's Rank or Pickup supply.
 
 [Milestone 2](milestone-2-tickets.md) caps Ranks at 2 through a config value, with every world Pickup at Rank 1. Rank 3 and its behaviour changes come later.
 
@@ -77,9 +77,17 @@ While a player has at least one empty Ability Slot, their next eligible monster 
 
 The formula means duplicates always help, while a genuinely high-Rank Pickup is still exciting.
 
+### Reserve (planned, gated, not built)
+
+[Ticket 25](milestone-2-tickets.md#25-match-milestones) Stage 3 specifies **Reserve**, one extra stored Ability that an Explore Milestone would unlock. It is built only if run tests justify it. If built, it changes this section as follows, and nothing else:
+
+- **Ownership spans Q, E and Reserve**, one copy of each Ability. A duplicate Pickup upgrades whichever copy the player owns, in or out of combat, by the same formula. At the Rank cap it stays in the world.
+- **Replacing a slot out of combat** sends the displaced Ability to an empty Reserve instead of dropping it. In combat, and with the Reserve full, it drops exactly as it does today. There is no automatic collection into the Reserve.
+- A Reserve Ability can't be Cast. It is swapped with a slot only out of combat, and the incoming Ability gets the usual Equip Lock.
+
 ## Death
 
-Superseded by one life per Match ([ADR-0007](adr/0007-one-life-arena-match.md)). The old rule, where the highest-Rank Ability lost a Rank and a Rank 1 copy dropped while the player respawned with their slots, is kept in that ADR as the rejected alternative. An Eliminated player drops their whole Kit, each Ability as its own Pickup at its current Rank, as settled in [Milestone 2](milestone-2-tickets.md).
+Superseded by one life per Match ([ADR-0007](adr/0007-one-life-arena-match.md)). The old rule, where the highest-Rank Ability lost a Rank and a Rank 1 copy dropped while the player respawned with their slots, is kept in that ADR as the rejected alternative. An Eliminated player drops their whole Kit, each Ability as its own Pickup at its current Rank, as settled in [Milestone 2](milestone-2-tickets.md). If Reserve is ever built, it drops last and in the same step, so no copy survives.
 
 ## Architecture rule
 

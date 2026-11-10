@@ -164,6 +164,34 @@ _Avoid_: Level up, stack
 The combination of Abilities and Upgrades a player has assembled during the current match.
 _Avoid_: Spec, loadout
 
+### Milestones
+
+Specified in [Ticket 25](docs/milestone-2-tickets.md#25-match-milestones), not built. A Milestone is not a Rank, a level or XP.
+
+**Milestone**:
+A one-time reward a player earns during a Match by a qualifying feat in one of three Lanes. Each grants one defined tactical reward. Everything resets with the Match.
+_Avoid_: XP, level, achievement, quest
+
+**Lane**:
+One of three kinds of Milestone feat: Explore (reward: Reserve), Contest (reward: Riposte) and Endure (reward: Catch Breath). A Lane is completed once per Match, by any one of its qualifying feats.
+_Avoid_: Track, quest line
+
+**Riposte**:
+A Contest reward: a short stationary frontal stance, 3 uses per Match, that voids a Sector hit from a player landing in its window and then refreshes the defender's Basic Attack with a slightly longer reach for one swing. It is not an Evade, and it does not stagger or move anyone.
+_Avoid_: Parry stun, counter
+
+**Catch Breath**:
+An Endure reward: a stationary channel of about 1.5 s, 2 uses per Match, that restores about 30 Health only if it completes. Movement, a Dash, an offensive action or any accepted hit interrupts it, and an interrupted channel spends the use.
+_Avoid_: Heal, potion
+
+**Reserve**:
+An Explore reward, **gated and not built until run tests justify it**: one extra Ability held in storage, which can't be Cast. It fills only when a Pickup replaces a slot out of combat, and it is swapped with a slot out of combat. It is not an Ability Slot.
+_Avoid_: Third slot, inventory, backpack
+
+**Combat idle**:
+A player who has had no hostile event (a hit dealt or taken, a voided hit, an offensive Cast, Basic swing or Charge start, PvE damage, or a Riposte) for a short time, about 3 s. One server signal shared by Catch Breath, Reserve and the unlock rule for Milestone rewards.
+_Avoid_: Out of fight, safe
+
 ### Combat
 
 **Crosshair**:
