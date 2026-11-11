@@ -3054,7 +3054,67 @@ Quirks found are recorded in [`studio-mcp-quirks.md`](testing/studio-mcp-quirks.
 
 **State after step 9a.** `Tuning` is at the committed values, Edit mode shows the map intact (15 Sections, 12 connectors, 0 structural problems), `ServerStorage` holds `Tests`, `Tools` and `MatchMapGreybox`, `Workspace` has 5 children and no attributes, and no `TEMPORARY` instance or text remains outside the specs' fixture names. The `.rbxl` snapshot is not re-saved and no checkpoint is published. **Still to do in step 9:** 9b (S2 rows 16 to 23, the latency settle-margin test and the Tidal gate), which needs your Server & Clients session.
 
-Next: step 9b.
+**Step 9b, Tidal gate plan (settled with the developer 2026-11-11, before running).** The gate runs solo in Play now, and S2 and the latency tests wait for the developer's Server & Clients session. The victim is the real solo player, because a player's own client applies Knockback. The attacker is a server cast from a point on the opposite side of the victim, so the push points outward. A server cast is always a tap, so charged hits need a marked, exactly reversible `TEMPORARY` option on `Casts.castFromServer`, removed afterwards. Surfaces: flat ground and the real Dais (a cylinder of radius 14, top at y 5). Committed Tidal values, no retuning: tap `pushStrength` 25 and full 40, each for 0.2 s, so about 5 and 8 studs expected. Cells: `hitRadius` 0, 3, 6, 9, 12 and near the rim, tap and full, 5 trials each, with the victim stationary, with input forward and with input away from the push. Then Dash-after-hit at 0, 0.1, 0.2 and 0.3 s for `hitRadius` 6 and below, and a Stone Guard check first (a Shield must not stop Knockback, or that is a bug to fix before reading the result). Verdict by the criterion above, with the Dash success rate recorded as evidence.
+
+**Step 9b, S2, latency, the settle value and the Tidal gate (done 2026-11-11, 691 specs, 0 failed).** `studio-tester` ran everything and the main session reviewed each table. Everything ran under the same marked, exactly reversible test schedule as 9a (reverted afterwards: `Reference`, 210 / 285 / 360 / 435, 30, 90, 60, 600, no `TEMPORARY` text or instance left, 15 Sections, no Workspace attributes). **`Tuning.collapse.settleSeconds` is now 1.75** (see the latency result), and the specs that asserted 1.5 now read it from `Tuning`.
+
+**S2, two clients (rows 16 to 23, 14 Matches).**
+
+| Row | Result | Evidence |
+|---|---|---|
+| 16 Fight on Warning terrain | PASS | 47 to 60 s on Layer 1: 13 forged Basic Attacks (a Cache broke and its Pickup was collected), a Dash, a server Tidal Bolt (12 damage, knockback), all accepted, no rejection on either client |
+| 17 Two players fall on different Sections | PASS | Both `Eliminated cause=Void phase=collapse`, `MatchEnd cause=NoSurvivors` at the removal plus the settle, in three Matches |
+| 18 One falls, one safe | PASS | `MatchEnd cause=Winner` at the removal plus 1.5 s (the value then), 0.47 s after the fall, never at the fall |
+| 19 Combat death and a fall in the same window | PASS | A death 0.04 s before the removal and one 0.30 s after: both `NoSurvivors`, whatever the order. See the observation below for a death 0.3 s before |
+| 20 Displacement just before removal | PASS | A bolt landing at T-0.18 pushed one player inward onto live ground (survived) and left the other on Layer 1 (fell as `Void`). With a real roster attacker: `void=Knockback by=player:-2 ability=TidalBolt chargeBand=Tap hitRadius=100.0 hitDist=5.0`, then `Kill`. A server dummy gives no credit, by design. Hook not tested: no Kit |
+| 21 Whole-Kit drop on vanished ground | PASS for Branch 1 | `KitDropRelocated from=Shard1Outer hops=1 result=relocated to=Shard1Inner`, and a floor raycast at the Pickup hit `Shard1Inner` at y 0. **Branch 2 is not reachable in a live Match:** every `CollapseParent` chain ends in the Dais, which is never removed, so the consumed branch is covered by the specs only |
+| 22 Dais Last Stand, 2 players | PASS | Layer 4 removed at 180.07 s with both alive, "LAST GROUND" 0.1 to 0.2 s later, no countdown, one player killed the other on the Dais: `MatchEnd cause=Winner` at 189.9 s, not Timeout |
+| 23 Spectator | PASS, limited | `CollapseAlert.Visible=false` while spectating, the status line and the world telegraphs present (14 telegraph children). The arrow is a child of the alert, so it is hidden with it. A spectator watching later Warnings needs 3 or more players |
+
+**Latency (blocking measurements, 0, 100 and 250 ms, 500 ms as stress evidence, both clients as observers, 11 Matches).** The lag was `IncomingReplicationLag`, confirmed effective (250 ms gave a receipt lag of 0.27 to 0.30 s) and restored to 0. Times are after the applied removal.
+
+| Lag | Client receipt = geometry gone (median) | Physical fall start (median) | Server `sinceRemoval` (min / median / max) |
+|---|---|---|---|
+| 0 ms | 0.047 | 0.089 | 0.98 / 1.04 / 1.25 |
+| 100 ms | 0.138 | 0.187 | 0.97 / 1.00 / 1.07 |
+| 250 ms | 0.291 | 0.337 | 1.22 / 1.27 / 1.37 |
+| 500 ms (stress) | 0.522 | 0.564 | 1.38 / 1.43 / 1.47 |
+
+- **The pass rule failed at the initial 1.5.** The worst Void offset across the blocking settings was 1.37 s (and 1.30 s in an S2 idle Match at 0 ms), so the worst plus 0.25 was 1.62, above 1.5. **The chosen value is 1.75**, the smallest 0.25 step that passes with the 500 ms stress case too (1.47 plus 0.25 is 1.72).
+- **Rerun at 1.75 (5 Matches, every `CollapseStart` read `settleSeconds=1.75`).** The worst was 0.92 s at 0 ms and 1.32 s at 250 ms, so the rule passes (worst 1.50 or less). The 500 ms stress Match read 1.55 and misses the rule by 0.05 s, which is stress evidence only. Every `MatchEnd` landed 1.76 to 1.78 s after the removal and after the last Void elimination (margins 0.2 to 0.9 s).
+- **Why the offset grows with lag:** a removal received late means a late fall to the kill plane (about 0.7 s of free fall), and the server's void check runs on 0.25 s ticks (`loopSeconds`).
+- **Visual fairness:** nothing looked unfair. The geometry disappeared at the same moment the client received the removal, the fall began about 0.05 s later, and the server decided about 1 s after that, so no player stood on ground the server had already removed. The countdown read `0:01` at the removal, never `0:00` and never a number after it, and switched to the next layer 0.15 s (0 ms) to 0.35 s (250 ms) later.
+- **Limits:** `IncomingReplicationLag` understates what a real laggy player sees of other players, and outgoing lag and a client's own position reaching the server late were not tested. Every sample stood at the same fall height (root y 3.2).
+
+**The Tidal gate (measurement, performed and recorded).** Committed Tidal values, no retuning. The victim was the real player, and the attacker was a server cast through a marked, removed test option.
+
+| Evidence | Result |
+|---|---|
+| Push distance | Tap about 5.4 studs (5.2 to 5.6), full Charge about 8.5 (8.2 to 8.9, 9 from rim effects), against 25 and 40 studs/s for 0.2 s. Flat ground gives the same (5.3 to 5.5 and 8.5 to 8.8) |
+| Damage | 12 on a tap and 15 on a full Charge |
+| Dais | A cylinder of radius 14 with its top at y 5. A root stays on it up to about r 14.5 |
+| Full Charge, stationary victim, ring-outs | `hitRadius` 0 and 3: 0/5 each. `hitRadius` 6: 4/5 in one run and 0/5 in the Dash run's control (4 of 10). `hitRadius` 9, 12 and 13: 5/5. A tap rings out only from `hitRadius` 12 (5/5) |
+| With and without input (simulated Move) | Moving toward the centre: 5/5 survived at about 3 and 6. Moving away: 4/4 rang out at both |
+| Dash after the hit (real LeftShift, delay measured on the client) | Delays 0.02 to 0.33 s: 16 of 16 survived, ending 5 to 11 studs toward the centre. Delays of 0.37 s and more: 3 of 6 survived, decided by whether the push had already carried the root past about r 15.7 |
+| Stone Guard | A Rank 1 Shield absorbed all 15 damage and the push was unchanged (9.74 studs against 8.76 unshielded). Not a bug, and by the code the Shield only changes the damage |
+| Doc contradiction | Settled: 5 studs per tap, 8 per full Charge. The Ticket 21 note stands |
+
+**Reading against the criterion.** A single charged Tidal hit at `hitRadius` 6 or less does **not** reliably ring out a stationary victim (0 of 5 at 0 and 3, 4 of 10 at 6, with the push ending right at the rim), and a Dash 0 to 0.33 s after the hit always saves the victim, but surviving did not need a Dash (the control survived without one). The Dais is an edge-fight arena rather than a centre lottery: from `hitRadius` 9 outward, one full Charge rings out every time. **The recommendation is that Layer 4 ships enabled. The shipping decision is the developer's and is not recorded here until confirmed.** Caveats: the movement cells used simulated `Humanoid:Move`, real-key timing at 15 fps jitters by about 0.1 s, and the solo runs had no Void, so a ring-out landed on the Terrace 5 studs below.
+
+**Observations for the developer.**
+
+| Observation | Note |
+|---|---|
+| A combat death 0.3 s before a removal ended the Match as `Winner` at T-0.05, while the survivor stood on ground about to vanish. A death 0.04 s before gave `NoSurvivors` | The settle holds a verdict only for deaths in about the last 0.25 s before a removal, or after it. May be by design, and is a boundary choice to confirm |
+| With 2 players the Match ends right after the first death, so a spectator sees the Collapse for 0.3 s | A real spectator check needs 3 or more players |
+| Branch 2 of row 21 (no live ancestor) cannot happen on the committed map | Covered by the specs, not live |
+| Ticket 28 (slow motion and a Win-cam on the final kill) was proposed during this step | Written as a staged idea, not built |
+
+New quirks are in [`studio-mcp-quirks.md`](testing/studio-mcp-quirks.md).
+
+**State after step 9b.** `Tuning` is at the committed values with `settleSeconds = 1.75`, `RunAll` is green at 691, and the map is intact. The `.rbxl` snapshot is not re-saved and no checkpoint is published. **Still to do in step 10:** the cleanup, documentation and the final commit, and the shipping decision for Layer 4 from the Tidal gate.
+
+Next: step 10.
 
 
 ### 23. Rift Warden
@@ -4466,6 +4526,64 @@ Reads `MatchCrownOpensAt`, `WardenHome` and `WardenState`, and adds the glyph at
   - The fixed north-up map of six similar Shards can disorient, which the `ShardId` labels and the own-Shard mark address.
 - **No ADR required.** The ticket is presentation over state that is already replicated and changes no authority, movement, hitbox or one-life decision. The rule that no map ever shows another player is recorded here and in the design archive, and a future ticket that adds scanning or pings must reopen it deliberately.
 - **Glossary:** `CONTEXT.md` gains **Minimap** and **Tactical map**, and **Riftlight** gains the map's Warning fill.
+
+### 28. Final Kill presentation: slow motion and the Win-cam
+
+**Status: proposed 2026-11-11 by the developer, specified here as a staged idea, not settled, not built.** The open points below are the first thing to settle. **Nothing starts before Ticket 22 is accepted.** It changes presentation only: the Match's result, timing and authority stay the server's.
+
+#### Summary
+
+When a Match ends with a Winner, the last Elimination plays in **slow motion** on the clients, and the Results phase can open with a **Win-cam**: a replay of that last kill from a replay camera. Neither changes who won, when the server decided it or what the rules say.
+
+#### What exists now (read 2026-11-11)
+
+- `Tuning.match.endResolutionSeconds = 0.25`: when a Match first reaches one Alive player, committed attacks get this long to land. Not a phase.
+- `Tuning.match.display.bannerSeconds = 3`: the end banner, before the results panel. `resultsSeconds = 10`: the Results phase.
+- `bodySeconds = 3` and `voidBodySeconds = 1` are how long an Eliminated body stays. They are **not** a hold on the Match end.
+- A Collapse Void death waits for the settle window (`collapseSettleSeconds`, 1.75 after Ticket 22's measurement) before the verdict.
+- `Client.Spectating` exists. No replay, history buffer or slow-motion exists.
+
+#### Scope (proposed)
+
+- **Slow motion.** Client-side only, on the final Elimination of a Winner Match: the Cosmetic Projectile, effects, the victim's animation tracks and the camera's tween are slowed by a factor for a short real-time window, then eased back. The server's physics and timers never slow, and nothing the server decides waits for it.
+- **Win-cam.** The server keeps a **bounded rolling history** of the Alive players' positions and facing, and of the killing hit's Cosmetic Projectile, for the last few seconds. At a Winner's `MatchEnd` it sends one clip. The clients replay it with cosmetic rigs and a replay camera, in the Results phase, then the normal results panel. The replay never reads live physics.
+- **Cleanup.** Every rig, effect, camera binding and connection ends with the replay, the Match and the player's leave.
+
+#### Non-goals (proposed)
+
+- No change to Match rules, the end check, `endResolutionSeconds`, scoring or the result row.
+- No slowing of gameplay while play is live, for anyone, ever. This is the end of the Match only.
+- No replay of a Match with no Winner (`NoSurvivors`, Timeout), unless the open points say otherwise.
+- No upload of any asset, and no sharing or saving of replays.
+
+#### Open points to settle with the developer before any build
+
+1. **Who sees it.** The victim, the Winner, the spectators and the Hub players: all of them, or only some? Does a victim who is already Eliminated and spectating see the slow motion?
+2. **What counts as the last kill.** The Winner's last Elimination only, or also the last Elimination before the Winner's, a Void fall by a Collapse, or a push credit (Tidal or Hook)? A Collapse fall as the final event is the awkward one: nobody "killed".
+3. **The cases with no killer.** `NoSurvivors`, Timeout, a leave, and a combat death 0.3 s before a removal that ends the Match as a Winner (seen in Ticket 22's S2 runs).
+4. **Slow-motion length and factor.** A starting value to measure: for example 0.3 times speed for about 1.5 s of real time, and whether the end banner starts after it. It must stay inside `bannerSeconds` plus `resultsSeconds`, or those change deliberately.
+5. **Replay length, camera and skip.** For example the last 3 s from a third-person orbit, with a skip input, and whether the panel waits for it. Does the Win-cam run before or inside the Results phase?
+6. **History size and cost.** Players covered (all Alive in the last N seconds, or only the killer and the victim), sample rate, a hard cap per Match and the network size of one clip. All measurements, never guesses.
+7. **Fidelity.** Rigs standing in for the characters, with their animations replayed or approximated, and what the replay shows for a projectile or a Cache.
+
+#### Likely approach (to confirm after the points above)
+
+- A pure `ReplayRules` with specs: a ring buffer with a size cap, trimming to a window, and the clip's shape. Raycasts and the clock are passed in, as the other `Rules` do.
+- A server `Replay` recorder fed by the same tick the Match already runs, with no new authority and one new `Protocol` event for the clip, validated like every other payload.
+- A client `WinCam` controller that builds the rigs from the clip, drives the replay camera and cleans up.
+- **Rendering caveat:** testing runs at about 15 fps and the viewport has stopped rendering in earlier tickets, so slow motion and camera checks need real renders. They go in a Server & Clients session, with the developer eyeballing the result.
+
+#### Tests (proposed)
+
+- **Specs:** the buffer's cap, window, order and empty-clip cases, and the clip's validation.
+- **Studio:** a 2-client Match to a Winner, the slow motion seen on each side, the replay shown from the Results phase, skipped and not skipped, and a Match with no Winner showing neither. Rows are written when the open points are settled.
+- **Blocking:** the Match result and its timing are identical with the feature on and off, which the logs show.
+
+#### Dependencies, risks and ADRs
+
+- Depends on Ticket 22 being accepted (its `MatchEnd` timing, the Collapse settle window and its Eliminated lines). Related to Ticket 25 (Results) and `Client.Spectating`.
+- **Risks:** a replay that disagrees with what really happened, a buffer that grows without a cap, a replay that blocks the next Match's start (the Hub window is about 15 s), and the cost of cosmetic rigs on a weak device.
+- **ADR:** probably none, since nothing changes authority. A recorder that replicates other players' positions after the fact is a minor fairness point to confirm in the open points: the replay only shows what already happened, to players who are no longer playing.
 
 ## Later, after evidence from the run test
 
