@@ -51,6 +51,8 @@ ServerScriptService
     ├── MapLayout
     ├── Caches
     ├── Sentries
+    ├── Collapse
+    ├── CollapseChecks
     ├── Shields
     ├── Dummies
     ├── Casts
@@ -242,7 +244,7 @@ From [Ticket 20](milestone-2-tickets.md#20-run-test-readiness), `Session` logs m
 
 ## Rift Collapse
 
-From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. Steps 1 to 7 exist, and `Match` now drives the Collapse, but only with an Empty Starting Kit: with the Reference Kit nothing is built and the Match behaves as before.
+From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. Steps 1 to 8 exist, and `Match` now drives the Collapse, but only with an Empty Starting Kit: with the Reference Kit nothing is built and the Match behaves as before.
 
 - **`CollapseRules`** (pure, `Shared/Rules`) holds the schedule and its validation, the ordered event cursor (`peek`, `complete`) with the stall shift and settle window, the replicated state (`publicState`), the phase labels, the HUD presenter (`present`), the QuietSpan rules, Section occupancy and the `CollapseParent` walk. Its config is `Tuning.collapse`.
 - **`Collapse`** (server) is a factory, `Collapse.new(deps)`, with the map root, a holding folder, a clock, a telemetry sink, the object hooks and the Workspace-attribute holder injected, so specs run it on a fixture. It owns the Section registry, the `Normal → Warning → Removed` states, atomic layer removal by reparenting into the holding folder, restore and reset, and the integrity check. `Match` drives it, as it drives `Caches` and `Sentries`.
@@ -264,6 +266,8 @@ From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. S
 - **Telemetry (step 7).** Log lines only, no gameplay or remote.
   - `Collapse` takes an optional `observe` hook from `Match` (the Alive players, for telemetry alone, run in a protected call so it can never fail an event). It adds the Alive fields, `CollapseTick` (`CollapseRules.ticksDue`) and `CollapseExposed`, and keeps the checkpoints, summed loot and health counters for `Collapse:summary`.
   - `Session.setDamageListener` tells the `Match` of damage to players. The `Match` owns the QuietSpan state and the PvP, elimination, Void and Kit-drop counters, and writes `QuietSpan` and `CollapseSummary`.
+
+- **Structural checks (step 8).** `CollapseChecks` (server) is read-only: a pure `evaluate` over plain data for the schedule, parent chains, holding folder, registry, stale attributes and homes, plus a world `read` that finds what would still collide or answer queries around the Dais once Layers 1 to 4 are gone, and whether the Dais is flat, anchored, self-contained and lethal on every side, all without moving anything. `RunAll` starts with it, `Collapse:assertIntact` runs it when `Match` passes `structure = {}`, and it is run in Edit mode before a `.rbxl` snapshot.
 
 ## Rift Collapse presentation
 

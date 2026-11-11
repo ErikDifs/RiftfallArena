@@ -2989,7 +2989,38 @@ Decisions taken while building, for review:
 
 **State after step 7.** Tuning is back to the committed values (checked by loading a clone: `Reference`, 600, 60, 210, 30 and 90), the map is intact (15 Sections, 12 connectors), no holding folder and no temporary instance remain, and no `TEMPORARY` text is left outside the specs' own fixture names. The `.rbxl` snapshot is not re-saved and no checkpoint is published.
 
-Next: step 8, the structural checks.
+**Step 8, the structural checks (done 2026-11-11, 690 specs: 663 + 26 specs + the structural step itself, 0 failed).** Read-only, and nothing in the map is moved to check it.
+
+What was built:
+
+- **`CollapseChecks`** (server, new). `evaluate(data)` is pure and takes plain data. `read(collapse, opts)` gathers the data from the Collapse's registry and the world, and `run` does both. A problem is `"<check number>: <text>"`, sorted and with a break that several chains meet said once. Checks 1, 2 and 4 to 8 are on the data. Check 9 passes `MapLayout.validate`'s problems through when `opts.mapProblems` is given.
+- **Check 3, Dais isolation, without a removal.** It never reparents anything. It treats every Layer 1 to 4 Section and connector as gone and then asks four questions of what is left:
+  1. **Leftovers.** Does any `BasePart` in the workspace within 200 studs of the Dais (flat distance, edge to centre) still have `CanCollide` or `CanQuery` true, and belong neither to a removed model, the Dais, a character nor a runtime folder? A part with both off is the exempt presentation part.
+  2. **Top.** Is the Dais top flat? Rays down at its centre and two rings (0.5 and 0.9 of the radius, 8 azimuths) must each hit an upward face (normal Y at least 0.99) within 0.1 stud of the top.
+  3. **Ground and faces.** Is there no ground beyond the rim? Rays down at 16 azimuths and 6 distances (1.5 to 100 studs out), against everything except the removed models, must hit nothing, Terrain included. Horizontal rays at the top, the middle and the foot must meet the Dais first.
+  4. **Self-contained.** Is every Dais part anchored, and nothing joined by a weld or joint to a part outside it?
+- **Where it runs.** `RunAll.run()` starts a full run with it (one passing step, or one failure line for each problem), and `RunAll.structuralProblems()` is public. `Collapse:assertIntact` adds it when its deps carry `structure = {}`, which `Match` passes, so it runs at each Match's start inside `prepare` and the start's own assertion, and a failure refuses the Match as any integrity failure does. A spec fixture leaves it out. Before a `.rbxl` snapshot, call `RunAll.structuralProblems()` in Edit mode (through a clone, as the quirks say), which is also check 10.
+- **Check 10.** It is the same run, in Edit mode after a Play test that consumed Sections. Play changes don't persist, so what it proves is that the authored map is whole.
+
+Decisions taken while building, for review:
+
+| Decision | Why |
+|---|---|
+| "Around the Dais" is 200 studs, measured on the ground plane from the Dais's centre to the nearest edge of the part | The map is about 260 across, so this reaches its rim with room to spare. The Arena and Hub are 700 or more studs away |
+| Anything that is not in a removed model and has `CanCollide` or `CanQuery` true counts, wherever it sits in the workspace | A stray part outside `MatchMap` still blocks a player's body even when the game's queries ignore it. Runtime folders (Pickups, Caches, Sentries, `CollapseTelegraph`), characters, Terrain and the Camera are left out |
+| Terrain is only checked by the rim rays, not by reading its voxels | The rays find terrain under or beside the Dais. A terrain-free map is the plan, and a voxel scan was not worth its cost |
+| The Dais is a model of any shape, and its size comes from its world box | The real Dais is one cylinder stood on end (`GetBoundingBox` follows its pivot, as the step 5 quirk says), so the box's corners are taken into the world |
+| Ground beyond the rim is a failure even if it is part of the Dais model | A ledge on the Dais is a landing place. Only a hit on the Dais at the foot, middle and top counts as a face |
+| Some faults are named twice (check 3 leftovers and the face or ground rays, and checks 5 to 8 in `assertIntact`'s own list) | Each says what it saw, and the lists are short. Merging them would make `assertIntact` depend on the new module's order |
+| Schedule checks (1 and 4) read `Tuning.collapse.rows` unless `opts.rows` is given | The checks describe the map and the committed schedule, not a Match's temporary one |
+
+**Specs (26 new).** `CollapseChecksSpec`: 13 on plain data (a sound map, each of checks 1, 2, 4, 5 to 8 and the 3 and 9 passthrough, Layer 4 omitted, the sorting) and 13 on a fixture (`TEMPORARYChecksFixture`, far from the real map, destroyed in every case): sound, read-only, a removed layer's geometry ignored, a stray collidable part and both ways to be exempt, a far part ignored, a bump on the top, a ledge and a wall, an unanchored part and an outside weld, a held model, an unregistered one, a stale attribute and a moved one, the schedule, check 9, `assertIntact` with and without the option, and the live Rift Crown through `RunAll.structuralProblems`.
+
+**Live checks on the real Rift Crown.** All ran in Edit mode with clones. The real map has 0 problems in about 9 ms. With temporary faults injected and then removed, each was found: a collidable part at r=40 (check 3, twice: leftover and blocked face), the same part with `CanCollide` and `CanQuery` off (none), a 1-stud bump on the Dais (not flat, y 6.00 against 5.00), a 1-wide wall (leftover, ground and blocked faces) and a stale `CollapseState` (check 7). In Play, `Collapse:prepare` with the option on the real map answered `ok=true` in 2.6 ms. After stopping Play, the check 10 run read 0 problems.
+
+**State after step 8.** The map is intact, `ServerStorage` holds only `Tests`, `Tools` and `MatchMapGreybox`, no `TEMPORARY` instance exists, `startingKit = "Reference"`, and the `.rbxl` snapshot is not re-saved and no checkpoint is published.
+
+Next: step 9, the swap onto the real map and the S1, S2, latency and Tidal gate runs, which need two clients.
 
 
 ### 23. Rift Warden
