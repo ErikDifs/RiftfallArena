@@ -2796,7 +2796,40 @@ Decisions taken while building, for review:
 
 Two of my own spec expectations were wrong at first (the gap after a shift is still 30 s, and 11 s left is still `early`). Both were fixed in the spec, and the rules were not changed.
 
-Next: step 2, the fixture and the `Collapse` runtime with injected dependencies.
+**Step 2, the `Collapse` runtime on a fixture (done, 574 specs: 545 + 29, 0 failed).** `ServerScriptService.Server.Collapse` is a factory, `Collapse.new(deps)`, so a spec runs it on a fixture and never touches the real Rift Crown. Only `CollapseSpec` requires it: `Match` and every other system are unchanged, `Tuning.match.maxSeconds` is still 480, and with the Reference Kit nothing is installed. Wiring it into `Match` is step 3.
+
+What it holds:
+
+- **Registry.** Built from the map folder at `new`: every Section (all five layers, so the parent chain is complete) and every connector with geometry, each with its one recorded home parent, layer, `CollapseParent` and bounds. A Dash shortcut is a marker Part with no geometry and is skipped. Layer 5 is registered but never scheduled.
+- **Removal.** One non-yielding step per layer, in the ticket's order: models go `Warning → Removed` and are reparented into the holding folder, then `objects.removeSection(id)` runs once per removed Section, then `objects.sweepPickups(layer)`. The cursor advances only after all of it, and a failed event is retried by the next `update` without moving a model twice.
+- **State.** `CollapseState` and `CollapseRemovesAt` appear on a model only while it is `Warning` or `Removed`, and are absent when `Normal`. The Workspace attributes come from `CollapseRules.publicState` after each event, on an injected holder.
+- **Lifecycle.** `start` (refused outside Play, on a map that isn't intact, on a running Collapse or on an invalid configuration), `update(now, matchId)` and its alias `sync`, `stop` (a Warning returns to Normal, consumed models stay held), `restore`, `prepare` and `reset` (restore, then assert, and a failure logs `CollapseResetFail`), `assertIntact`, `settleUntil`, `stats`, `liveAncestor` and `sectionsIn`.
+- **Telemetry** goes through one injected sink inside a protected call, after the cursor has moved: `CollapseStart`, `CollapseWarn`, `CollapseRemoved`, `CollapseShift`, `CollapseResetFail`. Step 7 adds the Alive and loot fields and the remaining lines.
+
+Verified against the developer's step 2 clarifications:
+
+- **Early publication is inert.** The next removal time is published with `CollapseWarning` false and no model is marked until the Warning is applied (spec: start publishes layer 1, nothing is `Warning` at GO + 44.9). Clients must key every ground-warning effect, sound and Riftlight visual from `CollapseWarning` and the per-model `CollapseState`, never from the timestamp (the Ticket 26 contract already says so).
+- **Zero stable gap.** A removal and the next Warning at one timestamp apply in order, each to its own layer, in one update (`CollapseRemoved:1` then `CollapseWarn:2`), none skipped or doubled. With a late removal the next Warning shifts by the same delay and is then due at once, so it applies in the same update with no delay of its own and stamps the shifted removal time on layer 2's models. A spec covers each.
+- **Simultaneous and stalled.** A layer's Sections and connectors are all `Removed` before the first object hook runs, and layer 2 is untouched. A late Warning stamps models and Workspace with the shifted removal time, and a 155 s stall still gives a full 30 s Warning.
+
+Specs (29, on a fixture of three Sections with a parent chain, two connectors, a Dash marker, hooks and a state holder, all destroyed after each test): building is inert; the registry; start publishing; Warning once; removal by layer; atomic removal; the removed-geometry invariant against a real floor raycast, including inside the sweep; hooks once per removed Section; logged counts; the two zero-gap cases; a stalled Warning; a long stall; settle start and no restart; stale callbacks before, during and after; telemetry failure contained; a failed event retried without repeating; the final ground and Layer 5; the parent chain; an interrupted Match; restore and its idempotence; a second Match after reset; start refused when not intact; stray holding models, stale attributes and the structural problems in the integrity check; a destroyed model reported; an invalid configuration and a second start refused; nothing runs outside Play; the clock default; and a last spec that the fixture is gone and the real map untouched.
+
+Decisions taken while building, for review:
+
+| Decision | Why |
+|---|---|
+| The holding folder defaults to a Folder in `ServerStorage` that the instance creates, and the specs pass their own | Server-only, and nothing outside the instance owns it |
+| `restore` ends a running Collapse first | A restore with a live schedule would fight the cursor |
+| `start` does not restore: it asserts and refuses. `prepare` (restore, then assert) is the Match-setup safety net | Matches the ticket's two restore points, and a start never hides a half-restored map |
+| A model that is `Normal` at its removal event is skipped and counted (`invalidTransitions`), never removed | Only `Warning → Removed` may happen at runtime. It cannot occur while the cursor is ordered, so a non-zero count is a bug |
+| The failure of an event is logged once per event, with `warn`, and retried on every later `update` | A stuck event must be visible without flooding the log |
+| A retried removal reports the whole layer's counts, taken from state | The first attempt had already moved the models |
+
+Two of my own spec expectations were wrong at first and fixed in the spec: the late zero-gap case (above), and a fixture raycast that has to respect `CanCollide` because the Dash marker overlaps a slab. No behaviour in the runtime changed because of either. I did change the Warn log to count Sections and connectors separately and the removal log to count from state, after reviewing the specs.
+
+State after step 2: Edit mode shows the map intact (15 Sections, 12 connectors, 29 markers, 6 pads, no stale attribute), no temporary object, `startingKit = "Reference"`, `maxSeconds = 480`.
+
+Next: step 3, the `Match` integration (the gates' `sync`, the settle gate in the end check, `maxSeconds` 600 re-based on `goAt`, the start, stop and reset call sites, the Cache, Sentry and Pickup hooks and the intact-map assertion).
 
 ### 23. Rift Warden
 

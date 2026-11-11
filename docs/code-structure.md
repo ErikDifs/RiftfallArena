@@ -239,6 +239,14 @@ From [Ticket 20](milestone-2-tickets.md#20-run-test-readiness), `Session` logs m
 - **`MatchResult`'s extra fields** (`firstAbility`, `fullKit`, `guards`, `shieldAbsorbed`) come from `statsById`, which `Match` passes to `recordMatchEnd` beside the rows. The rows that reach clients don't carry them.
 - **Specs.** `Session.start({ manual = true, clock, log, characters })` runs it with fakes, with `handlePlayerAdded`, `handlePlayerRemoving` and `handleCharacterAdded` in place of the Players events (`SessionSpec`).
 
+## Rift Collapse
+
+From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps and not yet wired into `Match`**. Steps 1 and 2 exist: nothing in the game requires them, so the Match behaves as before.
+
+- **`CollapseRules`** (pure, `Shared/Rules`) holds the schedule and its validation, the ordered event cursor (`peek`, `complete`) with the stall shift and settle window, the replicated state (`publicState`), the phase labels, the HUD presenter (`present`), the QuietSpan rules, Section occupancy and the `CollapseParent` walk. Its config is `Tuning.collapse`.
+- **`Collapse`** (server) is a factory, `Collapse.new(deps)`, with the map root, a holding folder, a clock, a telemetry sink, the object hooks and the Workspace-attribute holder injected, so specs run it on a fixture. It owns the Section registry, the `Normal → Warning → Removed` states, atomic layer removal by reparenting into the holding folder, restore and reset, and the integrity check. `Match` will drive it, as it drives `Caches` and `Sentries`.
+- **Nothing else holds Section parts.** A consumed model is reparented out of the map, so system code must not cache Section descendants. Steps 3 and 5 grep for it.
+
 ## Rift Collapse presentation
 
 Specified in [Ticket 26](milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere), **not built**, and staged. Module names and folders are provisional and recorded when built. It is client-only presentation over state [Ticket 22](milestone-2-tickets.md#22-rift-collapse) already replicates, so it changes no authority.
