@@ -85,12 +85,12 @@ Projectiles survive their source Section's removal. A future Warden despawns wit
 **The hard problem.** Fall physics and network jitter spread deaths over a few hundred milliseconds, even when everyone loses floor at the same instant. Left alone, latency would choose the winner.
 
 **Settled.**
-- **A settle window** (`collapseSettleSeconds`, 1.5 s as a measurement-dependent starting value) starts at the **applied** removal time. No Match verdict resolves inside it.
+- **A settle window** (`collapseSettleSeconds`, 1.5 s as a measurement-dependent starting value; **amended 2026-11-11: measured and set to 1.75 s** in Ticket 22 step 9b, because the worst Void offset at 0 to 250 ms of lag plus 0.25 s exceeded 1.5) starts at the **applied** removal time. No Match verdict resolves inside it.
 - The window is global, not tied to the cause of death, so it covers two falls, a fall plus a combat death, and one survivor.
 - After the window the existing rules apply: one Alive wins, none is `NoSurvivors`. There is no timestamp, kill-count, damage or ping tiebreak, and no co-winners.
-- The effective end deadline is the later of the existing end grace and the settle deadline.
+- The effective end deadline is the later of the existing end grace and the settle deadline. **Amended 2026-11-11 (step 9b, boundary rule "a kill before the removal is final"):** that deadline is fixed when the end becomes pending, as `max(death + end grace, settleUntil at that moment)`, and is not re-read afterwards. A removal applied later, inside the 0.25 s end grace, does not extend it. A removal applied at or before the death has already opened its window and holds the verdict as above. Both players dying inside the grace is `NoSurvivors`. The original wording (the verdict waits at the later of the grace and the live window) let a removal landing inside the grace push out a verdict that was already pending, so a death 0.3 s before a removal won and one 0.04 s before it drew.
 - **Safety follows the physical outcome**, not the time a client received the removal, and the server never pre-classifies players as safe or doomed at `T`. With client-controlled movement (ADR-0002), "authoritative" here means the server's observation of validated movement, so the plane crossing is the authoritative record of a fall.
-- A player who kills the last opponent and then falls inside the window gets `NoSurvivors`. That is accepted and measured.
+- A player who kills the last opponent and then falls inside the window gets `NoSurvivors`. That is accepted and measured. **Amended 2026-11-11:** this applies only to a final kill made **after** a removal was applied. A final kill made before it is final, and the survivor wins even if the removal arrives inside the end grace.
 
 The settle window is a correctness fallback, not the way the final Collapse is meant to resolve.
 
@@ -126,7 +126,7 @@ The settle window is a correctness fallback, not the way the final Collapse is m
 - Absolute times are built once at GO.
 - Events apply strictly in order through a cursor, and each is idempotent.
 - **Stall handling:** any event applied late shifts it and every later event by the same delay, so the 30 s Warning and 45 s gap survive a stall. The HUD uses effective times. The failsafe margin is checked against the effective last event.
-- The settle window starts at the applied removal time and only moves forward.
+- The settle window starts at the applied removal time and only moves forward. A pending Match end keeps the deadline it was given when it became pending (amended 2026-11-11, see Point 5).
 - A Heartbeat step gives frame-level timing, and the Match gates (`canAct`, `canCollect`, the target filter) and the Sentry loop also `sync()`. Pure geometry queries are within about one frame.
 - **Removal is by reparenting the Section into a private holding folder**, not by flipping flags, which is the strongest form of the Point 1 invariant. Restore is two idempotent calls (Results end, and a safety net at Match start) followed by an integrity assertion. A failed assertion refuses Match start.
 - Cloning a pristine map per Match was rejected: it moves the map out of its folder, breaks marker discovery and the MCP workflow, and is not needed with one Match at a time.

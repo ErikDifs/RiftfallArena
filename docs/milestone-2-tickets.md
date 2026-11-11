@@ -2234,7 +2234,7 @@ Not done: Risky-spoke edge Hook, Arc Burst full Charge at +3.5 and +5, `PairLink
 
 ### 22. Rift Collapse
 
-**Status: specified 2026-11-09 and reviewed adversarially the same day, not built.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-collapse-design.md`](rift-collapse-design.md); this entry is the build contract. Every number carries one of four labels:
+**Status: specified 2026-11-09, built and accepted 2026-11-11 (699 specs, 0 failed; steps 1 to 10, latest code commits `df5a3c7` step 9a, `e3aea46` step 9b and `8e4830a` the boundary correction). The `.rbxl` snapshot is not re-saved and no checkpoint is published (both the developer's).** It was reviewed adversarially the day it was specified. Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-collapse-design.md`](rift-collapse-design.md); this entry is the build contract. Every number carries one of four labels:
 
 - **settled initial value:** a design decision that has a number. Changing it is a design change and is recorded here.
 - **tunable:** a starting value in `Config` that can change from evidence without a redesign.
@@ -2410,7 +2410,7 @@ The documentation still contradicts itself on Tidal's push distance (about 5 stu
 
 #### Match ending, settle window and simultaneous deaths
 
-- **Settle window.** `collapseSettleSeconds` (**measurement-dependent**, 1.5 s as the starting value) begins at the **applied** removal time, not the scheduled one. `settleUntil = max(settleUntil, removalAppliedAt + collapseSettleSeconds)`. Repeated updates never restart it.
+- **Settle window.** `collapseSettleSeconds` (**measurement-dependent**, 1.5 s as the starting value, **measured and set to 1.75 s in step 9b**, stored as `Tuning.collapse.settleSeconds`) begins at the **applied** removal time, not the scheduled one. `settleUntil = max(settleUntil, removalAppliedAt + collapseSettleSeconds)`. Repeated updates never restart it.
 - **No verdict resolves inside the window.** Winner, `NoSurvivors` and Timeout all resolve at `max(existing end-resolution deadline, settleUntil)`, **where `settleUntil` is the window open when the end became pending (amended 2026-11-11, step 9b boundary rule below).** The existing end grace stays and the Collapse adds no result logic of its own. A zero-Alive result cannot change, but it still waits for uniformity, a delay of at most the window. During a pending end the lone survivor cannot act or collect, as today, for at most that long.
 - The window is **global**: it is not tied to which deaths were "caused by the Collapse". All deaths count normally during it.
 - **After the window,** the existing result rules apply: exactly one Alive wins, none is `NoSurvivors` (a draw), more than one continues. There is no timestamp, last-to-fall, ping, damage, kill-count or combat-credit tiebreak, and no co-winners.
@@ -2554,7 +2554,7 @@ Everything lives in `Config` (the existing tuning module), not in logic. Names a
 | `firstWarnGuardSeconds` (after the Crown opens) | 90 | tunable |
 | `failsafeMarginSeconds` (after the last effective event) | 120 | tunable |
 | `Tuning.match.maxSeconds` | 600 | settled initial value |
-| `collapseSettleSeconds` | 1.5 | measurement-dependent |
+| `collapseSettleSeconds` | 1.5 starting value, **1.75 measured (step 9b)** | measurement-dependent |
 | Settle at most this fraction of the smallest stable gap | 0.25 | tunable |
 | Layer 4 row present | yes (omit for the permanent Inner Crown) | settled initial value, with the shipping decision measurement-dependent (Tidal gate) |
 | Tier thresholds (Early / Urgent / Final) | 30–10 / 10–5 / 5–0 s | settled initial value |
@@ -2719,8 +2719,8 @@ These produce tuning notes and do not keep the ticket open:
 - Warden stats, AI, XP, drops and credit, and their behaviour in the Last Stand.
 - Whether a dead mid-game or Dais stall justifies any new mechanic.
 - Whether the Layer 4 timing, the 30 s Warning and the 45 s gap suit real play (tuned from telemetry).
-- The final value of `collapseSettleSeconds` (set by the latency measurement).
-- Whether the Dais is acceptable for Tidal, which sets whether Layer 4 ships enabled.
+- ~~The final value of `collapseSettleSeconds` (set by the latency measurement).~~ Resolved in step 9b: 1.75.
+- ~~Whether the Dais is acceptable for Tidal, which sets whether Layer 4 ships enabled.~~ Resolved in step 9b by the developer (2026-11-11): Layer 4 ships enabled.
 
 #### Integration contract for Ticket 25 (added 2026-11-10)
 
@@ -3132,7 +3132,31 @@ New quirks are in [`studio-mcp-quirks.md`](testing/studio-mcp-quirks.md).
 
 **State after step 9b.** `Tuning` is at the committed values with `settleSeconds = 1.75`, `RunAll` is green at 699 (691 before the boundary correction), and the map is intact. The `.rbxl` snapshot is not re-saved and no checkpoint is published. **Still to do in step 10:** the cleanup, documentation and the final commit, and the shipping decision for Layer 4 from the Tidal gate.
 
-Next: step 10.
+**Step 10, cleanup, documentation and the final record (done 2026-11-11, 699 specs, 0 failed).** Documents corrected for the facts of 9b: the settle value 1.75 and the boundary rule in `rift-collapse-design.md` (the original wording kept and marked "Amended 2026-11-11"), the settle and `pendingHeld` description in `code-structure.md`, this ticket's Status header, settle table row, settle bullet and the two resolved "Deferred" items. `CONTEXT.md` needed no change: its Match, Rift Collapse, Section, Warning, Consumed and Last Stand entries already match, and the settle window and end grace are implementation terms that stay in the ticket and the design note, so no term was added. `studio-mcp-quirks.md` needed nothing new. Tickets 27 and 28 are untouched.
+
+**Final verification (solo Play, then Edit).** `RunAll` on the Server: 699 passed, 0 failed. `RunAll.structuralProblems()`: 0 problems, with 15 Sections and 12 connectors, in both Play and Edit. A search of every instance name and script `Source` outside `ServerStorage.Tests` (Workspace, ServerStorage, ServerScriptService, ReplicatedStorage, the Starter containers, Lighting, ReplicatedFirst) for `TEMPORARY`: none. Edit-mode `Workspace` has 5 children (Arena, Hub, MatchMap, Terrain, Camera) and no attributes (in Play it also holds the runtime Pickups folder, the four dummies and the player). `Tuning` source reads `startingKit = "Reference"`, `maxSeconds = 600`, rows 210 / 285 / 360 / 435, `warnSeconds = 30`, `firstWarnGuardSeconds = 90`, `crownOpenSeconds = 60`, `settleSeconds = 1.75`. (A `require` of `Tuning` from Edit returned the 9a test values, the known stale-module quirk in `studio-mcp-quirks.md`. The source and the fresh Play read agree with the committed values.) Play was stopped.
+
+**Completion table (the 13 blocking criteria).**
+
+| # | Criterion | Result | Evidence |
+|---|---|---|---|
+| 1 | All automated specs green in Play | PASS | `RunAll` 699 passed, 0 failed, rerun in step 10 |
+| 2 | Structural and integrity checks pass | PASS | Step 8 (`CollapseChecks`, 26 specs, live checks with injected faults found) and the step 10 run: 0 problems, 15 Sections, 12 connectors. The same check runs at every Match start in `prepare` |
+| 3 | S1 real-map matrix passes | PASS | Step 9a, rows 1 to 15 |
+| 4 | S2 two-client matrix passes | PASS | Step 9b, rows 16 to 23 (row 23 "limited", row 21 Branch 2 specs only, both recorded). Rows 18 and 19 were rerun after the boundary correction, scenarios A to F |
+| 5 | Reset proven by starting a second Match | PASS | Step 9a row 14 (Matches 2, 3, 4 and 6) and the 14 Matches of 9b |
+| 6 | Latency settle-margin test passes, after tuning | PASS | Step 9b latency table: initial 1.5 failed (worst 1.37 plus 0.25), set to 1.75, rerun worst 0.92 s at 0 ms and 1.32 s at 250 ms. The 500 ms stress miss (1.55 against 1.50) is a recorded, accepted limitation and not a blocking setting |
+| 7 | Tidal gate performed and documented | PASS | Step 9b, "The Tidal gate" table, reading and limitations |
+| 8 | Layer 4 decision follows the Tidal result | PASS | Developer decision 2026-11-11: Layer 4 ships enabled, on the recorded counterplay evidence. The committed schedule has the Layer 4 row at 435 |
+| 9 | Warning and presentation state create and clean up | PASS | Step 9a row 13 (`CollapseTelegraph` children 0, 14, 18, 14, 2, each cleared within 0.1 s of its removal, none after Layer 4), row 14 (ended mid-Warning: no state or attributes on the first frame after `MatchEnd`), S2 row 23 and the step 6 specs |
+| 10 | No stale Match or Collapse callback affects a later Match | PASS | `stale=0 failures=0 resetFailures=0` in every `CollapseSummary` read (9a rows 8 and 14, 9b boundary check), the second and later Matches starting cleanly, and the reset and stale-callback specs. Not read: the Match 7 summary in 9a (Play was stopped first), noted there |
+| 11 | Temporary tuning, network settings and test aids restored | PASS | 9a and 9b state records (no `TEMPORARY` left, `Reference` kit and committed schedule, `IncomingReplicationLag` back to 0) and the step 10 search: none |
+| 12 | Edit-mode authored Arena intact | PASS | Step 10: Edit-mode 15 Sections, 12 connectors, 0 problems, `Workspace` 5 children and no attributes (also after 9a and 9b) |
+| 13 | Studio and MCP quirks documentation updated | PASS | `studio-mcp-quirks.md` carries the entries from steps 3 to 9b (the last ones for step 9b: edge ring-outs, `Humanoid:Move`, boundary kills, `CollapseWarn` arming, specs reading measured Tuning, server `Health = 0`, the mutation check). Step 10 found nothing new |
+
+The audit found every criterion has recorded evidence. The names differ slightly from the ticket text (`collapseSettleSeconds` is `Tuning.collapse.settleSeconds`).
+
+**Not done, and not mine to do.** The `.rbxl` snapshot is **not re-saved** and **no checkpoint is published**. Version 125 is still the latest published checkpoint. The developer re-saves the snapshot, publishes, and records the version in Checkpoints.
 
 
 ### 23. Rift Warden
