@@ -21,6 +21,8 @@ ReplicatedStorage
     │   ├── KitRules
     │   ├── PickupRules
     │   ├── MatchRules
+    │   ├── MapRules
+    │   ├── VoidRules
     │   ├── LootRules
     │   ├── CacheRules
     │   ├── SentryRules
@@ -46,6 +48,7 @@ ServerScriptService
     ├── Kits
     ├── Pickups
     ├── Match
+    ├── MapLayout
     ├── Caches
     ├── Sentries
     ├── Shields
@@ -90,9 +93,12 @@ StarterPlayer
         └── MatchHud
 
 ServerStorage
-└── Tests
-    ├── RunAll
-    └── <Name>Spec
+├── Tests
+│   ├── RunAll
+│   └── <Name>Spec
+├── Tools
+│   └── RiftCrownGreybox (an Edit-mode tool that rebuilds the map, never required by the game)
+└── MatchMapGreybox (the Ticket 18 map, kept as a reference only)
 ```
 
 The server creates a `Remotes` folder under `Shared/Net` at startup, from the events defined in `Protocol`, and a `Pickups` folder in the workspace for the Pickups' Parts. A Match's first setup creates `Caches` and `Sentries` folders for their models, so they never exist with the Reference Kit. Each client draws Pickups into its own `PickupVisuals` folder, and Cache and Sentry effects into `PveVisuals`. Avoid dots in instance names, because the MCP reads them as path separators.
@@ -100,7 +106,11 @@ The server creates a `Remotes` folder under `Shared/Net` at startup, from the ev
 The workspace holds three static environment folders:
 
 - `Workspace.Arena`: the Reference Kit's arena, used for Stage 3, with pads `Spawn1`–`Spawn4`.
-- `Workspace.MatchMap`: the Match's greybox map, about 250 × 250 and centred at (0, 0, −450). It has six pads, `MapSpawn1`–`MapSpawn6`, on a ring of r = 105, and three bays around a solid core. Its `Markers` folder holds the invisible, non-colliding Cache markers (`CacheOuter01`–`10` and `CacheCentral1`–`3`, each with a `CacheKind` attribute) and the Sentry markers `Sentry1`–`3`.
+- `Workspace.MatchMap`: the Rift Crown, from [Ticket 21](milestone-2-tickets.md#21-rift-crown-arena-layout), about 260 across and centred at (600, 0, −450). Under it:
+  - `Sections`: a Model for each of the 15 Sections (`Shard<n>Outer`, `Shard<n>Inner`, `CrownOuter`, `CrownInner`, `CrownDais`), with `SectionId`, `CollapseLayer`, `CollapseParent`, `ShardId`, `Adjacent`, `ShardAzimuth` and `GateAzimuth`.
+  - `Connectors`: a Model for each spoke, pair link and rim link, and a marker Part for each Dash shortcut, with `ConnectorType`, `ConnectorRole`, `CollapseLayer`, `FromSection`, `ToSection`, `Width` and `Gap`.
+  - `Markers`: the invisible, non-colliding setup Parts. `CacheHome<n>A`/`B`, `CacheForward<n>` and `CacheCrown1`–`3` carry `CacheKind`, `Sentry1`–`3` are found by name, `WardenSlot1`–`3` and `EliteSlot` carry `SlotKind`, and there is one `CollapseCenter`. Each names its `SectionId`.
+  - `Pads`: the six invisible `SpawnLocation`s `MapSpawn1`–`6`, in order around the ring, each with its `ShardId`.
 - `Workspace.Hub`: the temporary Hub's greybox, with pads `HubSpawn1`–`HubSpawn4`.
 
 `Shared/Environment` is the one list of those folders, and every environment query uses it: cover, sight, camera collision, cosmetic impacts and floors. Runtime models such as Caches, Sentries and Pickups are never environment.
@@ -154,6 +164,22 @@ From [Ticket 17](milestone-2-tickets.md#17-one-life-match), an Empty Starting Ki
 - **`Session`** snapshots counters at Match start, so a Match's own numbers are the difference (`SessionRules.matchStats`). It also logs `MatchStart`, `Eliminated`, `MatchEnd`, `MatchResult` and `ReturnToHub`.
 - **Clients** only present the Match, from its attributes and remotes. `MatchHud` shows the status line, the elimination feed, the player's own elimination banner, the end banner and the results, and dims the slots when the player can't act. `Input` passes no slot, Basic Attack or replacement presses on then. `Spectating` moves the camera onto living players, through `Camera.setSuspended`, and owns Q and E through `Input.setSlotOverride` while it's active. From the Hub, **G** (`Input.onSpectatePressed`) or the button starts and ends watching a Running Match, because the Hub's mouse is locked to the centre. The only thing it sends is `ReturnToHub`.
 
+## The Rift Crown
+
+From [Ticket 21](milestone-2-tickets.md#21-rift-crown-arena-layout), the Match's map carries its own structure as data, and the server reads it rather than knowing the layout.
+
+- **`MapRules`** is the pure logic: the layout as plain data, `validate` (eight numbered structural rules, returning the problems), `hasInwardRoute` and `shardOfSection`.
+- **`MapLayout`** (server) reads a map folder into that layout, answering what needs the world by raycasts against that folder alone: the floor under a marker, its lip margin, aprons and the lowest underside. It only ever reads, and takes any root, so a map can be checked while it is built beside the live one. `get`, `problems`, `sectionAt` and `shardAt` are for the live map.
+- **`VoidRules`** is the displacement credit for a fall and where a Kit lost to the Void lands.
+- **`Match`** owns what happens on the map:
+  - the roster cap and the spread of spawns, from `MatchRules`
+  - the **arrival hold**: every character is anchored on its pad until GO, and `MatchRules.arrive` makes GO the Match clock's origin, which `Session`, `Caches` and `Sentries` are told
+  - the **Void**: anyone below `Tuning.map.voidKillY` after GO is Eliminated with the cause `Void`, credited to the last player whose hit pushed or pulled them, which `Combat` reports through `setDisplacementListener`
+  - the **Crown seal**'s opening, through `Caches.update`
+- **`Caches`** holds each sealed Cache's own opening time and refuses every hit before it.
+- **Clients** read `MatchGoAt` and `MatchCrownOpensAt` on Workspace and `CacheSealed` and `CacheOpenedAt` on a Crown Cache, for presentation only.
+- **`ServerStorage.Tools.RiftCrownGreybox`** rebuilds the greybox as `Workspace.RiftCrownBuild` from one table of dimensions. It is swapped in by hand: the old `MatchMap` out, the build folder renamed to `MatchMap`.
+
 ## Rift Caches and Sentries
 
 From [Ticket 18](milestone-2-tickets.md#18-match-map-caches-and-sentries), the Match's PvE is breakable Rift Caches and stationary Sentries, owned by the server. Only `Match` sets them up and clears them, so with the Reference Kit none exist and no loop runs.
@@ -161,15 +187,15 @@ From [Ticket 18](milestone-2-tickets.md#18-match-map-caches-and-sentries), the M
 - **`LootRules`** is the equal Ability bag. It covers:
   - `validate`, which checks the pool divides the drops evenly
   - `buildBag`
-  - `nearestPairs`, each pad's two nearest outer Caches
-  - `deal`: central Caches first with different Abilities each, then the outer ones, then a bounded one-swap repair for early variety
+  - `deal`: each Shard's own Caches take different Abilities, and the Crown's take the rest, with no Cache repeating one
+  - `check`, the rules a deal must hold for any seed
 
-  Equal counts are strict, and variety is a best effort, reported as `variety=ok` or `partial`.
+  Equal counts and variety are both strict since Ticket 21: a pool that can't hold them is refused.
 - **`CacheRules`** holds the crack stage for a health, where drops go, and `mayDamage`: only a player who is Alive in a Running Match, checked at impact.
 - **`SentryRules`** is one Sentry's Idle → Telegraph → Recover cycle as plain data. The aim locks when the Telegraph starts, and the shot is cancelled if the target becomes invalid or out of sight. Sight is passed in.
 - **`Caches`** (server):
   - `prepare(random)` deals a bag without changing the world.
-  - `setup(deal, matchId)` builds the 13 Caches from the markers. Each is a model with a hidden Humanoid, a root for the fixed Hitbox and a body sized to it, registered as a `cache` target.
+  - `setup(deal, matchId)` builds the 21 Caches from the markers. Each is a model with a hidden Humanoid, a root for the fixed Hitbox and a body sized to it, registered as a `cache` target.
   - It owns each Cache's hidden contents, its health, `CacheStage` and `CacheBroken`, the break into a stump that blocks nothing, and the drops through `Pickups.drop`.
   - It logs `LootDeal`, `LootContents` and `CacheBroken`.
   - `Match` gives it the attacker gate.
