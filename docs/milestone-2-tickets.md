@@ -2871,7 +2871,46 @@ Decisions taken while building, for review:
 
 **State after step 3.** Edit mode shows the map intact (15 Sections, 12 connectors, 29 markers, 6 pads, no stale attribute), no temporary object or `TEMPORARY` text in `Tuning`, `startingKit = "Reference"`, `maxSeconds = 600`. The grep for code that caches Section descendants found none: `Characters` caches pad Parts (the `Pads` folder, never consumed) and `MapLayout` caches plain data. I also deleted 8 stale, empty `PickupsSpecFolder`s from `ServerStorage` that were left from earlier Edit-mode spec runs. Until step 5, a Kit dropped after a `Void` death validates against live floor only (the removed ground no longer counts), with no `CollapseParent` fallback.
 
-Next: step 4, the Section and Workspace attributes. Most of that already exists (the Workspace attributes and the per-model `CollapseState` and `CollapseRemovesAt` are written by `Collapse`), so step 4 is a check against the ticket's attribute table and the Ticket 25 and 26 contracts, and may fold into step 5.
+**Steps 4 and 5, the attributes and the Kit-drop fallback (done 2026-11-11, 622 specs: 601 + 21, 0 failed).** Built together, because step 4 turned out to be a check with one fix.
+
+**Step 4, the attributes.** Checked against the ticket's table, row by row. Everything matched except one thing: `Collapse:start` published `CollapseLayer` and the times as soon as it was called, which is during the arrival hold, before GO, where the table says absent. It now publishes at GO: `start` takes the caller's clock in `ctx.now` and publishes only if GO has come, and the first `update` at or after GO publishes otherwise. `Match` passes `now = clock()`. The final-ground row (`CollapseLayer = 0`, no timestamps), the Match-end clearing and the per-model `CollapseState` and `CollapseRemovesAt` needed no change. A spec covers the deferral, a stop and a second start before GO. Whether the Section models should carry a precomputed escape target for the arrow is left to step 6, which is where it is used.
+
+**Step 5, the Kit-drop fallback and the extended `Eliminated`.**
+
+- **Fallback.** A whole-Kit drop is first worked out as in Ticket 21. If that point has live floor, or was never over a consumed Section, nothing changes. Otherwise `Collapse:relocate` walks the Section's `CollapseParent` chain inward and takes the nearest live floor on the nearest surviving ancestor:
+  - the point on the ancestor's box nearest the drop, pulled in `kitDropInwardStuds` (6) from the edge, then stepped towards the box's centre in 16 steps until a ray finds floor on that ancestor's own model
+  - an ancestor with no floor passes to its own parent, and a chain that runs out **consumes the Kit**, which is never dropped over the void
+  - each spread point is checked against live floor, as Ticket 21 already did
+  - `KitDropRelocated` is logged only when the placement changed, with the original and target Sections, the hops, `result=relocated|consumed` and the reason. A consumed Kit is still announced to clients from where its owner was.
+- **Displacement records.** `Casts` passes the Cast's charge band to its delivery, `Projectiles` and `Sectors` carry it to `Combat.applyHit`, and `Combat` gives the displacement listener `{ chargeBand, position, distance }`: the band of the Cast, the victim's own root as the hit was accepted, and the displacement the server gave (`knockback.Magnitude * its duration`). `Match` turns the position into `hitRadius` (the victim's flat distance from the map's centre) and stores all three in the credit, so they are what the server knew at hit time and are never derived at death.
+- **`Eliminated`.** After a credited fall the line gains `ability`, `chargeBand`, `hitRadius` and `hitDist`. During a Collapse every elimination gains `phase`, `sinceRemoval` (absent before the first removal) and `settle=yes|no`. Each is absent where it doesn't apply, so a self fall, a Sentry's push, an expired credit and every non-Void line read as before.
+
+Decisions taken while building, for review:
+
+| Decision | Why |
+|---|---|
+| `hitDist` is the displacement the server gave the victim, in studs, and not the victim's distance to the edge | The ticket names the field without defining it. With `hitRadius` it says where the push started and how far it went, which is enough to judge a ring-out without position sampling. Say if you meant the distance to the lip |
+| Bounds in the registry are **world-aligned** boxes, built from the corners of each model's own bounding box | `Model:GetBoundingBox` follows the pivot, which on the real map is rotated (the Dais reads 29 tall along its X axis), so "local Y is up" was false. Found by the live run below, and a spec now covers a rotated Section |
+| Which consumed Section a point was over is the one whose box contains it with the **nearest centre** | Neighbouring Sections' boxes overlap, and a shard's box is coarse (about 96 by 118 for Shard 1) |
+| The floor under a candidate is the **lowest upward-facing surface within 12 studs** of the highest in its column | A Rib's top is a surface, and a Kit left 5 studs up on it can't be collected from the terrace beside it. Found by the live run, and a spec covers it |
+| `Pickups`' own `findFloor`, `VoidRules.dropOrigin` and the eliminated-position fallback are unchanged | The fallback is a layer on top of the Ticket 21 answer, so where floor still exists the behaviour is exactly Ticket 21's |
+
+**Specs (21 new).** `CollapseRulesSpec` (1): `sinceRemoval` and `inSettle`. `VoidRulesSpec` (1): the credit's three fields. `CombatSpec` (1): the listener's info. `SessionSpec` (2): the extra `Eliminated` fields and their absence. `SectorsSpec`, `ProjectilesSpec`, `CastsSpec` (1 each): the band reaches the hit, a tap is `Tap` and an Instant Cast has none. `CollapseSpec` (7): the deferred publish, `timing`, `removedSectionAt`, relocation to a surviving ancestor over one and two hops, consumption with no live floor, a rotated pivot, and a wall's top. `MatchSpec` (6): a credited fall's fields, none on a self fall or an expired credit, timing only while a Collapse runs, relocated drops, a consumed Kit, and unchanged behaviour where floor exists or the ground was never consumed.
+
+**Live check on the real Rift Crown (accelerated schedule on a second `Collapse` instance in Play, then restored).** Layers removed at 12, 30, 48 and 66 s, with a drop point sampled on Shard 1's Outer Section, Shard 3's Inner Section and the Crown's Outer ring after each:
+
+| After | From | Landed on | Hops |
+|---|---|---|---|
+| Layer 1 | Shard 1 Outer | `Shard1Inner.Slab` | 1 |
+| Layer 2 | Shard 1 Outer and Shard 3 Inner | `CrownOuter.BandFloor` | 2 and 1 |
+| Layer 3 | Shard 1 Outer, Shard 3 Inner and the Crown Outer ring | `CrownInner.Terrace` | 3, 2 and 1 |
+| Layer 4 | Shard 1 Outer and the Crown Outer ring | `CrownDais.Dais` | 4 and 2 |
+
+The first two runs found the rotated-pivot bug (every relocation answered `NoLiveAncestor`) and the Rib top, and both were fixed before the table above. After each run `restore` put every model back and the integrity check passed. **Not yet exercised live:** a real Match through a `Void` death with a Kit that is relocated, and the `Eliminated` lines from a real fight. Both belong to step 9.
+
+**State after steps 4 and 5.** Edit mode shows the map intact (15 Sections, 12 connectors, 29 markers, 6 pads, no stale attribute), `ServerStorage` holds only `Tests`, `Tools` and `MatchMapGreybox`, `startingKit = "Reference"`, `maxSeconds = 600`, and with the Reference Kit no Collapse or holding folder exists.
+
+Next: step 6, the HUD presenter (already pure, in `CollapseRules.present`), the `MatchHud` line, the local alert and arrow and the telegraph effects with their cleanup. It is the first client-side work, and it needs the escape-target decision above. Step 7 (telemetry) follows.
 
 ### 23. Rift Warden
 

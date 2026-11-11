@@ -241,7 +241,7 @@ From [Ticket 20](milestone-2-tickets.md#20-run-test-readiness), `Session` logs m
 
 ## Rift Collapse
 
-From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. Steps 1 to 3 exist, and `Match` now drives the Collapse, but only with an Empty Starting Kit: with the Reference Kit nothing is built and the Match behaves as before.
+From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. Steps 1 to 5 exist, and `Match` now drives the Collapse, but only with an Empty Starting Kit: with the Reference Kit nothing is built and the Match behaves as before.
 
 - **`CollapseRules`** (pure, `Shared/Rules`) holds the schedule and its validation, the ordered event cursor (`peek`, `complete`) with the stall shift and settle window, the replicated state (`publicState`), the phase labels, the HUD presenter (`present`), the QuietSpan rules, Section occupancy and the `CollapseParent` walk. Its config is `Tuning.collapse`.
 - **`Collapse`** (server) is a factory, `Collapse.new(deps)`, with the map root, a holding folder, a clock, a telemetry sink, the object hooks and the Workspace-attribute holder injected, so specs run it on a fixture. It owns the Section registry, the `Normal → Warning → Removed` states, atomic layer removal by reparenting into the holding folder, restore and reset, and the integrity check. `Match` drives it, as it drives `Caches` and `Sentries`.
@@ -250,6 +250,9 @@ From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. S
   - `start` runs at GO, `stop` at the end and `reset` after Results
   - `Match.sync` applies what is due. It's called by `canAct`, `canCollect`, the target filter, the Cache attacker gate, `tick`, the Sentry loop and a Heartbeat step, so gameplay before a removal sees the old world and after it the whole layer gone
   - `settleUntil` goes into `MatchRules.checkEnd`, so no verdict lands inside the settle window
+- **Attributes and timing (steps 4 and 5).** The Workspace attributes appear at GO and not before. `Collapse:timing(now, crownOpenSeconds)` gives the Eliminated log its `phase`, `sinceRemoval` and `settle`.
+- **The Kit-drop fallback.** `Match` leaves a whole-Kit drop alone where its floor stands. Over a consumed Section it asks `Collapse:relocate`, which walks the `CollapseParent` chain and returns live floor on the nearest surviving ancestor, or nothing, in which case the Kit is consumed. The registry's bounds are world-aligned boxes, because a model's own bounding box follows its pivot, which is rotated on the real map.
+- **Displacement records.** A Cast's charge band travels `Casts` to `Projectiles` or `Sectors` to `Combat`, which tells the displacement listener the band, the victim's position and the distance given. `Match` stores them in the credit as `hitRadius`, `hitDist` and `chargeBand`.
 - **Object hooks.** `Caches.removeSection`, `Sentries.removeSection` (and its `setSync`) and `Pickups.sweepUnsupported` are idempotent, non-yielding and return flat counts. A Cache or Sentry marker names its Section with `SectionId`, and a loose Pickup is judged by its support ray alone.
 - **Nothing else holds Section parts.** A consumed model is reparented out of the map, so system code must not cache Section descendants. Steps 3 and 5 grep for it.
 
