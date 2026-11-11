@@ -2960,7 +2960,36 @@ Decisions taken while building, for review:
 
 **State after step 6.** Edit mode shows the map intact (15 Sections, 12 connectors), `ServerStorage` holds only `Tests`, `Tools` and `MatchMapGreybox`, no `TEMPORARY` instance or text anywhere (grepped), `startingKit = "Reference"`, `maxSeconds = 600`, and with the Reference Kit the client builds an empty effects folder and runs nothing per frame. The `.rbxl` snapshot is not re-saved and no checkpoint is published.
 
-Next: step 7, telemetry (the Alive and loot fields on the Collapse lines, `CollapseTick`, `CollapseExposed`, `QuietSpan`, `CollapseSummary` and the rest of the extended lines).
+**Step 7, telemetry (done 2026-11-11, 663 specs: 636 + 27, 0 failed).** Log lines only: no gameplay, attribute or remote changed, and with the Reference Kit nothing runs.
+
+What was built:
+
+- **`Collapse` gained an optional `observe` hook** (the Match's list of Alive players: id, position, seconds since damage, Stunned/Frozen/Rooted, plus full-Kit and Rank 2 counts). Without it every new field and line is absent. It runs in a protected call, before the event changes the world, and the post-event telemetry is guarded too, so a telemetry failure is counted (`telemetryFailures`) and never fails or retries an event.
+- **Which ground a player stands on** is a ray down from 1 stud above their root, against the models still standing (`Collapse:_standingOn`).
+- **Lines.** `CollapseStart` adds `players`, `schedule`, `layer4` and `voidKillY`. `CollapseWarn` and `CollapseRemoved` add `alive` and `aliveOnLayer`, and Warn adds `fullKits` and `rank2Players`. The loot counters were already there from step 3. `CollapseTick` (10 s and 5 s, from the pure `CollapseRules.ticksDue`) gives the Alive count, `onWarning` and their ids. `CollapseExposed` gives one row per player on the ground being removed: section, `sinceDamage`, `status` and `warned` (`yes`, `later` or `unknown`, from the 10 s snapshot). `QuietSpan` comes from the step 1 rules, polled by the Match loop, with Section occupancy counts. `CollapseSummary` is one line at Match end.
+- **`Session`** gained `setDamageListener`, called for any damage to a player (`pvp` only between two players, a fully absorbed hit included). `CrownOpened` gains `fullKits` and `rank2Players`.
+- **`Match`** owns the QuietSpan state, the PvP damage by phase, eliminations by `phase_cause`, Void counts (credited, self, Sentry, in a settle window), Kit relocations and consumptions, and deferred verdicts. It adds the `crown` checkpoint. The Collapse adds the Warning, removal and `dais` checkpoints, the summed loot and its own health counters.
+
+Decisions taken while building, for review:
+
+| Decision | Why |
+|---|---|
+| `CollapseExposed` leaves out the distance to the parent boundary and Dash readiness | The ticket says "if cheap" and "only if Movement already exposes it". The registry's boxes are coarse and `Movement` doesn't expose a charge count |
+| The first Stunned, Frozen or Rooted attribute on the character is the `status` | One word is enough for a sample. `Rooted` isn't set by anything yet |
+| Any damage to a player is "recent damage", but only player-versus-player damage is QuietSpan activity and counts as PvP | PvE and Sentry damage don't count as activity, as the ticket says |
+| A fully absorbed hit counts as PvP activity, with 0 Health lost | The attack still happened. PvP damage by phase sums Health lost |
+| `daisAlive` is everyone not standing on Layer 4's ground at its removal, and the Dais checkpoint and progression snapshot come from the same observation | The removal's Alive-entering count, taken before the ground goes |
+| `CollapseTick` is skipped for a removal that is already due | The removal applies first, so a tick with no time left would mean nothing. A stall gives both ticks at once with their real `remaining` |
+| The summary prints every loot counter the removals returned, plus `kitsRelocated` and `kitsConsumedAtDrop`, rather than a fixed list | Nothing is lost if a hook adds a counter. Whole-Kit drops swept from the ground are `pickups.kits` |
+| `health.deferred` counts verdicts the settle window pushed back, scheduled by the Match | The other health counters come from the Collapse |
+
+**Specs (27 new).** `CollapseRulesSpec` (3): `ticksDue` once each in order, a stall, and a shift. `SessionSpec` (3): the extended `CrownOpened`, the listener's pvp, absorbed and non-player cases, and a failing listener. `CollapseSpec` (12, on the fixture, with its own observe list): no hook means no new field, `CollapseStart`, Alive and on-layer counts, ticks, a stalled tick, `CollapseExposed` with `yes`, `later` and `unknown`, a failing hook, the summary (checkpoints, loot, delay, shifts, stale), a clean second summary, and occupancy. `MatchSpec` (9): the listener is installed only with a Collapse, the observe hook, QuietSpan (45 s, then 30 s, PvE ignored, PvP restarts it), none with one Alive, before GO or with no Collapse, `CrownOpened` and its checkpoint, the summary, Void counts, the Dais part, and no summary after a failed start.
+
+**Live check on the real Rift Crown (accelerated schedule, solo, then reverted).** `CollapseStart` (`players=1 schedule=45/80/115/150 layer4=true voidKillY=-40`), `CrownOpened ... fullKits=0 rank2Players=0`, `CollapseWarn` at t=30 (`alive=1 aliveOnLayer=1`), `CollapseTick` at remaining 10.00 and 4.98 with the player's id, `CollapseRemoved` at 45.00 with `aliveOnLayer=1` and 12 Caches, `CollapseExposed` for the player on `Shard2Outer` (`warned=yes`), the `Eliminated` line with `phase=collapse sinceRemoval=1.00 settle=yes`, and `CollapseSummary` (`checkpoints=crown:1,warn1:1,remove1:1`, `elims.collapse_Void=1`, `voids.self=1`, `voids.settle=1`, every health counter 0). **Not yet exercised live:** `QuietSpan` (needs two Alive), `CollapseExposed` for a player who arrived later, the Dais fields, a real PvP count and `kitsRelocated`. They are specced, and step 9's two-client matrix covers them.
+
+**State after step 7.** Tuning is back to the committed values (checked by loading a clone: `Reference`, 600, 60, 210, 30 and 90), the map is intact (15 Sections, 12 connectors), no holding folder and no temporary instance remain, and no `TEMPORARY` text is left outside the specs' own fixture names. The `.rbxl` snapshot is not re-saved and no checkpoint is published.
+
+Next: step 8, the structural checks.
 
 
 ### 23. Rift Warden
