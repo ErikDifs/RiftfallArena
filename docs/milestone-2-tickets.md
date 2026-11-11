@@ -2208,6 +2208,23 @@ Built in the order the Build and swap strategy sets. Nothing was published or up
 
 **Settled with the developer (2026-11-11): the jumping-victim crossing and the thin Hook margin are accepted for now.** The parapets stay 4 high, and the play checks judge whether a jump-then-hit kill on a Safe connector feels unfair.
 
+**Two-client Match, 2026-11-11 (Server & Clients, `studio-tester`, `startingKit` set to `"Empty"` for the session and reverted to `"Reference"` after).** Five Matches ran. Both clients rendered at 15 fps, so casts were forged and movement server-driven.
+
+| Check | Result |
+|---|---|
+| Two players on opposite Shards | pass in all 5 (pads 5/2, then 3/6 three times; the repeat is chance, as `Match` uses an unseeded `Random.new()`) |
+| Arrival hold | pass: `goAt` = Running + 3.000 s, positions constant until then. Forged casts and a Cache attack from 5 studs did nothing, but the Cache refusal wasn't independently proven by range (the teleport used a TEMPORARY helper) |
+| 24 drops, 21 Caches, 3 Sentries | pass. Every Shard's three drops were three different Abilities, Crown Caches held two each |
+| Crown seal | pass: 14 forged hits at ~27 s left a Crown Cache sealed, `CacheStage` 0, no drop. `CrownOpened seconds=60.2`. After the open it broke (`CacheBroken kind=Crown sinceOpen=23.1`, two Abilities dropped) |
+| Sentries active | seen killing a player who stayed in a bay (not observed before GO) |
+| Void kill, Tidal tap | pass x2: `Eliminated cause=Void void=Knockback creditAge=1.0/1.1`, `Kill ... void=yes`, killer credited, eliminated at y −57 about 1 s after the hit |
+| Kit drop after a Void death | pass: the Pickup landed 6 studs inward on valid floor |
+| Self-fall | pass: `cause=Void void=self`, no killer |
+| Results, return to Hub, Results wording | pass: "Eliminated by Player1", "Fell into the Rift", "Winner" |
+| Rift Hook as the credit source, the Void feed line | not tested |
+
+**One unexplained result:** in Match 1 one fall at the same lip spot gave `cause=Died by=none` (log: `Death cause=NotCombat`, `Fight Lost taken=12`, then `Eliminated cause=Died` 2.5 s later), where three later falls gave `Void`. No trace was running. The leading guess is that the victim was already low on health and died of the tap before the Match loop saw the void, but the missing killer credit is unexplained, so it stays open. If it appears again, check what `Humanoid.Health` the victim had.
+
 Not done: Risky-spoke edge Hook, Arc Burst full Charge at +3.5 and +5, `PairLink12` (same parapet size as `Spoke1`), a real forged ChargeStart/ChargeRelease hold.
 
 ### 22. Rift Collapse
