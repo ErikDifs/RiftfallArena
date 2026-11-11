@@ -123,7 +123,7 @@ The visual identity of the Rift Collapse: the arena is being erased, not burned 
 _Avoid_: Storm (it implies a damage zone), fire, corruption
 
 **Riftlight**:
-The rose-magenta accent of the Unmaking. It marks ground instability and erasure, and appears only in static baseline seams, the Warning markings on a Warning Section, the Unravel and the distant horizon. It never means combat damage and is never ambient fog.
+The rose-magenta accent of the Unmaking. It marks ground instability and erasure, and appears only in static baseline seams, the Warning markings on a Warning Section (including the Warning fill on the Minimap and Tactical map), the Unravel and the distant horizon. It never means combat damage and is never ambient fog.
 _Avoid_: Rift glow, magic, damage colour
 
 **Unravel**:
@@ -133,6 +133,14 @@ _Avoid_: Shatter, explosion, break
 **Last Anchor**:
 The single neutral light on the Dais during the Last Stand, which makes it the last lit, fully coloured thing in the erased world. It is an enhancement, and the Dais is otherwise unchanged.
 _Avoid_: Dais effect, spotlight, beacon (a beacon is a Warning marking)
+
+**Minimap**:
+The small, persistent corner view of the Rift Crown during a Match, specified in [Ticket 27](docs/milestone-2-tickets.md#27-minimap-and-objective-awareness), not built. It is a fixed, north-up, authored 2D map of the Sections and connectors that shows the player's own marker (position, with the camera's heading), each Section's Collapse state and nearby dropped Kits. It never shows another player, and it shows no countdown.
+_Avoid_: Radar, scanner, compass
+
+**Tactical map**:
+The larger, non-modal expanded view of the same map, opened on demand with M. It adds labels (such as the Dais) and the faint outline of Removed ground, and nothing else. Gameplay, movement and the camera carry on while it is open, and combat input closes it.
+_Avoid_: Full map, map screen, world map
 
 ### Builds
 

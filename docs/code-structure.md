@@ -2,7 +2,7 @@
 
 The structure serves the first combat loop: **Basic Attack → Dash → Tidal Bolt → Arc Burst → Wet Reaction**. Anything that does not help implement, test or observe that loop probably does not belong in the first milestone.
 
-[Milestone 2](milestone-2-tickets.md) adds the run progression loop, so systems for Kits, Pickups, the Match, Rift Caches and Sentries now belong, each added by its ticket. A general monster system and an inventory still don't. [Ticket 25](milestone-2-tickets.md#25-match-milestones) (Milestones, staged and not built) would add a pure `MilestoneRules`, a server `Milestones` module and a shared combat-idle signal, with Riposte and Catch Breath rules beside them. Its gated Stage 3 Reserve is **one extra field on the Kit**, not an inventory. [Ticket 26](milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere) (Collapse presentation, staged and not built) would add a pure `CollapseVfxRules` and one client `CollapseVfx` controller, with no new remotes and no server code.
+[Milestone 2](milestone-2-tickets.md) adds the run progression loop, so systems for Kits, Pickups, the Match, Rift Caches and Sentries now belong, each added by its ticket. A general monster system and an inventory still don't. [Ticket 25](milestone-2-tickets.md#25-match-milestones) (Milestones, staged and not built) would add a pure `MilestoneRules`, a server `Milestones` module and a shared combat-idle signal, with Riposte and Catch Breath rules beside them. Its gated Stage 3 Reserve is **one extra field on the Kit**, not an inventory. [Ticket 26](milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere) (Collapse presentation, staged and not built) would add a pure `CollapseVfxRules` and one client `CollapseVfx` controller, with no new remotes and no server code. [Ticket 27](milestone-2-tickets.md#27-minimap-and-objective-awareness) (Minimap and Tactical map, staged and not built) would add a pure `MinimapRules`, one client controller and one baked layout data module, with no new remotes, no server code and no new replication.
 
 ## Layout
 
@@ -279,6 +279,15 @@ Specified in [Ticket 26](milestone-2-tickets.md#26-rift-collapse-visuals-and-atm
 - **No new RemoteEvent and no server code.** The only authored data is the Ticket 21 presentation metadata (`CutLine`, `VfxGroup`, `BeaconAnchor`), generated once at authoring time. Effect parts are `CanCollide`, `CanQuery` and `CanTouch` false and live outside the authored Section folders.
 - **Lighting is client-owned,** through Ticket 26's own effect instances, with compare-and-restore for any shared property. The replicated Collapse state is global, matching the one-Match constraint, and the accessor is the only preparation for concurrent Matches.
 - **Diagnostics** are concise `[Riftfall][CollapseVfx]` console lines, with no per-frame logging.
+
+## Minimap and Tactical map
+
+Specified in [Ticket 27](milestone-2-tickets.md#27-minimap-and-objective-awareness), **not built**, and staged: Stage 1 after Ticket 22 is accepted, Stage 2 (the Warden marker) after Ticket 23. Module names and folders are provisional and recorded when built. It is client-only, read-only presentation, so it changes no authority.
+
+- **Pure rules.** A `MinimapRules` holds the projection, the horizontal distance filter, overlap suppression, marker priority, the Collapse state derivation and configuration validation. It never touches `Workspace`, and `RunAll` covers it. It is not `MapRules`, which is Ticket 21's structural validator.
+- **One client controller** draws both views from one presentation model. It reads the attributes Ticket 22 already replicates (and Ticket 26's accessor if it exists), `PickupFromElimination` on Pickups and `Spectating`'s target. A consumed Section's model leaves the client's Workspace, so Removed means an authored id whose model is absent while the Collapse runs. Nothing reads or writes a server-only structure.
+- **One baked layout data module.** The polygons for the Sections and connectors are generated once from the authored footprints by an Edit-mode tool, keyed by `SectionId` and the connector's identity, and checked against the real map. No live Workspace scan and no `ViewportFrame`.
+- **No new RemoteEvent, no server code, no new replication and no map service.** Input is observed through `Input`, which still performs the gameplay action first. One scope per Match and role owns every connection and loop, and destroying it is the teardown.
 
 ## Dependencies
 

@@ -4048,6 +4048,7 @@ Pure rules and their specs touch nothing in the map and may be built early. Ever
 - **Ticket 23 (Warden).** Warden telegraphs use hostile red as filled wedges and discs. A Collapse removal destroys a Warden at once, and the Unravel only draws cosmetics at cached bounds.
 - **Ticket 24 (Riftling).** Violet-teal seams on a moving body are the creature's own look.
 - **Ticket 25 (Milestones).** Its Feedback sounds and cues must stay above Collapse audio in the mix. Its Highlight-style visuals count against any Highlight budget (see the outline fallback).
+- **Ticket 27 (Minimap, specified 2026-11-11, added to this ticket by amendment).** The Minimap and Tactical map are a **consumer** of this ticket's shared `matchId`-keyed Collapse accessor and its Participant, Spectator and None context derivation, **when they exist**. This ticket stays an **optional integration dependency, never a prerequisite**: Ticket 27 can be built on Ticket 22's replicated attributes alone, and it adopts the accessor if this ticket lands first, with no second Collapse model. This ticket changes no signal that [Ticket 27](#27-minimap-and-objective-awareness) reads (`CollapseState` on each Section and connector model, `CollapseWarning`, `CollapseLayer`, `MatchId`, `MatchPhase`), and it must not make the Minimap's Warning fill or the world telegraph disagree.
 
 #### Identity and colour roles (fixed unless marked)
 
@@ -4292,6 +4293,145 @@ An adversarial pass against Tickets 21 to 25 found **no blocking contradiction a
 - **Hum versus ticks:** hums are sustained tones, so Ticket 22's "no global per-second ticks" and the on-ground final-5 s cue stay intact.
 
 Accepted, with evidence to follow: the recorded risks above. Correctly deferred: see Deferred. Review result: **no ADR required.**
+
+### 27. Minimap and Objective Awareness
+
+**Status: specified 2026-11-11 and reviewed adversarially the same day, not built, and staged.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`minimap-design.md`](minimap-design.md); this entry is the build contract. Values are **fixed** (an approved requirement, changed only by a recorded design change) or **tunable** (a starting value that evidence can change). **Stage 1 starts only after Ticket 22 is fully implemented, tested and accepted, including its two-client runs.** Stage 2 starts only after Ticket 23 provides the Warden's authoritative state. There is **no dependency on Ticket 24 or Ticket 26**.
+
+#### Summary
+
+A read-only 2D map of the Rift Crown, built from authored topology, in two sizes of the same art: the **Minimap**, a small persistent corner view, and the **Tactical map**, a larger non-modal expanded view. It answers three questions: where am I, which ground is left, and what is about to go. It is not a radar. It never shows another player, and it carries no countdown.
+
+#### Stages and gates
+
+- **Stage 1 (core).** The rendering spike, the authored layout, `MinimapRules`, both views, the Collapse states, the camera-facing marker, nearby dropped Kits, input and spectators. Needs Tickets 17, 17B, 21 and 22.
+- **Stage 2 (Warden marker).** A small, independently testable addition. Needs Ticket 23. Stage 1 never waits for it.
+- **One Studio driver.** Ticket 27 is not built in parallel with Ticket 22's remaining Studio work, and the Studio is driven by one agent at a time.
+
+#### Scope (Stage 1)
+
+- A baked 2D layout: one polygon per **Section** (15 in the Ticket 21 build) and one per **connector** (12). Not "six Shards": a Shard spans several layers, so the unit is the Section.
+- `MinimapRules` (pure) and one client controller with one presentation model shared by both views.
+- The Collapse states, the player marker, nearby dropped Kits, the Tactical map's labels, the input behaviour, spectator support and cleanup.
+- Specs, a Studio matrix, and the `CONTEXT.md` and `code-structure.md` entries.
+
+#### Non-goals (fixed)
+
+- **Any other player, ever.** No enemy marker, last-known position, proximity indicator, combat ping or endgame reveal. Players find enemies by observation, sound, positioning and the Collapse.
+- Rift Caches (**deferred**, see below), Riftlings and Sentries.
+- Elevation of any kind: no ramps, ruin platforms, contours or height numbers.
+- A countdown of any kind on either map. The Collapse HUD line and the local danger alert already carry the timing.
+- Zoom, pan, waypoints, selectable markers, tooltips and manual filters.
+- Touch, gamepad and `Esc` handling, and any on-screen button (the mouse is locked to the centre). These belong to a later platform-input ticket.
+- A `ViewportFrame`, a live Workspace scan, a per-frame geometry rebuild, a map service or parallel map simulation.
+- **No new RemoteEvent, no server code, no new replication, no new attribute.**
+- Uploading any asset. Anything that needs one stops and asks the developer.
+
+#### Settled design
+
+| Topic | Decision |
+|---|---|
+| Views | One persistent Minimap and one Tactical map of the same geometry and orientation. The Tactical map is **non-modal**: movement, the camera and gameplay continue. |
+| Orientation | **Fixed north-up**, from one tunable constant that defines north in world space. It is checked against the Rift Crown's azimuth convention (`ShardAzimuth`) when built. |
+| Style | Cold stone-grey ground, a dark void, Riftlight rose-magenta for Warning only, a pale-cyan player marker. No live overhead rendering. |
+| Player marker | **One** cyan triangle. Its position follows the active or spectated character's X/Z. Its orientation follows the **local camera's horizontal yaw**, so camera pitch never changes it. There is no character-facing marker, no second camera line and no angle threshold. |
+| Topology | Safe connectors are solid, Risky are segmented, and Dash shortcuts are dotted. The boundary between ground and void is the Lethal edge. The Dais is its own Section polygon, **labelled "Dais" on the Tactical map only**. Shards are labelled with their `ShardId` on the Tactical map, and the player's own Shard is distinguishable. |
+| Elevation | **None** (fixed). |
+| Collapse states | **Intact**: normal ground. **Warning**: magenta fill, outline and a **static fracture pattern**, so colour is never the only channel. **Removed**: nothing on the Minimap, and a faint dashed outline on the Tactical map. Removal is atomic. The settle window is never drawn as safe ground. The Dais is never removed, and an omitted Layer 4 simply stays Intact. **Nothing is highlighted before its authoritative Warning**, and the map says nothing the Collapse HUD does not. |
+| Timing | The map shows state only. It adds no countdown and no second timer. It reuses the existing authoritative Collapse presentation state, and **stalled or shifted schedules therefore need no map-side handling**. |
+| Kit drops | A **neutral glyph** (independent of Ability and Rank) on both maps for a Pickup with `PickupFromElimination`, within **30 studs horizontal (X/Z) distance** (fixed) of the active or spectated character, re-filtered at about 5 Hz (tunable). It disappears with its Pickup, on collection or on a Collapse sweep. Cache and Warden drops carry no flag and never show. |
+| Wardens (Stage 2) | Visible to everyone **from `MatchCrownOpensAt`**, on both maps, spectators included, at the fixed **`WardenHome`**, never at the live root. **One glyph** for Idle, Engaged and Returning: presence is the only signal. Removed when `WardenState` is Dead or its Section is consumed, and **hidden when availability is unknown**. A disappearing marker may indirectly say that a Warden fell. That is accepted objective information, not enemy tracking. |
+| Priority | 1 the player, 2 topology and Collapse, 3 Warden, 4 Kit drops. **Deterministic, presentation-only overlap suppression**: a lower priority marker may hide under a higher one. Markers stay at their true projected position, with no clustering, displacement or animation. |
+| Input | **Keyboard and mouse only.** **M** toggles the Tactical map. Pressing the primary attack (MouseButton1), an Ability slot (Q, E) or Dash (LeftShift) closes it, and the action is **performed as normal, exactly once**. F (the replacement modifier) and G (Spectate) do not close it. There is no `Esc` handling. It also closes on elimination and on any Match transition. |
+| Spectators | The marker follows the `Spectating` target, the triangle follows the spectator's own camera, and Kit proximity is measured from the target. Switching target recomputes the map context. **No living target means no map.** Match end and Return to Hub clear it. A Hub spectator's own Hub character is never the map's subject. |
+| Context | A map context exists for a Participant or a Spectator while the Match is Running (the Match's own phase attribute). With no context, the controller does no work. |
+| Layout | The corner is chosen from the corners no HUD element uses today (top-left, bottom-left and bottom-right in the audited HUD), after a check in Play that the default Roblox chat and menu do not cover it. Sizes are tunable. Mobile-first readability is kept as portable constraints: no hover, large enough glyphs, high contrast, and nothing positioned against a fixed screen size. |
+| Rates | The player marker and triangle update at about 20 Hz (tunable). Everything else is event-driven. Static layout is built once. Overlap suppression is recomputed only when state or layout changes. |
+
+#### Architecture
+
+- **`MinimapRules`** (pure, `Shared/Rules`): the projection from world X/Z to map space, the horizontal distance filter, overlap suppression and priority, the Collapse state derivation, and configuration validation. It never touches `Workspace`. The name avoids `MapRules`, which is Ticket 21's structural validator.
+- **One client controller** draws both views from one presentation model. It is read-only and fully cleaned up, and one scope per Match and role owns every connection, loop and instance.
+- **Collapse state** comes from Ticket 22's replicated attributes: the per-model `CollapseState` and the Workspace `CollapseWarning` and `CollapseLayer`. A consumed model is reparented into a **server-only** holding folder, so a client never reads a `Removed` value. **Removed means an authored id whose model is absent from the world while a Collapse is running.** State is derived and idempotent, so there are no revisions to reject. If Ticket 26's `matchId`-keyed accessor exists, the controller uses it, with no second Collapse model.
+- **Baked layout.** One data module of polygons keyed by `SectionId` and by connector identity, generated once from the authored footprints by an Edit-mode tool and checked against the real map by an additive structural check. Where the check lives is recorded when built. The tool changes nothing in the map.
+- **Kit drops** are read from the Pickups the client already receives. Nothing is added to what the server replicates.
+- **Input.** The map observes the events `Input` already handles through a read-only hook. `Input` performs the gameplay action first and the map only closes itself.
+- **Who builds what.** The main session builds `MinimapRules`, the spectator and lifecycle integration, and reviews everything. `studio-implementer` builds the layout bake and the cosmetic drawing from exact briefs. `studio-tester` runs the Studio matrix.
+
+#### Implementation steps (Stage 1)
+
+1. **The rendering spike, first and gated.** Choose how the polygons are drawn, with **no `ViewportFrame` and no upload**.
+   - Verify platform support first: whether `EditableImage` is available in this experience and Studio. Do not assume it.
+   - Candidates in order: `EditableImage`, then row-run Frames, then rotated convex-piece Frames.
+   - Measure each on the real layout: instance count, memory, cost per state change, the cost of a static frame (which must be zero), and a proxy for low-end mobile (Studio's emulator and the MicroProfiler, **stated as a proxy**). Thresholds are set from the measured HUD baseline and recorded **before** choosing.
+   - If only an uploaded image would work, **stop and ask the developer**.
+2. **Verify identities.** Whether `FromSection`, `ToSection` and `ConnectorRole` identify each of the 12 connectors uniquely. If not, add an additive `ConnectorId` to the Ticket 21 metadata, as `CutLine` was added.
+3. **The layout bake and its check, and `MinimapRules` with specs.**
+4. **The Minimap and the Tactical map**, static, then the Collapse states.
+5. **The triangle, Kit drops, the input behaviour and spectators.**
+6. **Lifecycle, the leak review, measurements and the Studio matrix.**
+
+#### Stage 2, the Warden marker
+
+Reads `MatchCrownOpensAt`, `WardenHome` and `WardenState`, and adds the glyph at priority 3 and its removal rules. Stage 2 first verifies that a Warden's Section is readable on the client and, if not, hides the marker when the Warden instance is absent. It adds no replication.
+
+#### Tests
+
+- **`MinimapRulesSpec`:**
+  - the projection, including the corners and the north constant
+  - the horizontal filter at 29.9 and 30.1 studs, and a vertical offset of 5 never changing the result
+  - the priority and overlap rules, deterministically
+  - the Collapse state derivation for Intact, Warning and Removed
+  - a missing model before the Collapse starts, which is not Removed
+  - unknown state, which hides a marker
+  - configuration validation
+- **Structural check:** every Section and connector has exactly one polygon, ids are unique, and a deliberately broken copy (a missing polygon, a duplicate id) fails.
+- **Studio matrix (by `studio-tester`, two clients, accelerated schedule as TEMPORARY test configuration and reverted):**
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | Topology | All 15 Sections and 12 connectors drawn, three connector styles distinguishable, edges match the real Lethal edges |
+| 2 | Collapse | Warning appears with the server's Warning and not before. Removal is atomic. The Dais stays. An omitted Layer 4 stays Intact |
+| 3 | Independent connectors | A connector removed on its own layer shows Removed while its Sections do not |
+| 4 | Kit drops | Appears at 29.9 and not at 30.1 studs. Disappears on collection and on a Collapse sweep. A Cache or Warden drop never shows |
+| 5 | Triangle | Pitch changes nothing. Yaw tracks the camera |
+| 6 | Spectators | Target switching, elimination, a Hub spectator, Match end and Return to Hub. No living target means no map |
+| 7 | Input | M toggles. Each combat input closes it and the action fires exactly once. F and G do not close it. It closes on elimination and Match end |
+| 8 | Leakage | No enemy marker in any state, for a player or a spectator |
+| 9 | Lifecycle | Five Matches in a row leave no duplicated connection, loop or retained marker |
+| 10 | Performance | No per-frame rebuild, no work without a context, and the spike's measurements hold |
+| 11 | Reference Kit | With `startingKit = "Reference"` no map exists and nothing runs |
+| 12 | Stage 2 | The Warden marker is absent before `MatchCrownOpensAt`, fixed at `WardenHome` through a chase, and removed on Dead, on its Section's removal, and on unknown state |
+
+#### Completion criteria
+
+**Blocking:** matrix rows 1 to 9, 11 and 12 (12 for Stage 2); the rendering spike's decision recorded before any other step; no upload made; no new remote, server code or replication; the Reference Kit unchanged; the full spec run green. **Evidence only:** the low-end mobile proxy numbers, the corner placement, and whether players use the Tactical map at all, which are recorded for tuning and never keep the ticket open.
+
+#### Implementation checks
+
+- The `Spectating` target accessor: whether one is exposed, and a read-only one if not.
+- Whether the arrival hold falls inside Running, and what the map shows then.
+- The default Roblox chat and menu against the chosen corner.
+- Whether `StreamingEnabled` is off, since the docs say so and it was not read live.
+- The value of the Collapse's settle window, which this entry deliberately does not repeat.
+- The Rift Crown's azimuth convention against the north constant.
+
+#### Deferred
+
+- **Rift Cache markers.** Reconsidered only if playtesting shows a discovery problem. Cache state is live information about other players, so any later version needs its own fairness review.
+- **Ramp markers**, only if playtesting shows a genuine navigation problem.
+- **Touch and gamepad input and safe areas**, in a later platform-input ticket. Until then the real-device mobile pass is a gate of that ticket and not of this one.
+
+#### Dependencies, risks and ADRs
+
+- Depends on Tickets 17, 17B, 21 and 22 for Stage 1, and Ticket 23 for Stage 2. Ticket 26 is an **optional** integration (see its amendment). Ticket 24 has no relationship.
+- **Risks:**
+  - The rendering technique is unproven, which is why the spike comes first.
+  - The baked layout can drift from the authored map, which the structural check and a rebuild-on-change rule cover.
+  - Ticket 22's presentation may change during its remaining runs, which is why Stage 1 waits for acceptance.
+  - The fixed north-up map of six similar Shards can disorient, which the `ShardId` labels and the own-Shard mark address.
+- **No ADR required.** The ticket is presentation over state that is already replicated and changes no authority, movement, hitbox or one-life decision. The rule that no map ever shows another player is recorded here and in the design archive, and a future ticket that adds scanning or pings must reopen it deliberately.
+- **Glossary:** `CONTEXT.md` gains **Minimap** and **Tactical map**, and **Riftlight** gains the map's Warning fill.
 
 ## Later, after evidence from the run test
 
