@@ -2225,6 +2225,10 @@ Built in the order the Build and swap strategy sets. Nothing was published or up
 
 **One unexplained result:** in Match 1 one fall at the same lip spot gave `cause=Died by=none` (log: `Death cause=NotCombat`, `Fight Lost taken=12`, then `Eliminated cause=Died` 2.5 s later), where three later falls gave `Void`. No trace was running. The leading guess is that the victim was already low on health and died of the tap before the Match loop saw the void, but the missing killer credit is unexplained, so it stays open. If it appears again, check what `Humanoid.Health` the victim had.
 
+**Follow-up in the same session (`studio-tester`).** Low health is **not** the cause of the Match 1 result. A victim held at 5 or 12 health died of the tap by health and was correctly credited (`Eliminated cause=Died by=player:-1`). One held at 10 regenerated to 12.4, survived and was pushed over the lip as `Void void=Knockback creditAge=0.9`. Full health gave `Void creditAge=1.3`. Every Eliminated line came 1 to 1.3 s after the hit, so the `Died by=none` 2.5 s after the hit has not recurred and **stays open**. Untested guesses: the victim stuck on a rim tooth and died later, or something else damaged it. If it appears again, log the victim's health and y from the hit.
+
+**Rift Hook as the Void credit source: pass.** A 13-stud pull over `DashGap61` (caster 2 studs past the far edge, victim in the gap) gave `Eliminated cause=Void void=Hook creditAge=1.0` and `Kill ... ability=RiftHook void=yes`. A 19-stud pull (caster 10 past) carried the victim over, landing with 8 damage. The `Eliminated` line shows `hookPulledAgo=none` on the Hook kill although `HookPull` was logged 1 s earlier. It may be intended for `Void`, and is not checked. A tap fired through a solid part (the Landmark Stumps at x 600 and 604 on Shard 2) hits nothing and logs nothing, so raycast the line first.
+
 Not done: Risky-spoke edge Hook, Arc Burst full Charge at +3.5 and +5, `PairLink12` (same parapet size as `Spoke1`), a real forged ChargeStart/ChargeRelease hold.
 
 ### 22. Rift Collapse
