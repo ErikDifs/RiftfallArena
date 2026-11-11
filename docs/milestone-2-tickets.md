@@ -2830,7 +2830,48 @@ Two of my own spec expectations were wrong at first and fixed in the spec: the l
 
 State after step 2: Edit mode shows the map intact (15 Sections, 12 connectors, 29 markers, 6 pads, no stale attribute), no temporary object, `startingKit = "Reference"`, `maxSeconds = 480`.
 
-Next: step 3, the `Match` integration (the gates' `sync`, the settle gate in the end check, `maxSeconds` 600 re-based on `goAt`, the start, stop and reset call sites, the Cache, Sentry and Pickup hooks and the intact-map assertion).
+**Step 3, the `Match` integration (done 2026-11-11, 601 specs: 574 + 27, 0 failed).** The Collapse now runs in a real Match. With the Reference Kit nothing changes: no Collapse, holding folder, attribute or loop exists (checked in Play after `RunAll`).
+
+Settled with the developer before building:
+
+| Point | Decision |
+|---|---|
+| The pre-start check fails (the map isn't intact after the restore, or `Tuning.collapse` is invalid for the map) | **Disable Matches for good**, one loud error with the reason, as for an uneven loot bag |
+| `Collapse:start` fails at GO although the pre-start check passed (should be impossible) | **Play on without a Collapse**, one loud error, and the 600 s failsafe ends the Match |
+
+What changed:
+
+- **`Tuning.match.maxSeconds` is 600.** The failsafe was already counted from GO (`MatchRules.arrive`, Ticket 21), so the re-base needed no code, only a spec that the deadline is `goAt + maxSeconds`.
+- **`Match`** builds the Collapse from `deps.collapseFactory` (`Collapse.new`, passed by `Main`) only with an Empty Kit and a Rift Crown in the place. It validates the schedule once at startup through the new `Collapse:validate` (a schedule that fails disables Matches). It then:
+  - runs `prepare` (the safety-net restore and the intact assertion) just before the loot deal, so a refusal changes nothing in the world
+  - calls `start` at GO, right after `caches.setGo` and `sentries.setGo`
+  - calls `stop` first thing in `endMatch`, and `reset` in `endResults` after the Pickups, Caches and Sentries are cleared (a failed reset is reported loudly, and the next start's `prepare` refuses on it)
+- **The boundary.** `Match.sync` (`collapse:sync(clock(), matchId)`, only between start and stop) is called by `canAct`, `canCollect`, `canBeHit` (the target filter), the Cache attacker gate, `tick`, every Sentry loop pass and each Sentry's own step, and by a Heartbeat connection. With nothing due it only looks.
+- **The settle gate.** `MatchRules.checkEnd(state, now, config, settleUntil)` and `step`'s `inputs.settleUntil` make every verdict wait for `CollapseRules.resolveAt(its own deadline, settleUntil)`:
+  - Winner and `NoSurvivors` wait. A window that opens after the end grace began pushes the resolution out.
+  - A Timeout waits too, and is not a pending end, so nobody is stopped from acting.
+  - `Match` schedules the resolution at the window's end, so it lands without the loop.
+- **Hooks.** `Caches.removeSection(id)` removes every Cache on a Section, intact, sealed or broken, with no drops. `Sentries.removeSection(id)` removes the Sentry or its wreck, cancels a Telegraph and its pending shot (`stepSentry` finds the record gone), and `Sentries.setSync` installs the sync. `Pickups.sweepUnsupported(layer)` consumes every loose Pickup with no live floor under it, silently, and counts total, whole-Kit drops and each Ability and Rank. Each returns flat counts, and `Match` prefixes and sums them (`objects.caches_Home`, `objects.sentries_total`, `pickups.kits`).
+- **Markers name their Section.** `Caches` and `Sentries` read `SectionId` from their markers, which already carried it from Ticket 21.
+- **A minimal telemetry sink** prints each Collapse event as one `[Riftfall][Collapse]` line of sorted key=value pairs. Step 7 adds the Alive and loot fields.
+
+Decisions taken while building, for review:
+
+| Decision | Why |
+|---|---|
+| A Cache hit re-checks `record.removed` after the attacker gate | The gate syncs the Collapse, which can remove that very Cache mid-hit, and a break completing in the removal tick must give no loot |
+| `Pickups.sweepUnsupported` has its own support ray with `RespectCanCollide = true`, injected as `isSupported`, and leaves `findFloor` as it was | A non-colliding marker Part (a Dash shortcut) must not count as floor, and Pickup drops stay exactly as before |
+| With nobody Alive inside the window, `checkEnd` sets `pendingEndAt` to the window's end | It lets `Match` schedule the resolution. Nobody is left to be stopped from acting |
+| `Collapse:validate(config, ctx)` was added and `start` uses it | `Match` needs the schedule checked on the real map at startup, and the check must be the one `start` runs |
+| `Match` takes a factory, not an instance | With the Reference Kit no Collapse, holding folder or registry may exist |
+
+**Specs (27 new).** `MatchRulesSpec` (5): each verdict waits for `settleUntil`, the window opening after the grace, zero Alive, Timeout, and `step`'s input. `MatchSpec` (12, on a fake Collapse): built only with an Empty Kit, an invalid schedule disables Matches, the objects hooks, the start order and the 600 s `maxSeconds`, a map that isn't intact refuses the start with nothing set up, a failed start at GO plays on loudly with no sync, every gate and the loops sync for this Match, nothing syncs before the start or after the end, the settle window with and without the loop, a removal after the grace began, stop before the result and reset after Results, and a failed restore. `CachesSpec` (4), `SentriesSpec` (4) and `PickupsSpec` (2): the three hooks, their idempotence, the broken-Cache and wreck cases, the Telegraph, the sync, and the sweep.
+
+**Live smoke on the real Rift Crown (accelerated schedule, then reverted).** One player, an Empty Kit, removals at 45, 80, 115 and 150 s, `crownOpenSeconds` 0 and `maxSeconds` 300. The first Match: `CollapseStart`, `CollapseWarn` at t = 30.00 (six Sections and a connector), `CollapseRemoved` at t = 45.00 with 12 Home Caches removed and 7 models held, a `Void` elimination at 46.1 s (the player stood on Layer 1), and `MatchEnd` `NoSurvivors` at 46.5 s, exactly the 1.5 s settle window after the removal. At the end of Results the map was back to 15 Sections, 0 Caches and an empty holding folder, and Match 2 then passed the pre-start check and started. In Match 2, two loose Pickups on Layer 1 and one on the Dais went through the real `sweepUnsupported` after the removal: the two on the removed ground were consumed and the Dais one stayed. **Not yet exercised live:** Layers 2 to 4, a Sentry removal and a survivor through a removal. They belong to step 9.
+
+**State after step 3.** Edit mode shows the map intact (15 Sections, 12 connectors, 29 markers, 6 pads, no stale attribute), no temporary object or `TEMPORARY` text in `Tuning`, `startingKit = "Reference"`, `maxSeconds = 600`. The grep for code that caches Section descendants found none: `Characters` caches pad Parts (the `Pads` folder, never consumed) and `MapLayout` caches plain data. I also deleted 8 stale, empty `PickupsSpecFolder`s from `ServerStorage` that were left from earlier Edit-mode spec runs. Until step 5, a Kit dropped after a `Void` death validates against live floor only (the removed ground no longer counts), with no `CollapseParent` fallback.
+
+Next: step 4, the Section and Workspace attributes. Most of that already exists (the Workspace attributes and the per-model `CollapseState` and `CollapseRemovesAt` are written by `Collapse`), so step 4 is a check against the ticket's attribute table and the Ticket 25 and 26 contracts, and may fold into step 5.
 
 ### 23. Rift Warden
 

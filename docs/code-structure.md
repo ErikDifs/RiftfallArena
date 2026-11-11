@@ -241,10 +241,16 @@ From [Ticket 20](milestone-2-tickets.md#20-run-test-readiness), `Session` logs m
 
 ## Rift Collapse
 
-From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps and not yet wired into `Match`**. Steps 1 and 2 exist: nothing in the game requires them, so the Match behaves as before.
+From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. Steps 1 to 3 exist, and `Match` now drives the Collapse, but only with an Empty Starting Kit: with the Reference Kit nothing is built and the Match behaves as before.
 
 - **`CollapseRules`** (pure, `Shared/Rules`) holds the schedule and its validation, the ordered event cursor (`peek`, `complete`) with the stall shift and settle window, the replicated state (`publicState`), the phase labels, the HUD presenter (`present`), the QuietSpan rules, Section occupancy and the `CollapseParent` walk. Its config is `Tuning.collapse`.
-- **`Collapse`** (server) is a factory, `Collapse.new(deps)`, with the map root, a holding folder, a clock, a telemetry sink, the object hooks and the Workspace-attribute holder injected, so specs run it on a fixture. It owns the Section registry, the `Normal → Warning → Removed` states, atomic layer removal by reparenting into the holding folder, restore and reset, and the integrity check. `Match` will drive it, as it drives `Caches` and `Sentries`.
+- **`Collapse`** (server) is a factory, `Collapse.new(deps)`, with the map root, a holding folder, a clock, a telemetry sink, the object hooks and the Workspace-attribute holder injected, so specs run it on a fixture. It owns the Section registry, the `Normal → Warning → Removed` states, atomic layer removal by reparenting into the holding folder, restore and reset, and the integrity check. `Match` drives it, as it drives `Caches` and `Sentries`.
+- **`Match`'s part (step 3).** It is handed `Collapse.new` as `collapseFactory` and builds the one instance at startup, only with an Empty Kit. Then:
+  - `prepare` (restore and the intact assertion) runs just before the loot deal, and a failure disables Matches
+  - `start` runs at GO, `stop` at the end and `reset` after Results
+  - `Match.sync` applies what is due. It's called by `canAct`, `canCollect`, the target filter, the Cache attacker gate, `tick`, the Sentry loop and a Heartbeat step, so gameplay before a removal sees the old world and after it the whole layer gone
+  - `settleUntil` goes into `MatchRules.checkEnd`, so no verdict lands inside the settle window
+- **Object hooks.** `Caches.removeSection`, `Sentries.removeSection` (and its `setSync`) and `Pickups.sweepUnsupported` are idempotent, non-yielding and return flat counts. A Cache or Sentry marker names its Section with `SectionId`, and a loose Pickup is judged by its support ray alone.
 - **Nothing else holds Section parts.** A consumed model is reparented out of the map, so system code must not cache Section descendants. Steps 3 and 5 grep for it.
 
 ## Rift Collapse presentation
