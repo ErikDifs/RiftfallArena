@@ -2776,6 +2776,28 @@ Correctly deferred: Warden behaviour, final art and audio, overtime, roster-band
 
 Review result: **no ADR required.**
 
+#### Build record (2026-11-11, started)
+
+**Step 1, `CollapseRules` (done, 545 specs: 498 + 47).** Pure module in `Shared/Rules`, config in the new `Tuning.collapse`, specs in `CollapseRulesSpec`. Nothing in the game requires it yet, and `Tuning.match.maxSeconds` is still 480 (it moves to 600 with the `goAt` re-base in step 3, because the Layer 4 row fails the failsafe margin against 480).
+
+Decisions taken while building, for review:
+
+| Decision | Why |
+|---|---|
+| `Tuning.collapse.rows` holds `{ layer, removeAt, warnSeconds? }` only. `CollapseRules.rows` derives `warnAt` | One source of truth, as specified |
+| `peek(state, now)` offers the next event if due, and `complete(state, event, now, config)` advances the cursor, adds the delay to the shift and extends `settleUntil`. A repeated or stale `complete` returns nil | Lets the runtime mutate, clean up and sweep between the two, and retry a failed event without repeating the finished ones |
+| The state holds a cumulative `shift`, and an event's effective time is `goAt + offset + shift` | A late event delays every successor by exactly its delay, including its own removal |
+| The next removal's time is published as soon as the next event is known, with `CollapseWarning` false until the Warning is applied | The HUD's "Outer consumed in M:SS" needs it before the Warning. The ticket's attribute table lists the times only for the applied Warning, so this is a small extension for the developer to veto |
+| `CollapseRules.present` returns `hidden`, `stable`, `warning`, `final` or `failsafe`, plus `layerKey`, `seconds`, `tier`, `alert`, `lastGround`, `failsafeSeconds` and `overlap`. `final` is the LAST GROUND state, and the tier (`early`, `urgent`, `final`) is separate | Matches the ticket's presenter description. Localization stays in `MatchHud` |
+| `phase` returns `final` after the Layer 3 removal, or after the last row when there are fewer than three, and `dais` only with a Layer 4 row | Keeps the permanent Inner Crown fallback labelled sensibly |
+| An empty schedule is rejected, and so is a first Warning before GO | An unplayable schedule should never start silently |
+| A Warning may begin at the previous removal (zero stable gap), only before it is rejected | The ticket says "begins before". The settle-fraction rule then needs `settleSeconds` 0, and a spec covers it |
+| Also pure, for later steps: the `QuietSpan` state, Section occupancy, `resolveAt` for the settle gate, and `liveAncestor` for the Kit-drop `CollapseParent` walk | Each is in the ticket's list of things the pure module and specs must cover |
+
+Two of my own spec expectations were wrong at first (the gap after a shift is still 30 s, and 11 s left is still `early`). Both were fixed in the spec, and the rules were not changed.
+
+Next: step 2, the fixture and the `Collapse` runtime with injected dependencies.
+
 ### 23. Rift Warden
 
 **Status: specified 2026-11-09 and reviewed adversarially the same day, not built.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-warden-design.md`](rift-warden-design.md) and [ADR-0008](adr/0008-pve-actors-are-kinematic-server-models.md). This entry is the build contract. Values carry the same four labels as Ticket 22: **settled initial value**, **tunable**, **measurement-dependent**, **test-only**.
