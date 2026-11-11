@@ -2171,6 +2171,45 @@ Built in the order the Build and swap strategy sets. Nothing was published or up
 - The Studio play checks table at 2, 4 and 6 players, and seven in the Hub.
 - The developer's review of the decisions and findings above.
 
+**Settled with the developer (2026-11-11):** finding 1 is kept (the Dais stays under all three Sentries until Layer 3 falls, and the play checks decide whether it needs softening). Finding 2 is accepted (the outer band stays closed at each bay). Finding 4 waits for row 2. Measurements start in solo Play, and the two-client Match and play checks wait for a Server & Clients session.
+
+**Rows 1 and 2, measured 2026-11-11 (solo Play, `studio-tester`).** Rendering died mid-session, so only 2 of the 5 running jumps used real input. The rest drove the client's real `ForcedMovement` and `Humanoid` from a 60 Hz Heartbeat trigger, which is best-case timing.
+
+| Row | Result |
+|---|---|
+| 1 running jump | 8.0 studs (2 real runs; emulated 7.1–7.8, understated by slow acceleration). Standing jump 0 horizontal, peak about 7.2. Airtime 0.5 s |
+| 2 Dash, flat | 19.7–21.1, mean 20.7 (0.25 s at 80 studs/s) |
+| 2 Dash across the 12-stud `DashGap61` | 10/10 when the Dash starts in the last 8 studs before the edge. From 9.5+ studs out it falls (3 of 5). A Dash is level and drops about 6 studs in 0.25 s, so the window is short |
+| 2 jump then one Dash across a 24 seam | 7/10 crossed, reach 22.7–25.1 (Dash within 0.3 s of the jump) |
+| 2 Dash then jump | 2/10 |
+| 2 jump + two Dashes | **6/6 crossed, reach 26.6–40.0** |
+| 2 Dash, jump, Dash | **4/4 crossed, reach 34.6–42.1** |
+| 2 two Dashes, no jump | 0/3 |
+
+**Finding 4 is confirmed and escalated:** a 24-stud seam is crossed by one Dash plus a jump with tight timing, and by two Dashes plus a jump every time, past the 30-stud "never" line, so widening cannot stop it. **Settled with the developer (2026-11-11): accepted as skill play.** The seams stay at 24, Dash is unchanged, and the play checks say whether it breaks routes or the Collapse's parent rule. `DashGap23` was not walked itself (same 12-stud pinch as `DashGap61`).
+
+**Rows 3 to 7, measured 2026-11-11 (solo Play, `studio-tester`).** The victim was the real player character, so the client's real `ForcedMovement` ran. The caster was an anchored dummy. Charged Tidal Casts replicated `Casts.deliver` with the real scaled stats (not the forged ChargeStart/ChargeRelease path).
+
+| Row | Result |
+|---|---|
+| 5 Tidal tap | 5.07–5.60 studs, mean 5.4, over 0.22 s, peak speed 25 |
+| 5 Tidal full Charge | 8.37–9.04 studs, mean 8.65, peak speed 40.5 |
+| 5 which figure is true | **The Config's 5 and 8 studs.** The "25 and 40" in older docs are speeds in studs per second. The quirks file's contradiction is corrected. No lip margin needs more than about 9 studs for a Tidal push |
+| 6 parapet vs Tidal, grounded victim | tap 10/10 held, charged 5/5 held (**passes the threshold**). Parapet 1.5 thick × 4 high, 6.5–8.0 from the deck centre line |
+| 6 parapet vs Tidal, **jumping victim** | **2/2 went over and fell into the void** (not part of the threshold) |
+| 4 Hook vs parapet, sideways, same-level caster | 10/10 blocked (**passes**), but the margin is **0.1 stud**: the projectile leaves at y 3.9, the parapet top is y 4.0 |
+| 4 Hook, elevated caster (+2 to +6) | the projectile passes over every time. The pull is then stopped by the server sweep, 2.0 studs short of the face, or by physics if the victim touches the wall |
+| 4 smallest obstruction | LowCover (3.5 high) blocks the projectile only from 4.5+ studs; closer, it skims over. A pull is stopped by anything about 1.7+ high. Rib (8.1) assumed to block, plinth not isolated |
+| 4 Hook from the terrace to a Dais target (+5) | hit, pulled about 10.5 studs, then fell the 5 studs to the terrace |
+| 3 gravity during the pull | **Yes.** The pull sets level velocity only |
+| 3 Hook over `DashGap61` (12 studs) | pull speed is distance / 0.25 s: a 15-stud pull (60 studs/s) fell into the void, a 19-stud pull (76 studs/s) carried over. Threshold about 65–70 studs/s, two casts only. A Hook with the caster close to the far edge is a kill over a Dash gap |
+| 7 Basic Attack reach | 9.5 studs at dy 0, +3.5 and +5 (range 8 plus 1.5 capsule), no loss on the Dais or a ruin platform |
+| 7 Arc Burst reach | tap 19.5 at dy 0, +3.5 and +5. Full Charge 29.5 flat only |
+
+**Settled with the developer (2026-11-11): the jumping-victim crossing and the thin Hook margin are accepted for now.** The parapets stay 4 high, and the play checks judge whether a jump-then-hit kill on a Safe connector feels unfair.
+
+Not done: Risky-spoke edge Hook, Arc Burst full Charge at +3.5 and +5, `PairLink12` (same parapet size as `Spoke1`), a real forged ChargeStart/ChargeRelease hold.
+
 ### 22. Rift Collapse
 
 **Status: specified 2026-11-09 and reviewed adversarially the same day, not built.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`rift-collapse-design.md`](rift-collapse-design.md); this entry is the build contract. Every number carries one of four labels:
