@@ -78,6 +78,7 @@ StarterPlayer
         ├── Casting
         ├── CastAnimations
         ├── ChargeTelegraphs
+        ├── CollapseTelegraph
         ├── CosmeticProjectiles
         ├── CosmeticSectors
         ├── PickupVisuals
@@ -241,7 +242,7 @@ From [Ticket 20](milestone-2-tickets.md#20-run-test-readiness), `Session` logs m
 
 ## Rift Collapse
 
-From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. Steps 1 to 5 exist, and `Match` now drives the Collapse, but only with an Empty Starting Kit: with the Reference Kit nothing is built and the Match behaves as before.
+From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. Steps 1 to 6 exist, and `Match` now drives the Collapse, but only with an Empty Starting Kit: with the Reference Kit nothing is built and the Match behaves as before.
 
 - **`CollapseRules`** (pure, `Shared/Rules`) holds the schedule and its validation, the ordered event cursor (`peek`, `complete`) with the stall shift and settle window, the replicated state (`publicState`), the phase labels, the HUD presenter (`present`), the QuietSpan rules, Section occupancy and the `CollapseParent` walk. Its config is `Tuning.collapse`.
 - **`Collapse`** (server) is a factory, `Collapse.new(deps)`, with the map root, a holding folder, a clock, a telemetry sink, the object hooks and the Workspace-attribute holder injected, so specs run it on a fixture. It owns the Section registry, the `Normal → Warning → Removed` states, atomic layer removal by reparenting into the holding folder, restore and reset, and the integrity check. `Match` drives it, as it drives `Caches` and `Sentries`.
@@ -255,6 +256,10 @@ From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. S
 - **Displacement records.** A Cast's charge band travels `Casts` to `Projectiles` or `Sectors` to `Combat`, which tells the displacement listener the band, the victim's position and the distance given. `Match` stores them in the credit as `hitRadius`, `hitDist` and `chargeBand`.
 - **Object hooks.** `Caches.removeSection`, `Sentries.removeSection` (and its `setSync`) and `Pickups.sweepUnsupported` are idempotent, non-yielding and return flat counts. A Cache or Sentry marker names its Section with `SectionId`, and a loose Pickup is judged by its support ray alone.
 - **Nothing else holds Section parts.** A consumed model is reparented out of the map, so system code must not cache Section descendants. Steps 3 and 5 grep for it.
+- **Client presentation (step 6).** Client-only, no server code, no new remote and no sound.
+  - `CollapseRules` also holds the player-facing text table (`TEXT`, with `{named}` placeholders), `statusLine`, `alertLine`, `announceLine`, `pulse` and `arrowAngle`, all pure and specced.
+  - `MatchHud` builds its status line from `CollapseRules.present` whenever the Workspace carries `CollapseLayer`, for a player, a spectator and a Hub viewer, and keeps its old lines otherwise. It adds the local danger alert beneath the line (only while the presenter says `alert`) with the arrow, and the Warning announcement. It holds its last presentation for 80 ms after a Collapse attribute changes, because the four attributes arrive a few frames apart.
+  - `CollapseTelegraph` gives each Section or connector in `Warning` (its own `CollapseState`, while `CollapseWarning` is true) a Riftlight `Highlight` and a beacon in `Workspace.CollapseTelegraph`, pulsing on its removal time. It also finds the Section the local character stands on and the arrow's direction. Ticket 26 replaces it in place.
 
 ## Rift Collapse presentation
 

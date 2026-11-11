@@ -2910,7 +2910,58 @@ The first two runs found the rotated-pivot bug (every relocation answered `NoLiv
 
 **State after steps 4 and 5.** Edit mode shows the map intact (15 Sections, 12 connectors, 29 markers, 6 pads, no stale attribute), `ServerStorage` holds only `Tests`, `Tools` and `MatchMapGreybox`, `startingKit = "Reference"`, `maxSeconds = 600`, and with the Reference Kit no Collapse or holding folder exists.
 
-Next: step 6, the HUD presenter (already pure, in `CollapseRules.present`), the `MatchHud` line, the local alert and arrow and the telegraph effects with their cleanup. It is the first client-side work, and it needs the escape-target decision above. Step 7 (telemetry) follows.
+**Step 6 settled with the developer (2026-11-11), before building.**
+
+| Point | Decision |
+|---|---|
+| Escape arrow | Point at the nearest point of the `CollapseParent`'s own geometry first. Check the real map in Play for Sections where that points through blocked geometry, and add a per-Section escape target only for those |
+| `hitDist` | Kept as built: the displacement in studs the server gave the victim, not the distance to the lip |
+| Audio | None in step 6. Every cue gets its visual equivalent, and sound waits for Ticket 26 (no upload, no built-in sound risk) |
+| Viewers | The same global line for everyone. Hub viewers get the countdown in `Match in progress` text, spectators get the global line with no alert or arrow, and the spectator bar keeps its own alive count |
+
+**Step 6, the Collapse's client presentation (done 2026-11-11, 636 specs: 622 + 14, 0 failed).** The HUD line, the local danger alert with its arrow, the Warning announcement and the world telegraph, all client-side and all reading the attributes step 4 publishes. No server code, no new remote, no sound.
+
+What was built:
+
+- **`CollapseRules` (pure) gained the presentation rules:** the player-facing text table with `{named}` placeholders (`TEXT`, `format`, `layerName`), `statusLine` (the global line for any presenter result and context), `alertLine`, `announceLine`, `pulse` (0 to 1 from the seconds left and the tier) and `arrowAngle`. `Tuning.collapse` gained `pulseHz` and a `display` table. `Protocol` gained the five `COLLAPSE_*` attribute names, and the server still writes literals.
+- **`MatchHud`** takes the status line from `CollapseRules.present` whenever the Workspace carries `CollapseLayer`, and is unchanged otherwise (the Reference Kit, the arrival hold, Waiting, Countdown, Results). A Warning keeps the sentence and adds a `!! ` marker, an amber pulse and a larger size by tier. The local alert sits directly under the line, shows only while the presenter says `alert`, and carries the seconds and a rotating arrow. The Warning announcement shows for 4 s. The line, the alert and the pulse update every frame from the timestamps and are dormant when no Collapse state exists.
+- **`CollapseTelegraph`** (new, client) gives every Section or connector whose own `CollapseState` is `Warning`, while `CollapseWarning` is true, a Riftlight `Highlight` and a vertical neon beacon, both pulsing on the removal time so Sections sharing one removal share one rhythm. Every effect is a client-local instance in `Workspace.CollapseTelegraph`, non-collidable and non-queryable, destroyed when the model leaves Warning or the world or the Match changes. It also answers which Section the local character stands on (a downward ray against the map every frame while a Warning is applied) and the arrow's direction. It is the module Ticket 26 replaces in place.
+
+Decisions taken while building, for review:
+
+| Decision | Why |
+|---|---|
+| The status line is the presenter's for all three contexts, and a spectator (`Eliminated`) now sees it, where the old line was hidden | Settled above. The spectator bar keeps its own alive count |
+| A Warning connector gets the alert and no arrow | The ticket says connectors get no arrow, and a connector is a Section for state |
+| The alert shows only for a character within 16 studs above a Warning Section's floor | One ray down. A long Dash over a Warning Section may blink it for a moment |
+| The beacon stands on a floor sample: downward rays against the whole map through rings of the Section's largest parts, accepting the first upward-facing hit that belongs to the Section | The Crown is stacked discs (Band, Terrace, Dais). A ray through the centre of CrownOuter or CrownInner hit buried geometry, which would have put the beacon inside the Dais and hinted that the Dais was in danger. This is the ticket's floor-sample fallback, not geometry sampling |
+| The arrow's target is the nearest point of the parent's own collidable parts by horizontal distance, with a cylinder taken as a disc | A box round a cylinder is off by up to 10 studs at a corner. No per-Section escape target was needed on the real map (settled: direct first) |
+| The Warning announcement fires only for a layer this client watched in its stable state first | A joiner mid-Warning sees the line and the telegraph but no banner. It also means a zero stable gap would not announce, which the default schedule never has |
+| The HUD holds its last presentation for 80 ms after any Collapse attribute changes | The four attributes arrive a few frames apart. A sampler at the first removal saw the next layer with the last layer's countdown and a spurious announcement, and this removed both |
+
+**Specs (14 new, all in `CollapseRulesSpec`):** `format` and an unknown placeholder, the line before the first event, each layer's name and M:SS countdown, the Warning marker, never `0:00`, the final ground, the failsafe notice and the Hub and spectator wording, no layer number or Shard id in any line, the alert and announcement texts, the line and the alert showing the same seconds from the same timestamp, the pulse depending only on the time left, its range, rate and trough, its continuity across the 10 s and 5 s tiers, and the arrow angle in both camera orientations and for no direction. The client modules have no specs, because specs run on the server, and are covered by the live checks below.
+
+**Live checks (real Rift Crown, Play, the accelerated schedule with a 30 s Warning, then reverted).** A frame-by-frame client sampler read the HUD and the effects folder:
+
+| Check | Result |
+|---|---|
+| Before GO and with no Collapse | Old status line, no alert, no effects |
+| GO | `1 alive · Outer consumed in 1:00` |
+| Warning applied | The line gains `!!`, the announcement `OUTER IS BEING CONSUMED` shows for 4 s, the alert appears at once with `30` and an arrow, and 14 effects appear (7 models, a highlight and a beacon each) |
+| Countdown | Line and alert show the same whole seconds from the same timestamps |
+| Removal | The alert clears on the removal, the effects go to 0 in the same frame, and the line moves to `Middle consumed in 0:40` with no spurious announcement (after the 80 ms hold) |
+| Spectator after the fall | `0 alive · Middle consumed in 0:39`, no alert |
+| Results and the next Match | Everything hidden, `fx` 0, fresh effects the next Match |
+| Arrow | -105.5 degrees against an independent bearing of -106 on Shard 4's Outer ground, and radially inward on CrownOuter and CrownInner (45 and 135 against 45 and 135), with the player placed by a temporary teleport |
+| Beacons, every one of the 25 Section and connector models forced into Warning locally | 25 highlights and 25 beacons, each base on exposed floor of its own model (CrownOuter r = 26 on the visible ring, CrownInner r = 19 on the terrace, the Dais at its centre), none left over after clearing |
+| A screenshot at 16 s left | The line, the alert, the beacon and the highlight all render |
+
+**Not yet exercised live:** a real Match through Layers 2 to 4 with a player standing on them, the `LAST GROUND` and failsafe lines (specs only), a Hub viewer's line in a Running Match, a stalled-server shift on screen, a client joining mid-Warning, and how it reads on a phone or with a controller. The Highlight count is at most 25 here and Roblox renders 31, which holds for any one layer. How it looks and feels is for the developer to judge, and the art and audio belong to Ticket 26.
+
+**State after step 6.** Edit mode shows the map intact (15 Sections, 12 connectors), `ServerStorage` holds only `Tests`, `Tools` and `MatchMapGreybox`, no `TEMPORARY` instance or text anywhere (grepped), `startingKit = "Reference"`, `maxSeconds = 600`, and with the Reference Kit the client builds an empty effects folder and runs nothing per frame. The `.rbxl` snapshot is not re-saved and no checkpoint is published.
+
+Next: step 7, telemetry (the Alive and loot fields on the Collapse lines, `CollapseTick`, `CollapseExposed`, `QuietSpan`, `CollapseSummary` and the rest of the extended lines).
+
 
 ### 23. Rift Warden
 
