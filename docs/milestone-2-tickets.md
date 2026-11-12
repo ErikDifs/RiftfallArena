@@ -3812,6 +3812,32 @@ Extract **only** what both real implementations genuinely need, from the built W
 
 **Gate.** Step 4 goes back to the developer for review before `MonsterVisuals`.
 
+**Step 4 review (2026-11-12): accepted by the developer.**
+
+**Step 5: `MonsterVisuals` and the `Feedback` additions (2026-11-12, built, 988 specs).** Client only, no server code and no new remote. Built by the main session rather than `studio-implementer`, because it adapts `WardenVisuals` closely and a brief exact enough to delegate would have been the code itself.
+
+| Part | What |
+|---|---|
+| `MonsterVisuals` (client, new) | One scope per tagged `RiftMonster` model, drawn from its attributes and the replicated Humanoid Health alone, in `workspace.MonsterVisuals`. A low crawler of 15 Parts (torso, head, an oversized forelimb, an offhand, four legs, three teal seams, four cracks), the placeholder server Body hidden on this client only. No Territory ring, no Health bar, no nameplate, and nothing that reads the hidden reward |
+| States | Idle: crouched, dim seams, a slow breathing pulse. Wake: a 0.25 s rise with one seam flare, a small ring and `MonsterWake`. Chase: scuttle (bob, leg and offhand sway) with brighter seams. Return: dimmer seams, a slower look and `MonsterReturn` |
+| Claw | `PveTelegraph.wedge` (reach 5.5, 50 degrees, a lighter red than the Warden's) filling to `impactAt`, the forelimb winding up and striking, `MonsterIntake` at the Telegraph's start and `MonsterClaw` at the impact, the wedge lingering 0.15 s |
+| Hit and damage | A 0.1 s seam flicker and a 0.15 s flinch in place on any Health drop (no displacement, no hit-stop). Damage stage 1 to 3 from `MonsterDamageStage`: seams dimmer by 0.1 a stage, two cracks at stage 2 and four at 3, and stuttering seams at 3 |
+| Death | 0.4 s collapse, seams flare then go out, a dust ring and `MonsterDeath`, fading over `removeSeconds`. A monster seen already dead gets no effect |
+| Reward cue | When a monster dies, a Pickup arriving at its Home within 1.5 s gets the Cache-break burst and sound, once per Pickup (a pair shares a Home). An unflagged kill shows nothing |
+| Collapse, fault, Match end | The model is removed by the server, so the rig fades quietly over 0.4 s with no kill-like effect |
+| Near gate | Telegraph, rings and sounds only within 60 studs of the camera. The rig itself is always updated, so a far monster never freezes |
+| Sounds | `Tuning.feedback.sounds` gained `MonsterWake`, `MonsterIntake`, `MonsterClaw`, `MonsterDeath` and `MonsterReturn`, placeholders from built-in sounds (no upload). The hit has no sound of its own |
+| Status presentation | `StatusVisuals.mirror(sourceModel, rig, connections, isAlive)` is now the one implementation of Wet and the other Status Highlights on a PvE rig. `WardenVisuals` calls it in place of its own copy, so there is no second competing implementation. Its `StatusDefinitions` require is now unused |
+| `Feedback` | A result naming `MonsterClaw` shows "Riftling" in hostile red (as the Warden's stand-in does) and an id of kind `monster` is named "a Riftling". `Resisted` already works for any target, so the shared stone-set puff and thud apply |
+
+**Results.** `RunAll` on the Server in Play: **988 passed, 0 failed**, unchanged (client code has no spec). Checked live in Play on a `Monsters` clone with fake dependencies and the real Home markers, with a monster moved beside the player and its attributes driven by hand: 8 rigs of 15 Parts built with no console errors; wake (ring and sound at 0.12 s), intake and wedge at the Telegraph's start, the claw sound 0.47 s later (the Telegraph is 0.45 s) and the wedge gone 0.15 s after the impact, return sound, death dust and sound, and a full fade; a Pickup at Home after a kill gave one `CacheBreak` cue and an unflagged single kill gave none; a pair that shared one Pickup first gave two cues and now gives one (fixed); a `Status_Wet` tag put a Highlight on the rig and removing it took it off.
+
+**Not verified.** How the rig looks (nothing was captured), the Warden's own rig after the `StatusVisuals.mirror` change (it uses the same code the Wet check exercised, but a Warden was not run), and P13 small-screen readability, which stay with the Studio matrix and the developer's judgement.
+
+**Found for the next step.** `Session` still logs a monster's death as a generic `Kill killer=... victim=monster:...` line and counts it in a player's kills when it is `forPlayers` (`Session` line 247 skips only `sentry` and `warden`). The `monster` case belongs with the telemetry step.
+
+**Gate.** Step 5 goes back to the developer for review before telemetry (step 6).
+
 #### Population and selection
 
 Chosen once at Match setup, after `assignSpawns` and after Wardens (monsters do not depend on occupied pads). **Tunable starting rule, not scaled by player count:**
