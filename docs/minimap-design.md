@@ -29,6 +29,8 @@ The initial design (from an earlier session) was reviewed against the docs and t
 - C would hide a platform-support project inside a map feature.
 - `Esc` belongs to Roblox's own menu.
 
+**Update 2026-11-12.** That platform-input ticket is now [Ticket 29](milestone-2-tickets.md#29-platform-input-and-mobiletablet-support), settled with the developer, and it does not redesign this feature. On touch, a tap on the Minimap toggles the Tactical map (only at touch end, within a small movement and time limit). The Tactical map never takes touches, and its expanded size is the largest square that fits the free area, not a fixed fraction of the screen. Fire, Q and E, and Dash close it through the same read-only `Input` hook, which touch feeds. The Minimap sits top-left under `CoreUISafeInsets`. Gamepad is still a later ticket, and this ticket's own scope (keyboard and mouse) is unchanged.
+
 ## Point 2. What the player marker shows
 
 **Options.** A: one triangle showing the camera's yaw. B: a character-facing triangle plus a camera line past 30 degrees. C: character facing only.
@@ -99,7 +101,7 @@ The initial design (from an earlier session) was reviewed against the docs and t
 | Marker priority and overlap suppression | Kept, with the Cache row removed (Point 3). |
 | Camera indicator past 30 degrees | Replaced (Point 2). |
 | Expanded-map elevation | Cut (Point 4). |
-| Esc, mobile tap, D-pad and safe areas | Moved to a later platform-input ticket (Point 1). |
+| Esc, mobile tap, D-pad and safe areas | Moved to a later platform-input ticket (Point 1). Touch and safe areas are now [Ticket 29](milestone-2-tickets.md#29-platform-input-and-mobiletablet-support), and the D-pad and `Esc` stay deferred. |
 | Update-rate tiers | Collapsed to one tick of about 20 Hz for the marker, with everything else event-driven. |
 | Stale-update rejection | Dropped. State is derived and idempotent (see above). |
 
@@ -108,7 +110,7 @@ The initial design (from an earlier session) was reviewed against the docs and t
 - **The rendering technique is unproven.** There is no `ViewportFrame`, and no asset may be uploaded without approval. The ticket makes a gated spike the first step, with `EditableImage` first only if platform support is verified, and a stop-and-ask if only an upload would work.
 - **Connector identity may not be unique.** The documented attributes may not tell the 12 connectors apart, and an additive `ConnectorId` is the named fallback.
 - **A fixed north-up map of six similar Shards can disorient.** The `ShardId` labels and the own-Shard mark address it.
-- **No real-device mobile pass is possible yet,** because the game has no touch controls. The spike measures a proxy, and the real pass is a gate of the platform-input ticket.
+- **No real-device mobile pass is possible yet,** because the game has no touch controls. The spike measures a proxy, and the real pass is a gate of the platform-input ticket (now [Ticket 29](milestone-2-tickets.md#29-platform-input-and-mobiletablet-support)).
 
 ## Not decided here
 

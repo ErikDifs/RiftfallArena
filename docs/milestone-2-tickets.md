@@ -4246,7 +4246,7 @@ Milestones exist only inside a Match, which is itself dormant under the Referenc
 
 #### Settle before building Stage 1
 
-- **Input.** Three new actions (Riposte, Catch Breath, and Stage 3's Reserve swap) are reviewed together for keys and accessibility. Keyboard is the only input today (no gamepad or touch handling exists). The actions are device-independent (`Riposte`, `Recover`, `SwapReserve(slot)`) and **no key is assigned here**. Studio tests use placeholder bindings only.
+- **Input.** Three new actions (Riposte, Catch Breath, and Stage 3's Reserve swap) are reviewed together for keys and accessibility. Keyboard is the only input today (no gamepad or touch handling exists). The actions are device-independent (`Riposte`, `Recover`, `SwapReserve(slot)`) and **no key is assigned here**. Studio tests use placeholder bindings only. The review includes touch (see the platform input note at the end of this ticket and [Ticket 29](#29-platform-input-and-mobiletablet-support)).
 - **The combat-idle window** and the other values below are placeholders until measured.
 
 #### Milestone engine
@@ -4473,6 +4473,15 @@ An adversarial pass against the Match, Combat, Kit, Pickup, Collapse and PvE spe
 - **`explore` without `reserve`:** the gate rule is asserted by a spec.
 
 Accepted, with evidence to follow: the recorded risks above. Correctly deferred: see Future work. Review result: **ADR-0009 is warranted and written.** The other decisions are tunable gameplay and rules plus system work.
+
+#### Platform input coordination (Ticket 29, added 2026-11-12)
+
+[Ticket 29](#29-platform-input-and-mobiletablet-support) adds touch input, and it changes nothing in this ticket's rules. What it means for this ticket:
+
+- **Actions stay device-independent.** `Riposte`, `Recover` and `SwapReserve(slot)` join the shared action dispatcher through one category entry and one bindings entry each. The "Input" review above covers touch as well as keys, using Ticket 29's bindings table.
+- **Riposte** is time-critical and needs a direct single-tap control that shares nothing with Dash, Q or E. Ticket 29 reserves a **fixed slot** for it in the touch layout, hidden until it unlocks, so no other control ever moves. No Riposte behaviour is built there.
+- **Recover and SwapReserve** are out-of-combat actions. On touch they use a contextual card, not a permanent button, and are **not displayed unless the client can read their eligibility**. **Requirement for this ticket when built:** expose read-only client state for the unlock, the uses left, the shared combat-idle state (or an equivalent) and, for Stage 3, the Reserve's occupancy. Until it exists Ticket 29 shows no such cards, and server rejection stays the safety check, not the way a player learns whether an action is usable.
+- **Order:** whichever ticket reaches `Input` first, the other adapts to it. They never run in parallel Studio sessions, and neither waits for the other.
 
 ### 26. Rift Collapse Visuals and Atmosphere
 
@@ -4776,6 +4785,15 @@ An adversarial pass against Tickets 21 to 25 found **no blocking contradiction a
 
 Accepted, with evidence to follow: the recorded risks above. Correctly deferred: see Deferred. Review result: **no ADR required.**
 
+#### Platform input coordination (Ticket 29, added 2026-11-12)
+
+[Ticket 29](#29-platform-input-and-mobiletablet-support) does not change this ticket's tiers or budgets. **Ticket 26 keeps owning Full and Lite.** What it adds:
+
+- **Graphics Quality is evidence, not a promise.** Ticket 29 records Roblox's `SavedQualityLevel` beside this ticket's `Tier` diagnostic on each real device. This ticket's API check decides which signals pick the tier, and "Lite when unknown" stays.
+- **The Lite beacon cut needs a specific review if the Minimap does not exist yet.** The HUD names the layer, not the Shard, and Lite shows at most 3 beacons against 8. Lite may drop only information that the HUD or the Minimap also shows, so a Lite player never loses a far-warning cue that a Full player has. If this ticket lands before Ticket 27 Stage 1, review that cut before accepting it.
+- **The readability capture matrix gains a real-device row at the lowest Roblox graphics quality**, checking Ability projectiles, Telegraphs, Warden and Riftling attacks, Status and Reaction cues, Collapse boundaries and player visibility. Status and Reaction cues are world `ParticleEmitter`s with no HUD icon, so whether they survive the lowest quality is an open check.
+- **Lite changes cosmetics only.** It never changes gameplay, input, the HUD layout, hit areas or timing.
+
 ### 27. Minimap and Objective Awareness
 
 **Status: specified 2026-11-11 and reviewed adversarially the same day, not built, and staged.** Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`minimap-design.md`](minimap-design.md); this entry is the build contract. Values are **fixed** (an approved requirement, changed only by a recorded design change) or **tunable** (a starting value that evidence can change). **Stage 1 starts only after Ticket 22 is fully implemented, tested and accepted, including its two-client runs.** Stage 2 starts only after Ticket 23 provides the Warden's authoritative state. There is **no dependency on Ticket 24 or Ticket 26**.
@@ -4804,7 +4822,7 @@ A read-only 2D map of the Rift Crown, built from authored topology, in two sizes
 - Elevation of any kind: no ramps, ruin platforms, contours or height numbers.
 - A countdown of any kind on either map. The Collapse HUD line and the local danger alert already carry the timing.
 - Zoom, pan, waypoints, selectable markers, tooltips and manual filters.
-- Touch, gamepad and `Esc` handling, and any on-screen button (the mouse is locked to the centre). These belong to a later platform-input ticket.
+- Touch, gamepad and `Esc` handling, and any on-screen button (the mouse is locked to the centre). Touch and safe areas belong to [Ticket 29](#29-platform-input-and-mobiletablet-support), and gamepad to a later ticket.
 - A `ViewportFrame`, a live Workspace scan, a per-frame geometry rebuild, a map service or parallel map simulation.
 - **No new RemoteEvent, no server code, no new replication, no new attribute.**
 - Uploading any asset. Anything that needs one stops and asks the developer.
@@ -4902,7 +4920,7 @@ Reads `MatchCrownOpensAt`, `WardenHome` and `WardenState`, and adds the glyph at
 
 - **Rift Cache markers.** Reconsidered only if playtesting shows a discovery problem. Cache state is live information about other players, so any later version needs its own fairness review.
 - **Ramp markers**, only if playtesting shows a genuine navigation problem.
-- **Touch and gamepad input and safe areas**, in a later platform-input ticket. Until then the real-device mobile pass is a gate of that ticket and not of this one.
+- **Touch input and safe areas**, in [Ticket 29](#29-platform-input-and-mobiletablet-support), and **gamepad** in a later ticket. Until then the real-device mobile pass is a gate of Ticket 29 and not of this one.
 
 #### Dependencies, risks and ADRs
 
@@ -4914,6 +4932,15 @@ Reads `MatchCrownOpensAt`, `WardenHome` and `WardenState`, and adds the glyph at
   - The fixed north-up map of six similar Shards can disorient, which the `ShardId` labels and the own-Shard mark address.
 - **No ADR required.** The ticket is presentation over state that is already replicated and changes no authority, movement, hitbox or one-life decision. The rule that no map ever shows another player is recorded here and in the design archive, and a future ticket that adds scanning or pings must reopen it deliberately.
 - **Glossary:** `CONTEXT.md` gains **Minimap** and **Tactical map**, and **Riftlight** gains the map's Warning fill.
+
+#### Platform input coordination (Ticket 29, added 2026-11-12)
+
+[Ticket 29](#29-platform-input-and-mobiletablet-support) builds the touch behaviour this ticket deferred. It changes none of this ticket's fixed rules (north-up, the markers, non-modal, no zoom or pan) and adds no server code or replication. What it needs from this ticket:
+
+- **A public toggle** on the map controller, which the M key already drives. On touch, a tap on the Minimap calls it, only at touch end and only within a small movement and time limit.
+- **The read-only hook on `Input` must see touch-originated presses.** Touch feeds the same action dispatcher, so Fire, Q and E, and Dash close the Tactical map and still act exactly once. Jump, movement and look do not close it.
+- **Touch layout:** the Minimap sits top-left under `CoreUISafeInsets`, because the bottom corners hold controls on touch, and the Tactical map's expanded size is the largest square that fits the free area outside the keep-out boxes (the Crosshair, the Collapse status and alert, the controls and the card). The Tactical map never takes touches, and only the Minimap rectangle responds.
+- **The rendering spike also records minimum connector and glyph pixel sizes** for phone legibility, beside its instance counts and costs.
 
 ### 28. Final Kill presentation: impact beat and Winner reveal
 
@@ -5026,6 +5053,263 @@ The kill switch is the rollback: `impact.enabled = false` removes the beat and l
 - **ADR:** none. Nothing changes authority, movement, hitbox or the one-life decision ([ADR-0007](adr/0007-one-life-arena-match.md)). The rule that the Winner is never shown to have made a kill they did not earn is recorded here.
 - **Glossary:** `CONTEXT.md` gains **Winner reveal** and **Impact beat**.
 - **Deferred:** the Win-cam (a replay of the last kill from a replay camera, with a server-side bounded history and cosmetic rigs) is a separate future ticket, to be written only if the impact beat is not enough. Nothing here blocks it.
+
+### 29. Platform Input and Mobile/Tablet Support
+
+**Status: specified 2026-11-12 with the developer, not built.** Every design point was grilled one at a time against the real repository, and the reasoning is recorded here and in [ADR-0010](adr/0010-touch-input-through-one-action-dispatcher-and-a-custom-touch-movement-driver.md). The ticket is **staged**. Nothing starts without the developer's go-ahead, and Studio has one driver at a time. It is **additive and must not interfere with Tickets 23 to 28**: Stage 1 is a PC-only refactor, and every later stage waits for the ticket whose surface it touches (see Dependencies). Values are **fixed** (an approved requirement, changed only by a recorded design change) or **tunable** (a starting value that real-device evidence can change). **Every size, position, gap, hit radius, opacity, sensitivity, time limit and breakpoint below is tunable**, and none is a requirement until it has been tuned on real devices.
+
+**Stop rule (fixed).** Ticket 29 keeps the server-authoritative mechanics and `Protocol` as they are. If a genuine implementation blocker seems to need a server, `Protocol` or gameplay change, **stop and ask the developer**. The ticket never expands to cover it by itself.
+
+#### Summary
+
+Phones and tablets play the whole game: movement, camera, aiming, casting, pickups, the HUD, the Minimap, spectating and Return to Hub. They are not a scaled-down desktop interface, and they get no advantage over PC. Touch is a second input source feeding the same action dispatcher as keyboard and mouse, so no gameplay system learns which device is in use, and the server never does. PC controls behave exactly as they do today. Gamepad is a **separate future ticket**, and the architecture leaves room for it without rewriting anything.
+
+#### Non-goals (fixed)
+
+- **Gamepad support** (a future source plus native movement), and any `Esc` handling.
+- **Aim assist, soft lock or auto-targeting**, which `CONTEXT.md` already lists under Hit Tolerance's _Avoid_ list.
+- **The Fire latch (A2)** and any **Jump gesture**. A2 stays a fallback that only real-device evidence can justify, and a Jump gesture was rejected for reliability.
+- **Automatic jumping.** Auto-jump is off on touch.
+- Left-handed or customizable layouts, a control-customization screen, an in-game graphics settings screen, and a runtime-adaptive performance manager.
+- **Any server script, `RemoteEvent`, payload, `Protocol` change or new replication.** Any upload.
+- Changing Ticket 27's marker rules, north-up orientation or non-modal behaviour, or Ticket 26's tiers and budgets.
+- Speculative Riposte, Recover or SwapReserve behaviour. Those belong to Ticket 25.
+
+#### What exists now (read 2026-11-12)
+
+- `Client.Input` is already action-based: callbacks for Dash, slot press and release, replace, Spectate, focus loss, plus `isFiring`, `isModifierHeld`, `setSlotOverride` and a Match gate. It reads only Mouse1, LeftShift, F, G, Q and E.
+- `Client.Camera` is `Scriptable`, locks the mouse to the centre, and reads `GetMouseDelta`. The character is forced to the camera's yaw every frame. The Crosshair at the window centre defines the Aim Point.
+- Dash reads `humanoid.MoveDirection`, falling back to straight back from the aim. Movement and Jump come from Roblox's default controls.
+- `Casting` has one cancel path, `endCharging(true)`, reached from focus loss (`onFocusLost`), which sends `ChargeCancel` and casts nothing. A Dash, a knockback, death or a blocked state end a Charge locally. A release with no aim point gives up instead of casting. `Casting` does not check the Match phase on a held release.
+- `Replacing` offers the nearest replaceable Pickup (6 studs), shows a prompt, and sends `{pickupId, slot}` on F plus a slot. It has no Match-phase check (the server refuses outside a Match).
+- `Hud` and `MatchHud` use fixed pixel sizes, a bottom-centre cluster (Health, Shield, Dash charges, Ability slots, the replace prompt), a top-centre status and Collapse alert, and a 520 by 70 spectate bar with 32 px buttons. Both `ScreenGui`s use `ScreenInsets = None`, so the Crosshair sits on the camera's centre. `Results` is 660 px wide with eight columns.
+- Status and Reaction cues are world `ParticleEmitter`s. There is no HUD status icon.
+- Tickets 26 and 27 are specified, not built. Ticket 27's input is keyboard and mouse only, and it deferred touch, gamepad and safe areas to this ticket.
+
+#### Settled design
+
+##### A. One action dispatcher (fixed)
+
+Keyboard and mouse and touch are **sources**. Both feed one dispatcher with device-independent actions: Fire, Slot(n), Dash, Replace(slot, pickupId), Spectate, ToggleMap, and, when Ticket 25 exists, Riposte, Recover and SwapReserve(slot). A bindings table holds the touch controls and the per-profile hint text, and is where Ticket 25's pending key review happens. **PC key constants stay in `Input`.**
+
+| Category | Actions | Rule |
+|---|---|---|
+| **Held** | Fire | The level is true while any source holds it. `isFiring` is that level and the Match gate, as today. |
+| **Press/Release pair** | Slot(n) | The press edge fires when the first source starts holding it. The release edge fires when the last source lets go. A cancel is a third outcome and never a release. |
+| **One-shot** | Dash, Replace, Spectate, ToggleMap, Riposte, Recover, SwapReserve | One event per physical press. No holder counting. |
+
+- **Holders are per source, one per action.** A new touch on the same control replaces the old touch's holder and transfers ownership, with no extra edge, so a touch-end that never arrives cannot hold an action forever. Counting happens across sources, so there are at most two or three holders.
+- **No timing-based deduplication.** Each `InputBegan` and each new touch `InputObject` is one press, delivered on arrival at any frame rate, so two genuine presses a few milliseconds apart are never lost. Duplicates across sources are admitted by the existing gates, which already allow exactly one: the per-Ability cooldown and `attemptId`, `startCharging` ignoring a second start, `activeDash`, the Dash charge count and `dashId`, and the server taking the first valid `ReplaceRequest` under its guard. `ToggleMap` is owned by the map, so two toggles are two toggles.
+- Hold-to-confirm lives in the card logic, not in the dispatcher: it produces a single one-shot when it completes.
+- **The extension point for Ticket 25 and a future gamepad** is a category-table entry plus a bindings entry. The first stages need neither.
+
+**Cancellation is not one thing.** The dispatcher separates a normal **release**, a **cancel** with a scope and a reason, and a **disconnect** of one source. No cancel reaches `ChargeRelease`.
+
+| Event | Scope | Effect |
+|---|---|---|
+| A touch ends, or a key is released | its own holder | Release, as today. A Chargeable Slot casts once, on the last holder's release. |
+| A touch is cancelled by the OS (`UserInputState.Cancel`, to be verified) | that touch's holder | The holder is removed. If another source still holds the action, nothing else happens. If it was the last holder, a **per-slot cancel** goes to `Casting` (new `onSlotCancelled(slot)`: if Charging that slot, `endCharging(true)`), which sends `ChargeCancel` and casts nothing. A Fire touch cancel only recomputes the Fire level. |
+| The window loses focus, or the Roblox menu opens (`GuiService.MenuOpened`, to be verified) | all input | Exactly today's `onFocusLost` path: Fire off, the replace modifier off, `endCharging(true)`. Every holder is cleared. |
+| Death, Elimination, or the Match leaving Running | **touch only** | Touch holders are cleared and fingers still down become inert until they end, with a per-slot cancel for any held slot. Keyboard state is **not** touched, so PC behaviour is unchanged. This also covers the held-release gap above for touch. |
+| A profile change | the touch source | It applies only at a **quiet point** (no holder, no Charge, no active touch), so there is nothing to cancel. If it is ever violated, it is a source-scoped cancel as above. |
+| A future gamepad disconnects | that source | A source-scoped cancel. |
+
+- **Touch ownership is by `InputObject` and fixed at touch begin.** A role is never reassigned by position or `gameProcessed`. A button's action lasts as long as its touch, with **no drag-off cancel**, and a drag from a button keeps rotating the camera. The documented exceptions are confirmation holds and the Minimap tap (below), which cancel or go inert on a drag.
+- A touch that has been cancelled, superseded or made inert never calls a release or any other action, even if its End event arrives later.
+
+##### B. Movement and camera (fixed)
+
+- **Movement stays separate from the dispatcher.** On touch devices `DevTouchMovementMode = Scriptable`, and a small touch-only driver owns the floating left stick and the Jump button. PC and gamepad movement stay Roblox-native, and the driver is independent of combat logic.
+- The driver writes `Humanoid:Move(worldDirection, false)` every frame, with the world direction computed from the camera's **yaw only**, so pitch never matters, and sets `Humanoid.Jump`. Dash still reads `MoveDirection`, so its rule is unchanged. `Humanoid.AutoJumpEnabled` is set false on touch devices.
+- **Starting values (tunable):** a radial dead zone of about 15% of the stick radius, full speed past it, no snapping to eight directions, and an origin that **trails the finger** at the maximum radius. A stick touch never becomes a look touch and a look touch never becomes a stick touch. Lifting the thumb sends `Move(0)`.
+- **Camera:** the existing `Scriptable` camera takes **one summed look delta** from `Input` (mouse plus touch), with touch sensitivity scaled to the screen. Roblox's touch camera is not reused, because it ignores touches that began on GUI. Linear sensitivity is the default, and pointer acceleration is only a spike option.
+- **Two required touches at most** in the core loop (stick plus one right-hand touch).
+
+##### C. Input profile and hybrid devices (fixed)
+
+- One **input profile** module (Desktop, Phone, Tablet) owns the active profile, and Hud, MatchHud, the card and the Minimap subscribe to it. Nothing polls devices.
+- **`PreferredInput` is the starting prior, not the whole answer.** [Roblox's documentation](https://create.roblox.com/docs/input) says a mobile device with a Bluetooth keyboard or mouse connected maps to KeyboardAndMouse, and it remembers its last state across launches, so a tablet played by touch could otherwise show the desktop HUD.
+- **The profile detector watches touch independently of the touch router.** The router is armed only in the Touch profile, but the detector is always listening, so there is no deadlock. In the Desktop profile on a touch-capable device, the **first touch that the GUI did not process** marks a pending switch to Touch, and that touch is **consumed by the detector**: it is never dispatched to gameplay and stays inert until it ends. The switch applies at the next quiet point, and the next touch goes to the router. Switching back needs a deliberate keyboard or mouse gameplay action (Q, E, F, LeftShift, G, M or Mouse1, never mouse movement). The keyboard source is always armed, so that action also runs normally. A minimum dwell time in a profile (tunable) prevents flapping.
+- **A switch never leaves an action held, never moves a control under an active finger and never interrupts a Charge.**
+- A Gamepad profile is not built. It falls back to the Desktop HUD until the gamepad ticket.
+- The behaviour on a touch-plus-keyboard device is unverified, so the hybrid matrix is a **blocking functional check** (below).
+
+##### D. Combat controls: Layout A, the Arc (fixed baseline, all values tunable)
+
+```text
+                      [ E ]
+                 [ Q ]
+        [Jump] [Dash]         [ FIRE ]        (Riposte: a reserved slot on the same arc)
+```
+
+- **Fire** is large, at the right thumb's rest point, and the pivot sits **inboard of the corner** (starting values: about 2.5 button units from the right edge and about 2 from the bottom) so a thumb dragging to look has room to the right and down. **Dash** is its nearest neighbour, **Jump** sits beside Dash, and **Q and E** sit on the arc above. Fire, Q and E hold and drag-aim, and a drag across Dash or Jump never activates them.
+- **Q and E reuse the existing Hud slot widgets** (name, Rank pips, cooldown shade, Equip Lock bar, empty state) as the interactive buttons, with no duplicate row. **Dash charges and recharge progress** show on the Dash button.
+- **A fixed Riposte slot** is reserved on the arc as layout data only, hidden until Ticket 25 unlocks it. It never makes another button move, has a distinct shape and colour from Dash, and is not adjacent to Jump. **No Riposte behaviour exists in this ticket.**
+- **Hit testing** is nearest-centre within a maximum radius, with hit areas larger than the visuals and gaps between them, so hit areas never overlap. Visuals and hit areas are separate.
+- **Layouts B** (an edge column) and **C** (Layout A plus a shoulder Jump for an index finger) are real-device comparisons only. They are **not** part of the initial implementation.
+- **Phone and Tablet are separate profiles** with data-driven positions and sizes. Button size follows a clamp on the short side with a cap, and tablets raise and move the pivot inboard. The 600 px threshold and the formula are **hypotheses**. Roblox exposes no physical-size API, so sizes are tuned from millimetre measurements on devices, not from pixels.
+- **Pure layout rules** (`TouchLayoutRules`) take the profile, the viewport and the insets, and return every rectangle. **Overlap specs** run across a viewport matrix (for example 667 by 375, 844 by 390, 932 by 430, 1024 by 768 and 1180 by 820 as starting values) with synthetic asymmetric notches, and check controls, HUD zones, the Crosshair keep-out box, the Minimap, the card and the safe areas.
+
+##### E. The contextual-action area and the Replace card (fixed)
+
+- **One contextual-action area**, centred above the Health bar, compact and icon-based, clear of the Crosshair keep-out box and the combat controls. It is **hidden unless the Match is Running and the player is Alive**, and hidden while Charging, Stunned, Frozen, in a Riposte stance or a Recover channel, or while any combat-owned touch is active.
+- **Priority:** Replace, then Recover, then SwapReserve. The area shows one action. An idle card keeps its action while it stays eligible, and a higher-priority newcomer replaces it only after being the top choice for a short stable time (tunable). A card under an active touch is frozen.
+- **Replace card.** It appears automatically when the existing `Replacing` logic finds a replaceable Pickup. It is compact and subdued until touched, with one button per slot that shows the outgoing Ability and Rank and the incoming Ability and Rank (a different colour when the outgoing Rank is higher). Automatic pickups and Rank upgrades are unchanged, and PC keeps F plus Q or E.
+- **The hold is uniform, starting at 0.35 s (tunable)**, with visible progress. Dragging outside the confirmation button cancels it, and a touch submits at most one request. The request carries `{pickupId, slot}` as today, so it is the same remote and the same server checks, and the hold is a client convenience, not a guarantee.
+- **A hold is bound to a tuple** captured at touch begin: the action, the Pickup id, the slot and the slot's current Ability. If the tuple, the eligibility, the Match state or the target changes, the hold cancels, the touch goes inert, and **a fresh touch is required**. It never restarts against a different Pickup and never runs a different action. A completed hold cannot cast or send a second request when the finger lifts.
+- **Target hysteresis is deferred**, so the existing nearest-Pickup choice is unchanged for PC.
+- **Recover and SwapReserve are not shown unless the client can read their eligibility.** They need read-only replicated state from Ticket 25 (unlocked, uses left, the shared combat-idle state, and for Stage 3 Reserve occupancy). Until that exists, **they are not displayed**, and this is a dependency to resolve **before those cards are enabled**. Server rejection stays as the safety check and is never the way a player learns whether an action is usable. Whether they need the 0.35 s hold is for Ticket 25's input review, defaulting to the same hold.
+
+##### F. HUD hierarchy and safe areas (fixed tiers, tunable values)
+
+| Tier | Elements |
+|---|---|
+| **1, always glanceable** | Health and Shield, Q and E availability, Rank and cooldown, Dash availability, Charge progress, Collapse alert and warnings. |
+| **2, reduced** | The feed (fewer, shorter lines), damage numbers and hit marks, the Minimap. |
+| **3, hidden on touch** | Key hints such as "(G)" and "F + Q", the replace-prompt text, Ability name text on the buttons (icons and Rank pips instead), and the Tactical map until opened. |
+
+- **Status effects** have no HUD icon. In v1, Stunned and Frozen show as a disabled button state in addition to the world visuals, and nothing new is added unless device tests show a need.
+- **Safe areas:** `Hud` and the Crosshair stay on `ScreenInsets = None`. The controls `ScreenGui` uses `DeviceSafeInsets` plus a margin from the system gesture edges. The Minimap and Tactical map use `CoreUISafeInsets`, which keeps them clear of device cutouts and Roblox's top-bar buttons without a fixed offset. Rectangles come from `GuiService:GetInsetArea` and are recomputed on a size change.
+- **Results** keeps the rank, Player, Result and Kills columns on phones and folds the rest, and fits inside the safe area. The Winner reveal and the Collapse alert are checked on narrow viewports.
+- **The central aiming area stays free of controls**, and buttons rest at reduced opacity and brighten when pressed. Pressed, charging, cooldown, locked and disabled states use shape, fill or outline, not colour alone.
+- **Key-hint text** is platform-aware and comes from the bindings table.
+
+##### G. Minimap, Tactical map and spectating (fixed)
+
+- **The Minimap is the toggle.** A tap on the Minimap opens and closes the Tactical map. The router tests a touch against the Minimap rectangle **only at touch begin**, so a look or stick touch passing over it never activates it. The tap toggles on **touch end** only if the touch stayed within a movement slop and a time limit (starting values about 10 px and 0.35 s). A longer or farther touch is inert and never opens or closes anything.
+- **The Tactical map never takes touches.** Only the Minimap rectangle responds. The expanded view is the **largest square that fits the free area** outside the keep-out boxes (the Crosshair, the status and alert band, the controls and the card), anchored to the Minimap's corner, so it is not a fixed fraction of the screen. Ticket 27's rules (fixed north-up, markers, non-modal, no zoom or pan) are unchanged. The Minimap sits top-left under `CoreUISafeInsets`, since the bottom corners hold controls on touch.
+- **Combat while it is open:** Fire, Q and E, and Dash close it and the action still runs exactly once, through Ticket 27's read-only hook on `Input`, which sees touch-originated events because touch feeds the same dispatcher. Jump, the stick and look do not close it, a held Fire does not close it again, and Elimination and any Match transition close it. Opening it with both thumbs busy needs a third touch, which is accepted because it is not part of the core loop.
+- **Spectating gets a compact, content-sized bar** at the bottom, with previous, Return to Hub and next at least target-size, a clear gap round Return to Hub, and the label above. It sits above the bottom safe inset. **Return to Hub stays an explicit tap** with no hold, since it is reversible (a Hub player can Spectate again). These non-combat controls use native `GuiButton.Activated`, and the touch router stands down while spectating. The Spectate Match button is touch-sized and drops its key hint on touch.
+- **The Spectate camera** uses Roblox's `Custom` camera. Whether it accepts touch rotation and pinch zoom is **unverified** and is an implementation check.
+
+##### H. Performance and Lite (fixed principles)
+
+- **Ticket 26 owns Full and Lite**, chosen once at Match start, with Lite when unknown. Touch devices are not classified as low-end. **Lite changes cosmetic effects only**, never gameplay, input, the HUD layout, hit areas or timing, and it preserves Telegraphs, Collapse warnings, projectiles and objective information.
+- **Roblox's Graphics Quality is not promised to control the tier.** `UserGameSettings.SavedQualityLevel` is readable from a LocalScript, but what it returns on mobile under "Automatic" is undocumented. Ticket 29 only **gathers evidence**: on each device it records the signal under Automatic and under each manual level beside Ticket 26's `Tier` diagnostic. If the signal proves reliable, the manual lever is documented as a consequence. If not, Graphics Quality stays an independent engine setting.
+- **Thresholds are set from measured baselines**, not invented. Measure each reference device on the current build before any touch UI and again with it, recording medians, 1% lows, memory growth per Match and the thermal trend. Set "no more than X% worse than the baseline" plus absolute floors, chosen by the developer after seeing the data, and write them into this ticket **before external mobile testing**. Re-run after Tickets 26, 27 and 28 are built.
+
+#### Known asymmetries (logged, measured, never compensated automatically)
+
+| Asymmetry | Why |
+|---|---|
+| **Fire to Dash lift gap** | The thumb leaves Fire to tap Dash and must press Fire again. PC has no such gap. |
+| **No Jump during a Charge** | One thumb holds Q or E and the other holds the stick, so Jump needs a third touch. A client-only, test-only counter of "Jump pressed while Charging" in PC playtests shows how often it matters. If it is common, the escalation order is a shoulder Jump (Layout C), then a Charge latch for Chargeable Abilities, each a recorded decision. |
+| **The 0.35 s replace hold** | PC replaces in two keypresses. |
+| **Continuous stick angles** | Keyboard movement is eight fixed directions. |
+| **Touch versus mouse sensitivity** | Different devices and units. |
+
+The Jump-while-Charging counter has negligible overhead, is **disabled outside testing**, and adds no replication or gameplay change.
+
+#### Dependencies and coordination
+
+- **Ticket 25** (not built): its actions are device-independent and no key is assigned. Ticket 29 reserves the Riposte slot and offers the extension point, and Recover and SwapReserve use the contextual-action area once Ticket 25 provides read-only eligibility state. Whichever ticket reaches `Input` first, the other adapts to it, and they never run in parallel Studio sessions. See the note in Ticket 25.
+- **Ticket 26** (not built): Lite integration waits for its Stage 1. See the note in Ticket 26 about beacons and the readability capture.
+- **Ticket 27** (not built): the Minimap tap waits for its Stage 1 and needs a public toggle and the read-only hook. See the note in Ticket 27.
+- **Tickets 22, 23, 24 and 28:** no code dependency. Their Telegraphs, Wardens, Riftlings and the Winner reveal join the readability checks, and Ticket 24's P13 small-screen check already exists.
+- **No dependency on gamepad.** Ticket 29 builds no gamepad code, and the dispatcher and the bindings table leave room for it.
+- **Surface touched.** The existing client modules are `Input`, `Hud`, `MatchHud`, `Camera`, `Casting` (the single `onSlotCancelled` handler), `Replacing` (the card path with the locked id, and a Match-phase check) and `Spectating`. New client modules are provisional: an input profile, a touch router and movement driver, and a touch layout. New pure rules in `Shared/Rules` are provisional too: `ActionRules`, `TouchRules`, `TouchLayoutRules` and `ContextActionRules`. `Tuning.touch` holds the numbers. No server script and no `Protocol` event is touched.
+
+#### Implementation stages
+
+Every stage that touches input keeps the **PC regression set blocking**: a mobile improvement must never silently break keyboard and mouse behaviour.
+
+1. **Input seam, PC only.**
+   - Write characterization specs of today's keyboard and mouse semantics first.
+   - Extract only the holder, edge and cancel state into `ActionRules`, and make `Input` an adapter over it. Key mapping, the modifier-to-replace routing, the Match gate and the Spectating override stay in `Input`.
+   - The same event sequences must produce the same callbacks. Add the new `onSlotCancelled` hook only in Stage 2.
+2. **Touch core, then device spike 1.**
+   - Add the input profile and its independent detector, the touch router with ownership and cancellation, the look delta in `Camera`, the movement driver and the Jump button, the minimal Fire, Q, E and Dash buttons on a **temporary layout**, and the `Casting` per-slot cancel.
+   - Spike 1 is a **go or no-go gate** for hold-to-fire (A1) against the latch (A2) and for the ownership design. It tests touch events for a touch that began on a button, multi-touch limits, OS-stolen touches, `Move` and Dash direction, Jump hold and auto-jump off.
+3. **Layout and HUD, then device spike 2.**
+   - Build the layout rules and their overlap specs, the Phone and Tablet profiles, the Hud widgets as buttons, Dash pips, the HUD tiers, the Results fit, the contextual-action area with the Replace card, and the reserved Riposte slot.
+   - Spike 2 compares Layouts A, B and C, measures thumb reach, mis-presses, Fire to Dash and Jump to Dash times, and drag room, and calibrates pixels to millimetres.
+4. **Map, spectating and hybrid.** The Minimap tap and Tactical map sizing (after Ticket 27 Stage 1), the compact spectate bar and touch-sized Return to Hub, the hybrid-switching policy and its hardware matrix, and the Spectate-camera check.
+5. **Performance and acceptance.** Lite evidence and the beacon review (after Ticket 26 Stage 1), the baselines and the sustained-combat protocol, the lowest-quality readability capture, the Jump-while-Charging counter evaluation, and the written thresholds.
+
+A stage that depends on an unbuilt ticket waits for it and is recorded as outstanding. Nothing speculative is built in its place.
+
+#### Tests
+
+- **Specs through `RunAll`** (pure rules, on fakes):
+  - `ActionRules`: the three categories, per-source holders, supersede, and every cancellation row, including that no cancel reaches a release.
+  - `TouchRules`: nearest-centre hit testing, the tap and drag rules, the hold-confirm state machine, stick math, and a profile switch only at a quiet point.
+  - `TouchLayoutRules`: rectangles, insets, and the overlap matrix.
+  - `ContextActionRules`: priority, the stable-time latch, the frozen card, and the tuple-bound hold.
+  - Configuration validation of `Tuning.touch`.
+- **PC regression set (blocking at every input stage), with real keyboard input in Play** (`user_keyboard_input`, read `docs/testing/studio-mcp-quirks.md` first):
+
+| # | Check | Expected |
+|---|---|---|
+| PC1 | Hold and release Mouse1 | `isFiring` follows it, and a Basic Attack swings while held and stops on release |
+| PC2 | Tap Q on an Instant Ability | One Cast, no `ChargeStart` |
+| PC3 | Hold and release Q on a Chargeable Ability | One `ChargeStart`, one `ChargeRelease`, one Cast |
+| PC4 | Lose window focus while Charging | `ChargeCancel`, no Cast, Fire and the modifier cleared |
+| PC5 | Dash with and without movement keys | Same direction rule and the same charges |
+| PC6 | F plus Q or E near a replaceable Pickup | One `ReplaceRequest`, never a Cast |
+| PC7 | G, and Q and E while Spectating | Spectate toggles, and Q and E move the target |
+| PC8 | Press actions outside Running, before GO, and when not Alive | None run |
+| PC9 | Mouse-look and the locked mouse | Unchanged |
+| PC10 | Keyboard movement and Jump | Unchanged, native |
+| PC11 | The Desktop HUD | Visually unchanged |
+| PC12 | The full spec run | Green, and the spec count never falls |
+
+- **Touch checks cannot be driven by the MCP**, which has keyboard and mouse input only. Touch behaviour is verified in the Device Simulator by hand and on real devices.
+- **Device matrix:** a low-end Android phone (the floor), a notched iPhone and a tablet at minimum, with an Android gesture-navigation phone and a small non-notched iPhone as stretch, plus the hybrid hardware (a tablet with a keyboard, a touchscreen laptop, an Android tablet with a keyboard). Real-device results are recorded by hand. The Studio emulator is evidence for layout only.
+
+**Blocking functional checks (every device):**
+
+| # | Check |
+|---|---|
+| F1 | No stuck input after each cancellation event: notification shade, app switch, a three-finger gesture, an incoming call, the Roblox menu, Elimination and a Match leaving Running |
+| F2 | Reliable movement near lethal edges: the thumb lift stops, Dash direction is correct, auto-jump is off |
+| F3 | Correct casting: a normal release casts once, **a cancelled Charge never casts**, and a Dash ends a Charge |
+| F4 | A drag from Fire, Q or E rotates the camera, and dragging across Dash or Jump never activates them |
+| F5 | Safe-area compliance on every device and orientation, with no control under a notch, cutout or system gesture edge |
+| F6 | The Replace card: a hold cancels on every change, a completed hold sends one request, and nothing casts on release |
+| F7 | The Minimap tap toggles only on a tap, and a drag opens nothing |
+| F8 | Spectating, Return to Hub and the Spectate camera work by touch |
+| F9 | The hybrid matrix: a first touch switches the profile and runs nothing, keyboard use switches back, and a switch never interrupts a held action or a Charge |
+| F10 | **No missing critical combat information at the lowest Roblox graphics quality** on the floor device: Ability projectiles, Telegraphs, Warden and Riftling attacks, Status and Reaction cues, Collapse boundaries, and other players against the arena |
+
+**Performance checks** (recorded, thresholds set from baselines): average frame rate, 1% lows, frame-time stability, touch-to-cast latency (a client timestamp from touch begin to the request, with no remote), memory and its growth across three consecutive Matches, and the thermal trend. The protocol includes **sustained combat**, not only an idle soak: a Warden fight, Riftlings, a Layer 1 Warning with its Unravel, several Status effects and Reactions, Pickups and Kit drops, and Minimap and Tactical map toggling, for 10 minutes, with as many real clients as available and rigs for the rest.
+
+**Visual tuning** (not blocking, the developer's eyes): button positions, sizes, gaps, opacity, press and cooldown animation, the card's look, and map sizing.
+
+#### Completion criteria
+
+**Blocking:** the specs above green with the PC regression set passing at every input-related stage; the F1 to F10 functional checks on the device matrix; no server script, `Protocol` event, replication or upload changed or made; PC controls unchanged; and, **before external mobile playtesting**, the performance thresholds written into this ticket. **Evidence only:** the performance numbers themselves, the Graphics Quality signal's mapping, the Jump-while-Charging count, and the visual tuning values, which are recorded for tuning and never keep the ticket open once the blocking checks pass.
+
+#### Implementation checks (unresolved Roblox API and real-device assumptions)
+
+None of these has been verified. Each is checked, with its result recorded here, before anything depends on it. A failed check changes the plan.
+
+- **Touch ownership:** whether touch events keep arriving for a touch that began on a GUI button, whether the same `InputObject` is used across begin, move and end, the multi-touch limit, whether `UserInputState.Cancel` exists and what the OS sends for a stolen touch (notification shade, app switch, three-finger gesture, an incoming call), and whether `GuiService.MenuOpened` exists.
+- **Movement:** the `StarterPlayer` touch properties (`DevTouchMovementMode` and the others, which the MCP could not read), how `Humanoid:Move(worldDirection, false)` and `MoveDirection` behave under the `Scriptable` camera, whether holding `Humanoid.Jump` repeats jumps like holding Space, and that `Humanoid.AutoJumpEnabled = false` works on touch.
+- **Events:** that no `MouseButton1` `InputBegan` comes from a touch, and that native `GuiButton.Activated` does not fire for a drag that began elsewhere.
+- **Hybrid:** `PreferredInput`'s precedence on a tablet with a keyboard and a touchscreen laptop, its saved state across launches, and the timing of a switch. Read `workspace.SignalBehavior`: a [forum report](https://devforum.roblox.com/t/controlmodule-fails-to-switch-to-keyboard-control-module-on-preferredinput-change/3988307) says the control module can fail to switch back to keyboard when it is not Deferred. The property could not be read through the MCP.
+- **Spectating:** whether the `Custom` spectator camera accepts one-finger drag rotation and pinch zoom. The player scripts could be read only during a Play session.
+- **Scale and insets:** the relation of Roblox pixels to physical millimetres on each device (the Device Simulator has a Physical size mode with calibration), the `ScreenInsets` modes and `GuiService:GetInsetArea` on notched phones, behaviour on rotation, whether orientation can be locked to landscape, and where the Roblox menu and chat sit on each device. A forum thread reports that `AbsoluteSize` assumes the default insets.
+- **Graphics Quality:** what `SavedQualityLevel` returns under Automatic on mobile, whether it changes with the manual levels, and whether `ParticleEmitter` cues degrade at the lowest quality.
+- **Performance:** which on-device tools give frame time, memory and thermal readings, and whether the Studio emulator says anything about a real low-end phone.
+
+#### Risks
+
+- **Jump during a Charge** stays a real competitive asymmetry. The Jump-while-Charging counter and the device tests decide whether an escalation is needed before external mobile testing.
+- **Six right-thumb controls** (Fire, Q, E, Dash, Jump, Riposte) crowd the arc on small phones. The overlap specs and spike 2 test it, and Layout B is the challenger.
+- **Right and down drag room** at the corner is short, which is why the pivot is inboard. Pointer acceleration is a spike option, not a default.
+- **The hybrid policy rests on unverified behaviour.** If a first touch on a touchscreen laptop flaps the profile, the fallback is a small manual toggle on hybrid devices, decided then.
+- **Lite and beacons:** if Ticket 26 lands before the Minimap, a Lite player may see fewer far-warning cues than a Full player (see the Ticket 26 note).
+- **Status and Reaction cues rely on world particles only.** The disabled button state is a second channel for Stunned and Frozen, and Reactions have none.
+- **Roblox changes player scripts and input APIs.** Native PC and gamepad movement follow those changes. Touch movement is ours and follows only what we call.
+
+#### ADR and glossary
+
+- **ADR:** [ADR-0010](adr/0010-touch-input-through-one-action-dispatcher-and-a-custom-touch-movement-driver.md), written with this ticket: touch as a second source, a custom touch movement driver, and ownership by `InputObject`.
+- **Glossary:** `CONTEXT.md` gains **Input profile**, **Contextual-action area** and **Replace card**.
+
+#### Deferred
+
+- Gamepad (a separate ticket), left-handed or mirrored layouts, a Fire latch, a shoulder Jump or a Charge latch (only on evidence), pointer acceleration, target hysteresis for the replace choice, a manual hybrid toggle, and Recover and SwapReserve cards until Ticket 25 provides eligibility state.
 
 ## Later, after evidence from the run test
 

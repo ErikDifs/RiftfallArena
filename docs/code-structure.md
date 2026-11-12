@@ -319,6 +319,16 @@ Specified in [Ticket 27](milestone-2-tickets.md#27-minimap-and-objective-awarene
 - **One baked layout data module.** The polygons for the Sections and connectors are generated once from the authored footprints by an Edit-mode tool, keyed by `SectionId` and the connector's identity, and checked against the real map. No live Workspace scan and no `ViewportFrame`.
 - **No new RemoteEvent, no server code, no new replication and no map service.** Input is observed through `Input`, which still performs the gameplay action first. One scope per Match and role owns every connection and loop, and destroying it is the teardown.
 
+## Platform input
+
+Specified in [Ticket 29](milestone-2-tickets.md#29-platform-input-and-mobiletablet-support) and [ADR-0010](adr/0010-touch-input-through-one-action-dispatcher-and-a-custom-touch-movement-driver.md), **not built**, and staged. Module names and folders are provisional and recorded when built. It is client-side input and presentation, so it changes no authority and adds no `RemoteEvent`.
+
+- **`Input` stays the one action API.** Keyboard and mouse and touch are sources feeding it, so Casting, Dash, Replacing and Spectating never learn the device. A minimal pure `ActionRules` in `Shared/Rules` holds only the holder, edge and cancel state (one holder per source per action, counted across sources). Key mapping, the replace modifier, the Match gate and the Spectating override stay in `Input`. Characterization specs of today's behaviour come first.
+- **Touch is ours, PC is native.** On touch devices a small movement driver owns the floating stick and the Jump button (`DevTouchMovementMode = Scriptable`, `Humanoid:Move` from the camera's yaw), and a touch router owns every touch by its `InputObject`. PC and gamepad movement stay Roblox-native. `Camera` takes one summed look delta from `Input`.
+- **Pure rules** (provisional): `TouchRules` (hit testing, tap and drag, the hold-confirm state machine, stick math), `TouchLayoutRules` (rectangles from a profile, the viewport and the insets, with overlap specs) and `ContextActionRules` (priority, the stable-time latch, the tuple-bound hold). `Tuning.touch` holds the numbers.
+- **One input profile module** owns Desktop, Phone or Tablet, and the HUD modules subscribe to it. Its detector watches touch independently of the touch router.
+- **Existing client modules touched:** `Input`, `Camera`, `Casting` (one per-slot cancel handler), `Replacing` (the card path with a locked Pickup id and a Match-phase check), `Hud`, `MatchHud` and `Spectating`. No server script and no `Protocol` event.
+
 ## Dependencies
 
 Systems receive their dependencies explicitly, rather than reaching around the DataModel for each other, and circular ModuleScript dependencies are avoided. No dependency-injection framework is needed. For example:

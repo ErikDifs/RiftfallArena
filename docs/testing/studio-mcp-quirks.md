@@ -129,6 +129,14 @@ Code is edited through the MCP rather than Rojo, as [ADR-0005](../adr/0005-game-
 - **`start_stop_play` takes `is_start` (true or false).** Scripts cannot be edited during Play, so each fix-and-rerun cycle is stop, edit, start, then `RunAll` on the Server.
 - **Drive a client rig without a Match (Ticket 24 step 5).** In a Reference-Kit Play session, `require(Monsters:Clone())` on the Server with `start({ characters = fake, casts = {}, statuses = { clear = ... }, pickups = { drop = ... }, folder = <a TEMPORARY folder> })` and `setup(id)` builds the 8 monsters on the real Home markers, and the real client `MonsterVisuals` rigs them. The fake `characters` needs `registerTarget`, `unregisterTarget`, `getTargets` and `getHitbox`. `PivotTo` a model beside the player (the client's 60-stud gate then lets effects play), set `MonsterState`, `MonsterAction`, `MonsterImpactAt`, `MonsterEndsAt`, `MonsterFacing` and `MonsterDamageStage` by hand, and read the client with a `DescendantAdded` watcher on `workspace.MonsterVisuals` (Sounds, `SwingTelegraph`, `Pulse`), which timestamps each cue. A pair shares one Home, so test a reward cue on a pair too. Nothing persists after stopping Play.
 
+## Touch and device testing (Ticket 29, found while specifying it, 2026-11-12)
+
+[Ticket 29](../milestone-2-tickets.md#29-platform-input-and-mobiletablet-support) is specified and not built. These are facts about the tooling, found while specifying it. The Roblox API and device questions it still has are listed under **Implementation checks** in the ticket, not here.
+
+- **The MCP has no touch input.** `user_keyboard_input` and `user_mouse_input` are the only input tools, so touch behaviour can't be driven or checked by `studio-tester`. Use the Studio Device Simulator by hand and real devices, and keep keyboard and mouse regression checks in Play.
+- **`inspect_instance` returned no properties for `StarterPlayer` or `Workspace`.** Touch settings such as `DevTouchMovementMode` and `AutoJumpEnabled`, and `Workspace.SignalBehavior`, have to be read in Studio's Properties panel.
+- **Roblox's player scripts (`PlayerModule`) were found only while Studio was in Play.** In Edit mode no `PlayerModule` was found under `StarterPlayer`, and a `script_read` of `StarterPlayer.PlayerModule.ControlModule` worked once Studio was in Play. That sits oddly with the quirk above that `script_read` can't read a script in Play, so treat it as unconfirmed for other scripts. Reading needs no change to the session, but starting Play does, so ask first.
+
 ## Unverified, to settle when testing Ticket 26
 
 These are open questions, **not found quirks**. [Ticket 26](../milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere) is specified and not built, so nothing here has been tried. Move each one up into the list above, with its result, once it has been tested.

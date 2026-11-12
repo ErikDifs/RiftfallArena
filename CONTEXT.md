@@ -430,3 +430,19 @@ _Avoid_: Anti-cheat, speed check
 **Last Valid Position**:
 The most recent position the server accepted for a player, and where it returns them after clear or repeated violations.
 _Avoid_: Checkpoint, rollback point
+
+### Platforms and input
+
+Specified in [Ticket 29](docs/milestone-2-tickets.md#29-platform-input-and-mobiletablet-support), not built.
+
+**Input profile**:
+Which control layout a client is using now: Desktop, Phone or Tablet. One module owns it, the HUD follows it, and it only changes at a quiet point, with no action held. A first deliberate touch on a touch-capable device switches to the touch profile and is itself never a gameplay action.
+_Avoid_: Platform mode, control scheme, device type
+
+**Contextual-action area**:
+The single compact place on touch screens, above the Health bar, that shows one out-of-combat action at a time: Replace, then Recover, then SwapReserve. A confirmation held in it is bound to the action and target it began on.
+_Avoid_: Popup, action menu, prompt stack
+
+**Replace card**:
+The touch way to replace an Ability when the Kit is full: one button per slot, naming the Ability lost and the Ability gained, confirmed by a 0.35 s hold. It sends the same replace request as F plus Q or E.
+_Avoid_: Swap dialog, pickup popup
