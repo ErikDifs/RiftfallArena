@@ -3166,6 +3166,17 @@ The audit found every criterion has recorded evidence. The names differ slightly
 
 **Targets and balance expectations are not pass criteria.** The 15 to 20 s fight, the 35 to 50 Health cost, the Swing-backstep watch item, chase speed, route-tax feel and visual smoothness produce tuning notes. Only the **Blocking completion criteria** decide completion.
 
+#### Settled before building (2026-11-12)
+
+Settled with the developer at the start of the build. Ticket 21's arena geometry is never modified to fit a Warden.
+
+- **Slot offset: run the experiment.** Test +15 to +20 degrees on the real map, with +10 degrees as the fallback. Evaluate navigation, combat space, connector clearance, cover, Collapse behaviour and spawn fairness. Prefer the larger offset only if it demonstrably improves positioning with no new problem, and if several pass equally, prefer the smallest change. Record the measurements and the chosen offset.
+- **Territory radius: measure first.** Derive it from the real Layer 2 platform, keeping the loot-safe lip margin (about 15). Use the largest valid radius in the 7 to 12 range that keeps the safety margins and the combat space, and validate the distances to lethal edges and connectors. If none is valid, stop and report the measurements and alternatives.
+- **Delegation.** Main session: `WardenRules`, the `Wardens` runtime, the `Combat` veto and integration, `Match` integration, architecture and the final review. `studio-implementer`: the written specs (with explicit acceptance requirements) and cosmetic `WardenVisuals`. `studio-tester`: the Play matrix. One Studio driver at a time, and delegated work is reviewed before it is accepted.
+- **Build order.** (1) `WardenRules` and specs, (2) combat hooks (gate, Warded and Resisted, the `Casts` players-only filter), (3) `Wardens` runtime, slots, markers and validators, (4) `Match` integration, (5) visuals and telemetry, (6) the Studio Play matrix and regression. Specs and integration checks run after each major stage, and work never continues past a failed blocking gate. Completed, tested stages are committed locally.
+- **Stop and ask if:** the slot or territory geometry can't satisfy the specification, a combat integration changes approved gameplay, a dependency or architecture conflict expands scope, a fairness problem can't be resolved within the specification, or a decision would modify Ticket 21's geometry.
+- **Assets.** Placeholders and existing sounds only. Readability over polish. No upload, push or publish without explicit approval. Studio stays in Edit mode when not testing.
+
 #### Summary
 
 The **Rift Warden** is the Arena's first mobile PvE enemy: an optional, contested, **elite-tier (mini-boss-style) guardian** standing on an inner-Shard platform near the Safe spoke. It carries a visible Ability reward, fights with two Telegraphed melee attacks, stays on its small Territory, and drops one ordinary Rank 1 Ability Pickup when killed. It is not mandatory for any route, Kit or progression step. It is seasoning around the PvP Match, and it is not a normal monster, a boss, or the baseline monster population.
