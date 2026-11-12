@@ -124,6 +124,10 @@ Code is edited through the MCP rather than Rojo, as [ADR-0005](../adr/0005-game-
 - **The Studio id can become `Unavailable` mid-run (Ticket 22 step 9a)** ("Place is not open"), then return with a new id. Edits made before it survived, but check them (grep for the last change) before building on them, and record what a tester finished so far at once.
 - **Duplicate client log lines can be a tester's own two handlers (Ticket 22 step 9a),** from a re-armed helper. One Kit change is the proof of one collection.
 
+- **A mutation check works from Edit mode with `_G` (Ticket 24 step 1a).** `_G` survives between `execute_luau` calls on the Edit DataModel too. Keep the original `Source` in `_G`, apply each one-line mutation with a `TEMPORARYMUTATION` marker (assert the old text occurs exactly once), run the single spec in Play with `RunAll.run({ Name = require(...) })`, then revert by reversing each swap and confirm the source equals the saved original and `TEMPORARY` count is 0. Three mutations made 5 specs fail.
+- **Time comparisons in specs need `near`, not equality (Ticket 24 step 1a).** `now + 0.45` need not equal the literal `100.45` as a double. Step with the action's own `impactAt` and `endsAt`, and compare computed times with a tolerance, or use binary fractions.
+- **`start_stop_play` takes `is_start` (true or false).** Scripts cannot be edited during Play, so each fix-and-rerun cycle is stop, edit, start, then `RunAll` on the Server.
+
 ## Unverified, to settle when testing Ticket 26
 
 These are open questions, **not found quirks**. [Ticket 26](../milestone-2-tickets.md#26-rift-collapse-visuals-and-atmosphere) is specified and not built, so nothing here has been tried. Move each one up into the list above, with its result, once it has been tested.

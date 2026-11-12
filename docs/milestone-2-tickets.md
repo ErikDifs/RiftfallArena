@@ -3648,7 +3648,7 @@ Extract **only** what both real implementations genuinely need, from the built W
 
 **Rule.** If a supposed primitive is tangled with Warden-specific behaviour, do not force the extraction. Leave it in the Warden and implement the monster version separately, and record which primitive was not shared and why. The Warden's behaviour and numbers do not change. Review the extraction diff before any monster code is written.
 
-**Step 0 result (2026-11-12, built, not yet committed when written).** Four of the five primitives were extracted and the Warden's behaviour and numbers did not change:
+**Step 0 result (2026-11-12, built and committed as `4aa82ec`; review passed 2026-11-12).** Four of the five primitives were extracted and the Warden's behaviour and numbers did not change:
 
 | Primitive | Where it lives now | Warden side |
 |---|---|---|
@@ -3661,6 +3661,45 @@ Extract **only** what both real implementations genuinely need, from the built W
 **Not shared, and why.** (1) The floor check with the injected `floorAt` stays in `Wardens`: it is a few lines inside the Warden's Heartbeat step, entangled with its Fault handling and registration, so a monster runtime will write its own small version over `PveMotionRules.stepAllowed` and `faultReason`. (2) `Session`'s "has its own kill line" test (`sentry` or `warden`) and `CacheRules.mayDamage` (a whitelist of players) are not the PvE predicate's question, so they were left, and `Session`'s gets a `monster` case when the monster's kill line exists.
 
 **Verification.** `PveRulesSpec` (9 specs) and a `Protocol.isPveKind` case were added. `RunAll` in Play on the Server: 888 passed, 0 failed (the 879 earlier specs unchanged). `PveTelegraph` was exercised on a Play client (a wedge and a disc built and filled, 50 parts, cleaned up) and the edited `WardenVisuals` loads. **Not rerun:** a live Warden fight in a Match to look at the Telegraphs. That check rides on the first Match test of the Riftling build, and the developer should look at the Warden Telegraphs then.
+
+**Step 0 review (2026-11-12): PASS.** A read-only review of the live Studio source and commit `4aa82ec` found no blocker. Behaviour is preserved (action event order, Threat prune and insert order, motion and fault maths moved verbatim, every `WardenRules` member still present), the three shared modules carry no Warden-only assumptions, `PveTelegraph` matches the old builders line for line, and `isPveKind` changes nothing for the existing kinds. Findings kept: the shared rules read settings **by key name** (now enforced, see Step 1a), and the hard-coded kind checks below need a `monster` case when the runtime is integrated.
+
+**Remaining hard-coded kind handling, for the runtime integration stage (not Step 1a):**
+- `Session` (own-kill-line test, `sentry` or `warden`): a monster death would otherwise log a generic `Kill` line, so it needs a `MonsterKill` line and a `monster` case.
+- `Feedback` (display name, `warden`): a monster needs a name.
+- `Combat` (PvE attacking PvE, `sentry` against `sentry` only): monster damage is already protected by the players-only filter. Decide at integration whether a `monster` case is wanted.
+- `Match.noteDisplacement` (displacement credit): a monster attacker falls through to no credit, which is the intended behaviour. No change expected.
+
+**Live Warden Telegraph check (added to the first Riftling integration Match, required).** Step 0 left the client Telegraph path unverified live. In that Match, with a real Warden attacking, verify the Swing wedge and Slam disc: geometry (the wedge 7 reach, 100 degrees, the disc radius 5 at its centre), timing (each fills exactly at the server's `impactAt`), visibility (red, readable, distinct from the Riftling's lighter wedge), cleanup (the folder is gone within the linger time and after a kill, a Collapse removal and Match end) and the client console (no errors or warnings from `WardenVisuals` or `PveTelegraph`). Record the result in this ticket.
+
+**Step 1a: `MonsterRules` and `Tuning.monsters` (2026-11-12, built, 926 specs).** The pure rules only. No Home markers, no `Monsters` runtime, no `Match` integration: nothing in the game calls `MonsterRules` yet, so the Reference Kit and every Match behave as before.
+
+| Part | What was built |
+|---|---|
+| `MonsterRules` (`Shared/Rules`) | the deal (`deal`: one A or B draw per Shard in ascending id, the pair Shards by partial shuffle, then a flag draw and an Ability draw for every monster in Home then slot order, both always taken), the four-phase FSM (`new`, `noteDamage`, `step`, `kill`) with `acquire`, the contest and aggro radii, the edge-point goal and the pair lateral offset (`goalFor`, `lateralOffset`), `checkProgress`, `faultReason` and `validate` |
+| `Tuning.monsters` | the settled values: health 45, 6 Homes with 2 pairs, flag 0.125, Rank 1, Territory range 6 to 9, aggro Territory + 4, attack reach 5.5, the claw (reach 5.5, 50 degrees, Telegraph 0.45, 8 damage, recover 0.8, gap 0.4, a 1.65 s cycle), wake stagger 0.3 to 0.7, the two 1.5 s holds, chase speed 13, approach spacing 3.5, pair offset 1.5, and the Warden's motion, Threat and Fault values under the same key names |
+| Shared rules reused | `PveMotionRules` (edge point, clamp, step limit, Fault), `PveThreatRules` (add, `challenger`), `PveActionRules` (the claw's action and its `Impact` and `ActionEnded`) |
+| Settings contract | `PveMotionRules.settingKeys` and `PveThreatRules.settingKeys` list every key those modules read, `missingSettings(settings)` reports any that are absent or not numbers, and `MonsterRules.validate` includes them. A misnamed key is a spec failure, not a silent nil |
+| Cleanup | the unused Telegraph constants were removed from `WardenVisuals`, and the Step 0 status wording corrected |
+
+**What the specs cover (`MonsterRulesSpec`, 38 specs).** S1 (the deal: shape, the fixed draw order, both draws always taken, the flag boundary, Ability uniform with repeats, determinism, both variants and every Shard as a pair across seeds, impossible inputs), S2 (acquire with line of sight, damage wake from any distance, sticky target and Threat switch, the no-target hold, hits during Return neither re-engaging nor recording Threat, a valid player inside the Territory re-engaging, the full reset on arrival), S3 (the contest boundary, the hold starting only on arrival, its exact length, cancellation by a reachable target, no hold between the circle and the contest distance), S4 (the 0.45 s Telegraph, one impact, rooted recovery, the gap, the stagger only after an acquisition and never after a switch, no retarget mid-Telegraph, the facing and reach gates), S5 (the goal maths, the pair offset, no-progress, Fault, `validate` and the settings contract). S6 to S13 belong to the runtime, validators, telemetry and integration steps.
+
+**Check that the specs bite.** Three one-line mutations (a Returning monster re-engaged by damage, the hold starting without arriving, no wake stagger) made 5 specs fail, and the exact revert was confirmed (the source identical to before, no `TEMPORARY` left).
+
+**Results.** `RunAll` on the Server in Play: **926 passed, 0 failed** (888 before, plus 38). The Warden, shared and Tuning-dependent subset (`WardenRulesSpec`, `WardensSpec`, `WardenChecksSpec`, `PveRulesSpec`) is 147 passed, 0 failed, so the Warden specs are unchanged and green. `WardenVisuals` still loads on a Play client after the constant removal.
+
+**Interpretations and deviations from the entry (none changes a settled gameplay decision).**
+1. **Wake stagger randomness.** `step` and `noteDamage` take the stream as an argument (`view.random`, drawn once per acquisition) so the rules stay pure and the stagger is deterministic in specs. The runtime passes `monsterRandom`. The stagger is drawn after setup's deal, so it cannot disturb the deal's fixed draw order.
+2. **Pair offset.** "About 1.5 studs by slot index" is read as each member shifting 1.5 studs to its own side (slot 1 to one side, slot 2 to the other, 3 studs apart), clamped into the Territory. It is applied to the edge-point goal as well, so two members do not share an exact edge position. Tunable (`pairOffsetStuds`).
+3. **Hold timing.** The edge hold starts on the first arrival at the goal with the target beyond contest and keeps running while the target stays beyond it, even if the edge point moves. A target in contest cancels it. The ticket does not say what happens if the target circles outside contest, so this is the simplest reading.
+4. **Hits during Return** record no Threat as well as not re-engaging (the reset clears Threat anyway).
+5. **No-target damage.** Accepted damage during the no-target hold sets the damager as target with no new stagger (the ticket lists only an Idle or Returning monster's re-engagement as staggered).
+6. **Not extracted.** `acquire` and `checkProgress` have monster versions in `MonsterRules` rather than shared ones: the Warden's are tied to its own state and phase changes, and the ticket's primitive list does not include them. A later extraction is possible if a third user appears.
+7. **Placement values** (spawn, Cache, Warden, Sentry, lip and connector clearances) are left out of `Tuning.monsters` until Step 1b, where the validators read them.
+
+**Checkpoint (2026-11-12).** The Step 0 and Step 1a code exists only in the open Studio place. Published version 172 (docs at `d843541`) is the last published state and the rollback point from before Step 0. A Studio save was requested of the developer, and nothing has been published.
+
+**Gate.** Step 1a is the first review gate. Step 1b (Home markers, validators and the structural checks, with `RunAll` and the structural check rerun straight after) starts only with the developer's approval, and the `Monsters` runtime stays unbuilt until Step 1b passes.
 
 #### Population and selection
 
