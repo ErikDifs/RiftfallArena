@@ -3648,6 +3648,20 @@ Extract **only** what both real implementations genuinely need, from the built W
 
 **Rule.** If a supposed primitive is tangled with Warden-specific behaviour, do not force the extraction. Leave it in the Warden and implement the monster version separately, and record which primitive was not shared and why. The Warden's behaviour and numbers do not change. Review the extraction diff before any monster code is written.
 
+**Step 0 result (2026-11-12, built, not yet committed when written).** Four of the five primitives were extracted and the Warden's behaviour and numbers did not change:
+
+| Primitive | Where it lives now | Warden side |
+|---|---|---|
+| Motion and Territory | `PveMotionRules` (flat distance and direction, `facingError`, `clampToTerritory`, `edgePoint`, `updateGoal`, `stepToward`, `turn`, `stepAllowed`, `faultReason`) | `WardenRules` keeps the same names as aliases or thin wrappers |
+| Threat | `PveThreatRules` (`prune`, `add`, `threatOf`, `challenger`, working on any state with `threat`, `targetId`, `lastSwitchAt`) | `WardenRules.noteDamage`, `threatOf` and `challenger` use it |
+| Action record | `PveActionRules` (`start`, `step` yielding `Impact` and `ActionEnded`) | the Warden's FSM and attack choice stay in `WardenRules` |
+| Telegraph builder (client) | `PveTelegraph` (the part helpers, `wedge`, `disc`) | `WardenVisuals.buildSwing` and `buildSlam` call it |
+| PvE actor-id predicate | `Protocol.isPveKind`, used by `SessionRules.countsForPlayers` and `Recovery` (`"monster"` is reserved in the list) | unchanged |
+
+**Not shared, and why.** (1) The floor check with the injected `floorAt` stays in `Wardens`: it is a few lines inside the Warden's Heartbeat step, entangled with its Fault handling and registration, so a monster runtime will write its own small version over `PveMotionRules.stepAllowed` and `faultReason`. (2) `Session`'s "has its own kill line" test (`sentry` or `warden`) and `CacheRules.mayDamage` (a whitelist of players) are not the PvE predicate's question, so they were left, and `Session`'s gets a `monster` case when the monster's kill line exists.
+
+**Verification.** `PveRulesSpec` (9 specs) and a `Protocol.isPveKind` case were added. `RunAll` in Play on the Server: 888 passed, 0 failed (the 879 earlier specs unchanged). `PveTelegraph` was exercised on a Play client (a wedge and a disc built and filled, 50 parts, cleaned up) and the edited `WardenVisuals` loads. **Not rerun:** a live Warden fight in a Match to look at the Telegraphs. That check rides on the first Match test of the Riftling build, and the developer should look at the Warden Telegraphs then.
+
 #### Population and selection
 
 Chosen once at Match setup, after `assignSpawns` and after Wardens (monsters do not depend on occupied pads). **Tunable starting rule, not scaled by player count:**

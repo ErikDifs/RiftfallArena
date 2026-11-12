@@ -27,6 +27,9 @@ ReplicatedStorage
     │   ├── CacheRules
     │   ├── SentryRules
     │   ├── WardenRules
+    │   ├── PveMotionRules
+    │   ├── PveThreatRules
+    │   ├── PveActionRules
     │   ├── ShieldRules
     │   ├── HookRules
     │   ├── HitboxRules
@@ -88,6 +91,7 @@ StarterPlayer
         ├── CosmeticSectors
         ├── PickupVisuals
         ├── PveVisuals
+        ├── PveTelegraph
         ├── Replacing
         ├── Spectating
         ├── StatusVisuals
@@ -279,6 +283,7 @@ From [Ticket 23](milestone-2-tickets.md#23-rift-warden), **built in steps** (ste
 - **`WardenRules`** (pure, `Shared/Rules`) holds the population table and Gate selection (`count`, `select`), the distinct reward deal, the four-phase FSM with its timestamp-driven action (`step`, `noteDamage`), targeting and Threat, attack choice and the locked Swing and Slam, regeneration, the stage gate, the locomotion maths, no-progress, fault and step checks, and config validation. Its config is `Tuning.wardens`.
 - **`Wardens`** (server) is a module like `Sentries`, with its dependencies injected so specs run it in manual mode. It owns the records, the `warden:<GateId>` targets, the one Heartbeat, `finish`, `removeSection` and `clear`. `Match` is the lifecycle owner: it calls `setup` with the occupied pads' Gates after the spawn spread, `setGo`, `clear`, and `removeSection` from the Collapse hook.
 - **Combat hooks** (Ticket 23 step 2): a target `gate(hit)` refused hit is a `Warded` result, `resistsForcedMovement` gives a `Hit` with `resisted`, `Combat` reads a hit's Ability through `abilityOf` so a Warden's own attacks need no Ability entry, `Sectors.fire` takes `playersOnly`, and `Casts.attackFromServer` delivers a non-Ability attack down the Sector path.
+- **Shared primitives (Ticket 24 step 0).** `PveMotionRules`, `PveThreatRules` and `PveActionRules` hold the ground motion maths, recent-damage Threat and the timestamp action record that `WardenRules` and the regular monsters share, and `PveTelegraph` (client) the wedge and disc Telegraphs. `Protocol.isPveKind` is the one PvE kind list. `WardenRules` keeps its names and the FSM.
 - **`WardenChecks`** (server, read-only) is the static placement validator, like `CollapseChecks`. The slot markers carry `GateId` and `TerritoryRadius`, and each pad a `GateId`.
 - **Not yet built:** `WardenVisuals` (client, from attributes only), the Warded and Resisted cues, the full `WardenSummary` telemetry, and the `source` tag on Pickup log lines.
 
