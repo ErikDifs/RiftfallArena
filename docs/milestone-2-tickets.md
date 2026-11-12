@@ -3177,6 +3177,15 @@ Settled with the developer at the start of the build. Ticket 21's arena geometry
 - **Stop and ask if:** the slot or territory geometry can't satisfy the specification, a combat integration changes approved gameplay, a dependency or architecture conflict expands scope, a fairness problem can't be resolved within the specification, or a decision would modify Ticket 21's geometry.
 - **Assets.** Placeholders and existing sounds only. Readability over polish. No upload, push or publish without explicit approval. Studio stays in Edit mode when not testing.
 
+#### Build record
+
+**Step 1, `WardenRules` and its specs (done 2026-11-12, 764 specs, 0 failed).** `Tuning.wardens` holds every number from this ticket as a starting value. `WardenRules` (pure, `Shared/Rules`) holds population and Gate selection (`count`, `select`, only the injected stream drawn and only on a tie), the distinct reward deal, the four-phase FSM with the timestamp-driven action (`step`, `noteDamage`, `acquire`, `challenger`, `chooseAttack`, `slamCentre`), regeneration, the stage gate, locomotion maths (`goalFor`, `updateGoal`, `stepToward`, `turn`, `clampToTerritory`), no-progress, fault and step checks, and `validate` for the config. `WardenRulesSpec` (65 tests, written by `studio-implementer` from a written list, reviewed and re-run by the main session in `RunAll` on the Server in Play) covers S1 to S6, the inert case and the config. Decisions the ticket left open, taken here and recorded:
+
+- **Retention radius is `Territory + AttackReach`**, the whole area from which an accepted hit can arrive, so a player the gate allows to damage the Warden is also one it can keep as a target. Acquire still uses `AggroRadius`. A target beyond retention counts as no target.
+- **A Warden with no target re-acquires** by the aggro rule (`TargetSwitched`) before the 4 s hold runs out, and the hold only runs while nobody is acquirable.
+- **The Slam cooldown counts from the Telegraph's start.** The Swing cycle (0.7 + 0.7 + 0.8 = 2.2 s) is the same as the ticket's.
+- **A Warden that arrives home at full Health resets at once.** Otherwise it waits `regenDelaySeconds`, heals linearly over `regenSeconds`, and then resets, and an accepted hit stops it with no instant cleanse.
+
 #### Summary
 
 The **Rift Warden** is the Arena's first mobile PvE enemy: an optional, contested, **elite-tier (mini-boss-style) guardian** standing on an inner-Shard platform near the Safe spoke. It carries a visible Ability reward, fights with two Telegraphed melee attacks, stays on its small Territory, and drops one ordinary Rank 1 Ability Pickup when killed. It is not mandatory for any route, Kit or progression step. It is seasoning around the PvP Match, and it is not a normal monster, a boss, or the baseline monster population.
