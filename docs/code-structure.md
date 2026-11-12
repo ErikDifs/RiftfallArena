@@ -26,6 +26,7 @@ ReplicatedStorage
     │   ├── LootRules
     │   ├── CacheRules
     │   ├── SentryRules
+    │   ├── WardenRules
     │   ├── ShieldRules
     │   ├── HookRules
     │   ├── HitboxRules
@@ -51,6 +52,8 @@ ServerScriptService
     ├── MapLayout
     ├── Caches
     ├── Sentries
+    ├── Wardens
+    ├── WardenChecks
     ├── Collapse
     ├── CollapseChecks
     ├── Shields
@@ -268,6 +271,16 @@ From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. S
   - `Session.setDamageListener` tells the `Match` of damage to players. The `Match` owns the QuietSpan state and the PvP, elimination, Void and Kit-drop counters, and writes `QuietSpan` and `CollapseSummary`.
 
 - **Structural checks (step 8).** `CollapseChecks` (server) is read-only: a pure `evaluate` over plain data for the schedule, parent chains, holding folder, registry, stale attributes and homes, plus a world `read` that finds what would still collide or answer queries around the Dais once Layers 1 to 4 are gone, and whether the Dais is flat, anchored, self-contained and lethal on every side, all without moving anything. `RunAll` starts with it, `Collapse:assertIntact` runs it when `Match` passes `structure = {}`, and it is run in Edit mode before a `.rbxl` snapshot.
+
+## Rift Warden
+
+From [Ticket 23](milestone-2-tickets.md#23-rift-warden), **built in steps** (steps 1 to 4 exist). With the Reference Kit no Warden exists and no loop runs.
+
+- **`WardenRules`** (pure, `Shared/Rules`) holds the population table and Gate selection (`count`, `select`), the distinct reward deal, the four-phase FSM with its timestamp-driven action (`step`, `noteDamage`), targeting and Threat, attack choice and the locked Swing and Slam, regeneration, the stage gate, the locomotion maths, no-progress, fault and step checks, and config validation. Its config is `Tuning.wardens`.
+- **`Wardens`** (server) is a module like `Sentries`, with its dependencies injected so specs run it in manual mode. It owns the records, the `warden:<GateId>` targets, the one Heartbeat, `finish`, `removeSection` and `clear`. `Match` is the lifecycle owner: it calls `setup` with the occupied pads' Gates after the spawn spread, `setGo`, `clear`, and `removeSection` from the Collapse hook.
+- **Combat hooks** (Ticket 23 step 2): a target `gate(hit)` refused hit is a `Warded` result, `resistsForcedMovement` gives a `Hit` with `resisted`, `Combat` reads a hit's Ability through `abilityOf` so a Warden's own attacks need no Ability entry, `Sectors.fire` takes `playersOnly`, and `Casts.attackFromServer` delivers a non-Ability attack down the Sector path.
+- **`WardenChecks`** (server, read-only) is the static placement validator, like `CollapseChecks`. The slot markers carry `GateId` and `TerritoryRadius`, and each pad a `GateId`.
+- **Not yet built:** `WardenVisuals` (client, from attributes only), the Warded and Resisted cues, the full `WardenSummary` telemetry, and the `source` tag on Pickup log lines.
 
 ## Rift Collapse presentation
 
