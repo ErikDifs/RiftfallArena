@@ -18,6 +18,7 @@ Being settled from 2026-11-08, before any building. Work stops after each ticket
 | 2026-11-12 | Published place `134091394433436`, version 172, docs at commit `d843541` | Ticket 23 (the Rift Warden, steps 1 to 6, 879 specs): `WardenRules`, the `Wardens` runtime, the combat hooks, `WardenChecks`, `WardenVisuals`, the moved slots and the reward at Home. Reference-safe: `startingKit = "Reference"`, `arrivalHoldSeconds = 3`, no temporary aids, hook removed. The developer looked at the visuals and accepted them as good enough for now |
 | 2026-11-12 | Published place `134091394433436`, version 178, docs at commit `6e2a124` | Ticket 24 steps 0 and 1a (the shared PvE primitives, `MonsterRules`, `Tuning.monsters`, 937 specs). Reference-safe: nothing calls `MonsterRules` yet |
 | 2026-11-12 | Published place `134091394433436`, version 180, docs at commit `e8ae765` | Ticket 24 steps 0 to 1b.1 (the shared PvE primitives, `MonsterRules`, `MonsterChecks`, the six Home markers, the Greybox change, 965 specs). The developer published it after Step 1b.1 and before the Step 2 edits, so it does not contain the `Monsters` runtime. Reference-safe: nothing calls the monster code yet |
+| 2026-11-12 | Published place `134091394433436`, version 182, docs at commit `3d9c199` | Ticket 24 steps 0 to 2 (the shared PvE primitives, `MonsterRules`, `MonsterChecks`, the six Home markers, the `Monsters` runtime, 981 specs). The developer published it after reviewing Step 2. Reference-safe: `Monsters` is not required by `Main` and `Match` does not call it, so no monster exists in any Match |
 
 Roblox version history is the code's history, as [Milestone 1's checkpoints](milestone-1-tickets.md#checkpoints) set out, and only versions marked Published count.
 
@@ -3791,6 +3792,25 @@ Extract **only** what both real implementations genuinely need, from the built W
 **Not built (later steps).** The `Match` integration (setup after `assignSpawns` and `wardens.setup`, `setGo`, `clear` at Results, the Collapse hook calling `removeSection`, the sync), `MonsterVisuals` and the `Feedback` additions, the full telemetry summary, the `monster` cases in `Session` (an own kill line), `Feedback` (a name) and `Combat`, the Studio matrix (including the live Warden Telegraph check, the placement and ignoring-route check M2, and P13) and the `wardenId` rename above.
 
 **Gate.** Step 2 goes back to the developer for review. The Match integration (step 4 of the build order) starts only with approval.
+
+**Step 2 review (2026-11-12): accepted by the developer** (published as version 182), with no corrections.
+
+**Step 4: the Match integration (2026-11-12, built, 988 specs).** `Main` now requires and starts `Monsters` with the Warden's dependencies and passes it to `Match` as `deps.monsters`. `Match` treats it as optional, as it does `wardens`, and only runs with an Empty Starting Kit, so the Reference Kit still builds nothing.
+
+| Where | What |
+|---|---|
+| Start | `monsters.setup(matchId)` right after `wardens.setup` and before anyone is placed. `Match` passes only the Match id: the deal reads the Home markers and uses its own `monsterRandom` stream, so the Match's draws, the pads and the Cache deal are unchanged |
+| GO | `monsters.setGo(state.goAt)` beside the Warden's, the same time as `sentries.setGo` |
+| Results | `monsters.clear()` in `endResults`, after `wardens.clear()` and before the Collapse reset |
+| Collapse | `collapseObjects().removeSection` adds `monsters_` counts, and `monsters.setSync(syncCollapse)` is given the same function as the Sentries and Wardens |
+
+**Specs.** `MatchSpec` has a fake monster system (only when a test asks) and 7 new cases: a whole Match with none (as for Wardens), N1 (setup once, after the Warden and Sentry setup, before any spawn), N2 (GO time), N3 (clear at Results, after the Caches, Sentries and Wardens and not before), N4 (the `monsters_` counts in the Collapse hook), N5 (the same sync function) and N6 (the Match's random draws, spawns and Cache deal identical with and without it).
+
+**Results.** `RunAll` on the Server in Play: **988 passed, 0 failed** (981 before, plus 7). No `Monsters` or `Wardens` folder exists in the workspace with the Reference Kit. Mutation checks on `Match` (monsters given a no-op sync, the Collapse hook skipping monsters, `clear` skipped at Results) made N3, N4 and N5 fail, and the exact revert was confirmed with no `TEMPORARY` left.
+
+**Not done here.** `MonsterVisuals` and the `Feedback` additions, the `monster` cases in `Session` and `Combat`, the full `MonsterSummary` (the Match does not call a summary yet), the `wardenId` rename, and the Studio matrix. A live Match with monsters has not been run yet.
+
+**Gate.** Step 4 goes back to the developer for review before `MonsterVisuals`.
 
 #### Population and selection
 
