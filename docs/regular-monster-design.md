@@ -102,15 +102,15 @@ All tunable. Sized against the real player values: Health 100, walk 16 studs/s, 
 **Settled: 8 monsters, one active Home per outer Shard, from an authored pool of 12.**
 
 - 6 active Homes: **4 singles and 2 pairs**. No player-count scaling. 0 Crown monsters.
-- A dedicated `monsterRandom` picks variant A or B per Shard and which two Shards get pairs. The selection is logged.
-- **Why no Crown monsters.** The Crown terrace is r 14 to 32 and a Home needs a clear circle of about 7 plus a loot-safe margin of about 15 from the lip, leaving a band of about 3 wide. The Crown also already carries Sentries and the Final Fight, and the Dais is reserved.
+- A dedicated `monsterRandom` picks which two Shards get pairs (there is one Home per Shard, so no variants: revised in Ticket 24 step 1b). The selection is logged.
+- **Why no Crown monsters.** The Crown terrace is r 14 to 32 and a Home needs a clear circle of about 6 to 7 plus a margin from the lip (15 in the first design, 5 after Step 1b), leaving a band too narrow. The Crown also already carries Sentries and the Final Fight, and the Dais is reserved.
 - **Why every Shard.** With 2 players four Shards are unoccupied, and they must stay worth visiting.
 
-**Rules** (starting values, greybox-validated): at least `max(45, AggroRadius + 20)` from every pad (45 governs); Home at least 20 from Home Caches; 20 to 32 from the Forward Cache; no overlap with a Warden's aggro circle plus clearance; at least 50 from Crown Sentries; Territory edge at least 15 from any lethal lip; aggro ring clear of connectors and aprons plus 2; an ignoring route from every pad; the whole Territory in exactly one Section.
+**Rules** (revised in Ticket 24 step 1b after a search of the real map: the first values, `max(45, aggro + 20)` from every pad and a 15 stud lip margin, left no legal Home on any Shard; the reward now appears at Home): at least `AggroRadius + 20` from every pad; Home at least 20 from Home Caches; 20 to 32 from the Forward Cache; no overlap with a Warden's aggro circle plus clearance; at least 50 from Crown Sentries; Territory edge at least 5 from any lethal lip; aggro ring clear of connectors and aprons plus 2; an ignoring route from every pad; the whole Territory in exactly one Section.
 
 **Aggro versus loot.** Cache standing spots and drop spreads stay outside the aggro ring. Monsters are around loot without guarding it, and no Cache needs a fight.
 
-**Fallback if a Shard has no valid Home.** Relax in this order: the Forward Cache band first, then allow variant B further outward or on Layer 1. Never relax spawn safety, Home Cache safety or the lethal-lip margin to force a slot. If a Shard cannot support one valid Home at all, that is a Ticket 21 map-placement contradiction to review locally, never silently dropped from the rule. Layer 2 is preferred (the inward, Forward side, so monsters sit on the inward route as Layer 1 collapses), but not required.
+**Fallback if a Shard has no valid Home.** Relax in this order: the Forward Cache band first, then the Home may move onto Layer 1 (there is one Home per Shard, no variant B). Never relax spawn safety, Home Cache safety or the lethal-lip margin to force a slot. If a Shard cannot support one valid Home at all, that is a Ticket 21 map-placement contradiction to review locally, never silently dropped from the rule. Layer 2 is preferred (the inward, Forward side, so monsters sit on the inward route as Layer 1 collapses), but not required.
 
 ## Point 8. Reward
 

@@ -3606,7 +3606,7 @@ The **regular monster** is the Arena's baseline PvE population: weak, quick to k
 - **Step 0, shared primitives extracted from the built Warden** (see below).
 - `MonsterRules` (pure): selection and deal, FSM, edge hold, reset, wake stagger, targeting glue and locomotion goals over the extracted primitives.
 - `Monsters` (server): runtime, registration, motion, attacks, reward, `finish`, `removeSection`, telemetry.
-- The authored pool of 12 Home markers, the static validators, and the Layer and fallback review.
+- The authored Home markers (six, one per Shard, after the Step 1b revision), the static validators, and the Layer and fallback review.
 - `Match` integration, `MonsterVisuals`, `Feedback` additions, `Protocol` and `Tuning` entries, the PvE actor-id predicate, specs, the Studio matrix, `CONTEXT.md`, `monsters.md` and `ranks-and-pickups.md` terms.
 
 #### Non-goals
@@ -3625,7 +3625,7 @@ The **regular monster** is the Arena's baseline PvE population: weak, quick to k
 
 **Relies on (Ticket 21):** the six Shards and `ShardId`, pads, Home and Forward Caches, Crown Sentries, Warden slot markers, `SectionId` on markers, `goAt`, the structural validator.
 
-**Ticket 24 adds to the built map:** 12 Home markers (two per Shard, variant `A` and `B`), each with `HomeId`, `ShardId`, `Variant`, `SectionId`, `TerritoryRadius` and two slot offsets. Exact folder and attribute layout is recorded when built, and no generic marker framework is introduced.
+**Ticket 24 adds to the built map:** six Home markers, `MonsterHome1` to `MonsterHome6`, **one per Shard, on its Inner Section** (revised in Step 1b: the original plan was 12, two per Shard with variants A and B, which the real map cannot hold), each with `SlotKind = "Monster"`, `HomeId`, `ShardId`, `SectionId`, `TerritoryRadius` and two slot offsets. Exact folder and attribute layout is recorded when built, and no generic marker framework is introduced.
 
 **Relies on (Ticket 22):** `Collapse.sync(now)`, Section removal as one non-yielding step, restore before marker discovery, and the rule that a combat event accepted before the removal boundary resolves under the old world and one accepted at or after it under the new world.
 
@@ -3677,13 +3677,13 @@ Extract **only** what both real implementations genuinely need, from the built W
 
 | Part | What was built |
 |---|---|
-| `MonsterRules` (`Shared/Rules`) | the deal (`deal`: one A or B draw per Shard in ascending id, the pair Shards by partial shuffle, then a flag draw and an Ability draw for every monster in Home then slot order, both always taken), the four-phase FSM (`new`, `noteDamage`, `step`, `kill`) with `acquire`, the contest and aggro radii, the goal (`goalFor`: the approach spacing and a pair member's sideways shift inside the Territory, the unshifted edge point beyond it, and `lateralOffset`), `checkProgress`, `faultReason` and `validate` |
+| `MonsterRules` (`Shared/Rules`) | the deal (`deal`: the pair Shards by partial shuffle (the A or B draw built here was removed in Step 1b), then a flag draw and an Ability draw for every monster in Home then slot order, both always taken), the four-phase FSM (`new`, `noteDamage`, `step`, `kill`) with `acquire`, the contest and aggro radii, the goal (`goalFor`: the approach spacing and a pair member's sideways shift inside the Territory, the unshifted edge point beyond it, and `lateralOffset`), `checkProgress`, `faultReason` and `validate` |
 | `Tuning.monsters` | the settled values: health 45, 6 Homes with 2 pairs, flag 0.125, Rank 1, Territory range 6 to 9, aggro Territory + 4, attack reach 5.5, the claw (reach 5.5, 50 degrees, Telegraph 0.45, 8 damage, recover 0.8, gap 0.4, a 1.65 s cycle), wake stagger 0.3 to 0.7, the two 1.5 s holds, chase speed 13, approach spacing 3.5, pair offset 1.5, and the Warden's motion, Threat and Fault values under the same key names |
 | Shared rules reused | `PveMotionRules` (edge point, clamp, step limit, Fault), `PveThreatRules` (add, `challenger`), `PveActionRules` (the claw's action and its `Impact` and `ActionEnded`) |
 | Settings contract | `PveMotionRules.settingKeys` and `PveThreatRules.settingKeys` list every key those modules read, `missingSettings(settings)` reports any that are absent or not numbers, and `MonsterRules.validate` includes them. A misnamed key is a spec failure, not a silent nil |
 | Cleanup | the unused Telegraph constants were removed from `WardenVisuals`, and the Step 0 status wording corrected |
 
-**What the specs cover (`MonsterRulesSpec`, 49 specs after 1a.1).** S1 (the deal: shape, the fixed draw order, both draws always taken, the flag boundary, Ability uniform with repeats, determinism, both variants and every Shard as a pair across seeds, impossible inputs), S2 (acquire with line of sight, damage wake from any distance, sticky target and Threat switch, the no-target hold, hits during Return neither re-engaging nor recording Threat, a valid player inside the Territory re-engaging, the full reset on arrival), S3 (the contest boundary, the hold starting only on arrival, its exact length, cancellation by a reachable target, no hold between the circle and the contest distance), S4 (the 0.45 s Telegraph, one impact, rooted recovery, the gap, the stagger only after an acquisition and never after a switch, no retarget mid-Telegraph, the facing and reach gates), S5 (the goal maths, the pair offset, no-progress, Fault, `validate` and the settings contract). S6 to S13 belong to the runtime, validators, telemetry and integration steps.
+**What the specs cover (`MonsterRulesSpec`, 49 specs after 1a.1).** S1 (the deal: shape, the fixed draw order, both draws always taken, the flag boundary, Ability uniform with repeats, determinism, every Shard as a pair across seeds, impossible inputs), S2 (acquire with line of sight, damage wake from any distance, sticky target and Threat switch, the no-target hold, hits during Return neither re-engaging nor recording Threat, a valid player inside the Territory re-engaging, the full reset on arrival), S3 (the contest boundary, the hold starting only on arrival, its exact length, cancellation by a reachable target, no hold between the circle and the contest distance), S4 (the 0.45 s Telegraph, one impact, rooted recovery, the gap, the stagger only after an acquisition and never after a switch, no retarget mid-Telegraph, the facing and reach gates), S5 (the goal maths, the pair offset, no-progress, Fault, `validate` and the settings contract). S6 to S13 belong to the runtime, validators, telemetry and integration steps.
 
 **Check that the specs bite.** Three one-line mutations (a Returning monster re-engaged by damage, the hold starting without arriving, no wake stagger) made 5 specs fail, and the exact revert was confirmed (the source identical to before, no `TEMPORARY` left).
 
@@ -3745,11 +3745,26 @@ Extract **only** what both real implementations genuinely need, from the built W
 **Results.** `RunAll` on the Server in Play: **963 passed, 0 failed**. The structural check (`RunAll.structuralProblems`) reports 0 problems. The Warden, Collapse, Map and Match specs (`WardenRulesSpec`, `WardensSpec`, `WardenChecksSpec`, `PveRulesSpec`, `CollapseRulesSpec`, `CollapseSpec`, `CollapseChecksSpec`, `MatchMapSpec`, `MapRulesSpec`, `MatchSpec`) are 381 passed, 0 failed, so the Warden and Collapse behaviour is unchanged. `MapLayout` reads the new markers as kind `Monster` and `MapRules.validate` still passes. The weakest margins are the pad clearance (31.2 to 31.4 against 30) and the lip (6.5 to 7 against 5).
 
 **Not done in 1b.**
-- `ServerStorage.Tools.RiftCrownGreybox` does not yet write the six markers. A rebuild with the tool would drop them, so add them to the tool's marker table before the tool is next run (a later step, since the tool rebuilds the whole map).
+- ~~`RiftCrownGreybox` did not write the six markers~~ Fixed in step 1b.1 below.
 - The mutation check was not repeated for `MonsterChecks`: each rule has its own failing fixture instead.
 - The `ShardId`-based route uses the spoke whose `FromSection` is the Shard's Inner Section, and was sampled on a 1 stud grid. The Studio playtest of the ignoring route (M2) is still a Studio check.
 
 **Gate.** Step 1b goes back to the developer for review. The `Monsters` runtime (step 2) stays unbuilt until it is accepted, and the reward-at-Home change above applies to it.
+
+**Step 1b review (2026-11-12): PASS with corrections.** A read-only review of the placement against the real map found no gameplay defect: spawn to the edge of aggro is 21.2 to 21.4 studs (about 1.3 s), the straight approach to the Forward Cache and to the spoke passes 7.5 to 9.3 studs clear of aggro and to the Home Caches 20 or more, the nearest lip is 12.5 to 13 from Home (6.5 to 7 beyond the Territory edge), and the six Shards' geometry is mirror-near-identical (the differences are a Warden slot 18 to 19 studs beyond aggro on Shards 1, 3 and 5, and a Risky spoke on Shards 2, 4 and 6, both evidence items for the first Match). Theoretical risks only: a full-charge PvP push from the Territory edge toward a lip (the Warden's precedent is 5), and a pair's claws landing up to 0.4 s apart (already an evidence item). Reward at Home: a Riftling is clamped inside its radius 6 circle, so it dies within about 6 to 7 studs of Home. The reward point has 0 props, 0 floor step, and is 22 or more from the Forward Cache, 41 from Home Caches, 25 or more from connectors and 39 or more from a Warden Home, with no jump or Dash needed.
+
+**Runtime requirements from reward-at-Home (for step 2, not built).** Drop at Home through `Pickups.drop` with `source = "Monster"`. A pair's second flagged drop is offset by its slot (about 1.5 studs) so two Pickups never stack (about a 1.6% chance per pair). Check floor support at spawn. The existing reward cue at the Pickup is enough because the body is within about 6 studs. A short body-to-Home beam is optional polish.
+
+**Step 1b.1: corrections (2026-11-12, built, 965 specs).**
+- **The Greybox now reproduces the Home markers.** `RiftCrownGreybox` writes `MonsterHome1` to `MonsterHome6` from one `MONSTER_HOMES` table of the validated offsets from its centre (74,24), (-16,76), (-58,51), (-58,-52), (-16,-76), (74,-24), in the per-Shard loop beside the Warden slot. It was verified by building into the scratch `Workspace.RiftCrownBuild` only (never the live map): 35 markers as live, the six Homes identical to the live ones in position (0.001 studs), every attribute and the part flags, and the scratch folder destroyed afterwards. `MonsterChecks` was not run on the scratch build, because the overlapping live map's parts would read as props. The live markers are unchanged.
+- **`MonsterChecks` hardening.** `evaluate` now fails if the pad count read is not the expected 6 (a read that finds no pads fails loudly), and if a Home's name does not match its `ShardId`. Two new fixtures cover them (24 fixtures in all).
+- **Docs reconciled** for reward-at-Home, one Home per Shard and the revised pad and lip values, in this ticket and `regular-monster-design.md`. `monsters.md`, `ranks-and-pickups.md` and `CONTEXT.md` had no stale text on these points.
+- **Checkpoint.** Published version 178 predates Step 1b. It does not contain the markers, `MonsterChecks`, the placement `Tuning` values or the Greybox change. Rolling back to v178 is safe (it has no markers). The developer must save and publish for Step 1b to have a recoverable checkpoint.
+- **Not done:** `MonsterChecks` is not part of `RunAll`'s structural pass (the Warden's checks are not either), so placement is verified by `MonsterChecksSpec` only, and `read` itself is exercised on the real map and not on a failing fixture. Both are optional hardening.
+
+**Results (1b.1).** `RunAll` on the Server in Play: **965 passed, 0 failed**. The Warden, Collapse, Map and Match subset is 307 passed, 0 failed, and the structural check reports 0 problems.
+
+**Gate.** Step 1b.1 goes back to the developer. The live placement and ignoring-route playtest (M2) is not required before step 2 and can ride on the first integration Match. Step 2 (the `Monsters` runtime) is not started.
 
 #### Population and selection
 
@@ -3757,13 +3772,13 @@ Chosen once at Match setup, after `assignSpawns` and after Wardens (monsters do 
 
 | Item | Value | Label |
 |---|---|---|
-| Authored pool | 12 Homes, two per Shard: variant A and variant B | settled |
+| Authored pool | 6 Homes, one per Shard (revised in Step 1b from 12, two per Shard) | settled, revised |
 | Active per Match | one Home per Shard, so 6 Homes | settled |
 | Group sizes | 4 singles and 2 pairs, so 8 monsters | settled initial value, tunable |
 | Crown | 0 monsters | settled |
 | Maximum per Home | 2 | settled |
 
-`monsterRandom` is a dedicated stream, injected (`deps.monsterRandom`, default `Random.new()`). It never draws from `Match`'s shared `random`, the Cache deal, the spawn assignment or `wardenRandom`. **Fixed draw order**, so specs are deterministic: (1) one A or B draw per Shard in ascending `ShardId`; (2) the two pair Shards, drawn without replacement (no Gate constraint; the assignment is evidence); (3) for each monster in Home then slot order, **always** one flag draw and one Ability draw, whether or not the flag is set. The population is never changed after GO. One life per monster is final.
+`monsterRandom` is a dedicated stream, injected (`deps.monsterRandom`, default `Random.new()`). It never draws from `Match`'s shared `random`, the Cache deal, the spawn assignment or `wardenRandom`. **Fixed draw order**, so specs are deterministic (revised in Step 1b, the variant draw removed): (1) the two pair Shards, drawn without replacement from the Shards in ascending `ShardId` (no Gate constraint; the assignment is evidence); (2) for each monster in Home then slot order, **always** one flag draw and one Ability draw, whether or not the flag is set. The population is never changed after GO. One life per monster is final.
 
 #### Territory, aggro and targeting
 
@@ -3853,9 +3868,9 @@ Open combat circle: no collidable authored prop inside the usable movement circl
 | Collapse, Fault, Match end | no drop, no credit |
 | Not in this ticket | XP, currency, Relic, Kill Recovery, a second Pickup, Rank 2 or 3 world Pickups |
 
-The flag and Ability live only in the server record. **Nothing replicates before death**, and flagged and unflagged monsters look identical. The Pickup is spawned through `Pickups.drop` at the death position with the normal spread, with `source = "Monster"` and the monster id in the normal collect, consume and clear log lines.
+The flag and Ability live only in the server record. **Nothing replicates before death**, and flagged and unflagged monsters look identical. **Revised in Step 1b:** the Pickup is spawned through `Pickups.drop` **at the monster's Home**, as a Warden's reward is (a monster dies inside its radius 6 Territory, so within about 6 to 7 studs of Home), with `source = "Monster"`. `Pickups.drop` has no spread, so two flagged monsters of a pair would stack: the second is offset by its slot (about 1.5 studs). The Pickup is spawned through `Pickups.drop`, with `source = "Monster"` and the monster id in the normal collect, consume and clear log lines.
 
-**Loot-safe Territory.** The Territory edge keeps a lip margin of `lethalLootMargin + maximumPickupDropSpread`, about 15 studs, **verified from the actual `Pickups.drop` spread before it is locked**.
+**Loot-safe Territory (revised in Step 1b).** The reward appears at Home, which keeps at least `lipMarginStuds` (5) plus the Territory radius from a lethal lip (11 or more, 12.5 measured). The first design's 15 stud margin, verified against the real `Pickups.drop` (no spread, one Pickup at the given point), could not be met on the real map together with the pad clearance, so the Warden's value of 5 was adopted.
 
 **The old fast-opening rule does not apply.** Regular monsters, like Wardens, are excluded from the rule in `ranks-and-pickups.md` that an empty Ability slot guarantees the next eligible monster kill. A regular monster's reward is a pre-dealt flag and never a Monster Family Drop Table roll.
 
@@ -3865,12 +3880,12 @@ All distances are **starting values, greybox-validated against the built map**.
 
 | Relative to | Rule |
 |---|---|
-| Spawn pads | at least `max(45, AggroRadius + 20)` from **every** pad, own Shard's included. 45 is Ticket 21's `pveSlotClearance` and is the stricter value here (aggro + 20 is about 31 to 33), so it governs |
+| Spawn pads | at least `AggroRadius + 20` (30 at radius 6) from **every** pad, own Shard's included. **Revised in Step 1b** from `max(45, aggro + 20)`: no Shard has a legal spot at 45 with the lip and connector rules, and aggro + 20 is Ticket 21's superseding rule and the Warden's |
 | Home Caches | Home at least 20, so the Cache and its drop spread (about 5) sit outside aggro with margin |
 | Forward Cache | Home about 20 to 32 away. A neighbour that fights can drift into, never a guard. Cache standing spots and drop spreads stay outside the aggro ring |
 | Warden | the monster's aggro circle (`Territory + 4`) and the Warden's (`Territory + 4`) must not intersect, plus 2. Checked against **all three Warden slots** whether or not occupied this Match |
 | Crown Sentries | at least 50 from every Sentry |
-| Lethal lips | the Territory edge at least 15 from any lip (the loot-safe margin) |
+| Lethal lips | the Territory edge at least 5 from any lip (revised in Step 1b from 15, as the Warden's, with the reward at Home) |
 | Connectors and aprons | the aggro ring clear of every connector and apron, plus 2. A bridge traversal never wakes a monster |
 | Section | the whole circle on live floor of **exactly one** Section. A circle straddling Sections fails |
 | Floor and props | floor steps at most about 2.5 sampled across the circle, no collidable authored prop inside the circle plus clearance, and the two slot offsets inside the circle with at least 2 spare |
@@ -3879,7 +3894,7 @@ All distances are **starting values, greybox-validated against the built map**.
 
 - **An ignoring route exists** from every pad toward the Crown that never enters an aggro ring, without Dash, fighting or unavoidable damage. This is a Studio playtest requirement, with a simple sampled clearance check allowed to support it. No pathfinding is built to validate it.
 - **Section and layer.** Prefer a Layer 2 Home on the inward, Forward side where geometry allows, and allow Layer 1 where necessary. **Layer 2 is not hard-required.** A Layer 1 Home lives to the Layer 1 removal, a Layer 2 Home to the Layer 2 removal. No Layer 3 or Crown Home.
-- **Feasibility fallback**, in this order: (1) relax the Forward Cache 20 to 32 relationship; (2) allow or move variant B further outward, or onto Layer 1. **Never relax spawn safety, Home Cache safety or the lethal-lip margin merely to force a slot.**
+- **Feasibility fallback**, in this order: (1) relax the Forward Cache 20 to 32 relationship; (2) move the Home onto Layer 1 (the variant B step no longer exists, since there is one Home per Shard). **Never relax spawn safety, Home Cache safety or the lethal-lip margin merely to force a slot.**
 - If a Shard genuinely cannot support **one valid Home at all**, that is a **Ticket 21 map-placement contradiction**. Review that local geometry. Do not silently drop the Shard from the population rule, and do not redesign the Arena globally.
 
 #### Runtime architecture and interfaces
@@ -3929,7 +3944,7 @@ Hostile Telegraphs use red, which no Ability uses. Confirm against Ticket 22's w
 
 Console `[Riftfall]` `key=value`, no coordinates, timed from GO, attempted once, failures contained, and it never blocks gameplay. **Keep it lightweight:** if the per-Home summary becomes complicated, prioritise the counters that directly answer gameplay questions. No aggregation system for eight monsters.
 
-- **Events (capped at about 32 per Match):** `MonsterDeal` (players, the selected Homes with variant and size, the pair Shards, and `home/id -> none|ability`, enough to reconstruct which authored monster carried which hidden reward; server console only), `MonsterKill` (id, seconds, killer token, whether the lethal hit was outside, whether any player was hit during the engagement, drop), `MonsterPlayerDeath` (`alone`, `multiMonster`, `finishedAfterPlayerDamage`), `MonsterFault`.
+- **Events (capped at about 32 per Match):** `MonsterDeal` (players, the selected Homes with size, the pair Shards, and `home/id -> none|ability`, enough to reconstruct which authored monster carried which hidden reward; server console only), `MonsterKill` (id, seconds, killer token, whether the lethal hit was outside, whether any player was hit during the engagement, drop), `MonsterPlayerDeath` (`alone`, `multiMonster`, `finishedAfterPlayerDamage`), `MonsterFault`.
 - **`MonsterSummary`:** one line at Match end with a header and one compact block per Home. Header: `players`, `spawned`, `homes`, `pairs`, `activeAtEnd`. Per Home: first aggro and its cause (`Proximity`, `DamageInside`, `DamageOutside`), kills and engaged seconds to kill, unique engagers, resets by reason (`Unreachable`, `NoTarget`, `Other`) and total hold seconds, Collapse removals by layer (`removedEngaged`, `removedUntouched`), `outsideFirstHits`, `outsideHits`, `outsideDamage`, `outsideKills`, attacks started, hits, misses, Evades and Shield absorbed, damage to players and `playersHit` with context (`solo`, `pvpContext`, `multiMonster`), overlap (`overlapImpacts`, `pairBurstMax`, `maxConcurrentTelegraphs`), reward (`flagged`, `flaggedKilled`, `dropped`, `flaggedUnkilled`), and health (`faults`, `escapes`, `snapHome`, `maxOutsideDistance`).
 - **Derived fields:** `accidentalEngagements` (a Proximity engagement with zero accepted damage to the monster that ended in a NoTarget reset) with `routeTaxDamage`, and `flawlessKills` (a kill with no damage ever dealt to a player).
 - **Reward fate:** collection is joined offline from normal Pickup and `Equip` lines through the `source` tag and the pickup id, never duplicated here.
@@ -3956,7 +3971,7 @@ Three tiers. **Correctness (blocking, hard):** `MonsterFault` = 0 and `snapHome`
 #### Tests
 
 **Specs (pure and fixture-based).**
-- **S1** Deal and selection: one variant per Shard, 6 Homes, 4 singles and 2 pairs, 8 monsters, deterministic from an injected stream with the fixed draw order (both draws always taken), flag rate at the `p` boundary, Ability uniform with repeats allowed, the shared `Match` random, Cache deal, spawn assignment and `wardenRandom` untouched.
+- **S1** Deal and selection: one Home per Shard, 6 Homes, 4 singles and 2 pairs, 8 monsters, deterministic from an injected stream with the fixed draw order (both draws always taken), flag rate at the `p` boundary, Ability uniform with repeats allowed, the shared `Match` random, Cache deal, spawn assignment and `wardenRandom` untouched.
 - **S2** FSM: acquire (needs line of sight), damage wake from any distance with the damager as target, sticky target and Threat switch through the primitive, the no-target hold, vulnerable Return, **outside hits during Return do not re-engage**, a valid player inside the Territory does, the full reset on arrival (Health, Statuses, Threat, target, Idle) and no gradual regeneration.
 - **S3** Contest and hold: the `Territory + AttackReach` boundary, the edge-point goal, the hold starts **only on arrival at the edge point**, a target that becomes reachable first cancels it, a brief boundary crossing while the monster is still far does not reset, and a target between the circle and the contest distance is fought with no hold.
 - **S4** Action timeline: Telegraph 0.45 s, exactly one impact, rooted recovery, the movement-allowed gap, about 1.65 s cycle, no retarget mid-Telegraph, the wake stagger **only on the first attack after acquisition or re-engagement**, none after a target switch, and a deterministic cycle afterwards.
@@ -3987,7 +4002,7 @@ Three tiers. **Correctness (blocking, hard):** `MonsterFault` = 0 and `snapHome`
 
 **Studio S2 (two clients).** **T1** a real 2-player Match with all 8 monsters. **T2** one client kills a flagged monster and the other collects the Pickup with no reservation or delay. **T3** a claw hits both players when both stand in the wedge. **T4** a spectator sees the same monster state.
 
-**Real map placement.** **M1** run `setup` on the real built Rift Crown many times: 6 Homes each time, one per Shard, every A and B variant exercised, every validator green, no Shard without a valid Home. **M2** the ignoring route from every pad checked in Studio. These are evidence for the placement rules and the fallback order, and any failure is a map contradiction to review, never silently ignored.
+**Real map placement.** **M1** run `setup` on the real built Rift Crown many times: 6 Homes each time, one per Shard, every validator green, no Shard without a valid Home. **M2** the ignoring route from every pad checked in Studio. These are evidence for the placement rules and the fallback order, and any failure is a map contradiction to review, never silently ignored.
 
 **Coexistence.** **X1** Wardens and monsters in one Match: no aggro-circle overlap, no interference, distinct deals, and the Warden specs and Studio matrix still green.
 
@@ -4009,7 +4024,7 @@ Three tiers. **Correctness (blocking, hard):** `MonsterFault` = 0 and `snapHome`
 - Whether the existing hit gates already call `collapse.sync(now)` before a target is resolved, which decides whether the monster `gate` is needed.
 - How the Warden represents Health for the shared Resisted and damage-stage presentation, and whether `StatusVisuals` already works on a non-player model.
 - The actual player numbers used for tuning (Health, walk speed, Dash, Evade, Basic, Tidal, Arc Burst, Hook, Stone Guard, **and the Rank 2 values**), read from code, not these docs. If Rank 2 adds about 10%, the Tidal then Arc combo can kill outright, which is accepted but must be confirmed.
-- The actual `Pickups.drop` spread, to verify the loot-safe margin.
+- ~~The actual `Pickups.drop` spread~~ Done in Step 1b: there is none (one Pickup at the given point).
 - Which existing record gives the last player damage within a window, for `finishedAfterPlayerDamage` and `pvpContext`, and whether the hit pipeline reports per-target hit, Evade and Shield outcomes (if not, count through the shared `CombatResult` path).
 - Whether Pickup and `Equip` log lines carry ids and accept a `source` tag.
 - The Home Cache, Forward Cache, Warden slot, Sentry and pad distances at the real marker positions, and whether a valid Home exists on every Shard.
@@ -4049,7 +4064,7 @@ The no-target hold of 1.5 s; the pair lateral offset of about 1.5 studs; the tur
 
 An adversarial pass against Tickets 21 to 23, ADR-0008 and the existing combat, Pickup and Collapse rules found **no blocking contradiction**. Fixes applied to the documents:
 
-- **Spawn clearance:** Ticket 21's `pveSlotClearance` (45) and its superseding `aggro + spawnSafetyBuffer` rule both exist. Monster Homes use the stricter, `max(45, aggro + 20)`, so 45 governs, and the wording no longer implies the superseded constant alone.
+- **Spawn clearance:** Ticket 21's `pveSlotClearance` (45) and its superseding `aggro + spawnSafetyBuffer` rule both exist. Monster Homes first used the stricter `max(45, aggro + 20)`. **Superseded in Step 1b**: the real map cannot hold a Home under it, so `aggro + 20` governs, as for the Warden.
 - **The fast-opening guaranteed-drop rule** in `ranks-and-pickups.md` contradicted Point 1's no-guarantee rule. Regular monsters are now explicitly excluded, as Wardens already were. Ticket 18 already had no guaranteed-first-kill rule.
 - **`monsters.md`** called the Stone/Rift Knockback slam a trait of "future regular monsters". The Riftling has no Knockback, so that is now stated as a trait of a later family, and the Riftling is recorded as a family-less first monster.
 - **`monsters.md` and ADR-0008** described direct movement with pathfinding when stuck. ADR-0008 already rejects that for PvE actors. `monsters.md` now says the Riftling follows ADR-0008, and the ADR notes its second user.
