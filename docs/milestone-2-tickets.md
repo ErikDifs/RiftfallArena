@@ -3838,6 +3838,32 @@ Extract **only** what both real implementations genuinely need, from the built W
 
 **Gate.** Step 5 goes back to the developer for review before telemetry (step 6).
 
+**Step 5 review (2026-11-12): accepted by the developer**, no corrections.
+
+**Step 6: telemetry, the `monster` cases and the rename (2026-11-12, built, 1005 specs).** Log lines and counters only, nothing the game reads. Main session, because it touches `Combat` and `Session`.
+
+| Where | What |
+|---|---|
+| `Monsters` | Per-Home counters in `homeStats`, kept after a monster is removed and cleared at `setup`. Every update runs through `track` (a `pcall`), so a failing counter can't fail a hit, a step or a kill. `MonsterAggro` is now logged for a wake by damage too (before, only a Proximity or Reengage wake logged one). `MonsterKill` gained `engaged`, `outside` and `playerHit`. New `MonsterPlayerDeath` (`alone`, `multiMonster`). `Monsters.summary(players)` logs one `MonsterSummary` line: a header (`players spawned homes pairs activeAtEnd stale nonPlayerHits aliveOnRemovedSection logCapped`) and a block per Home with every field the Telemetry section lists except the three below. `Monsters.homeStats()` is for specs only |
+| `Match` | `endMatch` calls `monsters.summary(#state.order)` after `wardens.summary`, before the Collapse stops and well before `clear` |
+| `Session` | A monster's death logs no `Kill` line and counts no kill, damage or hit (its `MonsterKill` line is its own), as for Sentries and Wardens. A monster killing a player still logs `Kill killer=monster:... victim=player:...`, remembers the killer and counts a death |
+| `Combat` | PvE never hurts PvE across kinds: any attack by a Sentry, Warden or Riftling on a Sentry, Warden or Riftling is `Blocked` (before, only Sentry on Sentry). The server attacks already hit players only, so this is the backstop. A target's own gate still runs first |
+| Rename | The Pickup's `wardenId` is now `sourceId` in `Pickups`, `Session`, `Wardens`, `Monsters` and their specs. **The collection line's key changed from `warden=` to `sourceId=`**: ` source=Warden sourceId=warden:1 pickup=5`. Any offline join on `warden=` must use `sourceId=` |
+
+**Definitions chosen here (not in the ticket, so reviewable).** `outside` is a hit from beyond `Territory + AttackReach`, judged at the gate from the attacker's position; `outsideDamage` and the kill's `outside` use the gate's nominal damage and the latest accepted hit. `engagedSeconds` is the time in the Engaged phase; `killEngagedSeconds` is the sum over killed monsters. A claw hit's context is `multiMonster` when another live monster is Engaged on that player, else `pvpContext` when another player hit this Home inside the Threat window, else `solo`. `overlapImpacts` counts a landed hit when two different monsters hit the same player inside 1 s; `pairBurstMax` is the most damage in that window. `maxConcurrentTelegraphs` counts the Home's monsters mid-action when a claw starts. `holdSeconds` is the edge hold (Unreachable) or the no-target hold, measured from the rules' own start times captured before each step. `holdShortResets` is an Unreachable reset under `edgeHoldSeconds`. `accidentalEngagements` is a Proximity engagement with no accepted hit that ended in a NoTarget reset, with `routeTaxDamage` its damage to players. `flawlessKills` is a kill with no damage ever dealt to a player. Claw damage is the nominal claw damage, as the Warden's is, so a fully Shield-absorbed hit still counts as damage.
+
+**Not built, so the summary does not carry them.** `finishedAfterPlayerDamage` (needs the Session's recent player-versus-player damage and a new feed into `Monsters`), `escapes` (nothing in the Fault reasons separates one), and Collapse removals split by layer (`Monsters` knows the Section, not its layer: the counts are `removed=engaged/untouched` per Home). `reengagedByOutsideHitDuringReturn` is 0 by construction (`noteDamage` ignores a Returning monster), so it is not logged.
+
+**Elimination by a monster (checked in the code, not live).** `Match.onDeath` takes the Session's killer, keeps a non-player killer out of `killerId`, and logs it as the source. So a player killed by a Riftling is eliminated with cause `Died`, no killer name, and the HUD says "was eliminated" and "ELIMINATED". The same as a Sentry or Warden kill. Nothing changed.
+
+**Specs (17 new).** `MonstersSpec` (11): the header and blocks of a fresh deal, an outside first hit and kill with its drop, an inside hit and an unflagged kill, the claw's hit, Evade and miss, `MonsterPlayerDeath` (with and without a death), pvpContext and the pair's overlap, burst and multiMonster, accidental and damaged engagements, an Unreachable reset with the full hold, Collapse removals engaged and untouched, a Fault and a clean second Match, and a throwing counter update that never fails a hit or a kill (with the summary failing contained). `SessionSpec` (3): a monster-sourced Pickup line, a player's kill of a Riftling, a Riftling's kill of a player. `CombatSpec` (2): the cross-kind block, and a Riftling and a player still hurting each other. `MatchSpec` (1): `monsters.summary` once at the end with the player count, before `clear`.
+
+**Results.** `RunAll` on the Server in Play: **1005 passed, 0 failed** (988 before). Mutation checks (nine one-line breaks, each with a `TEMPORARYMUTATION` marker and an exact revert, confirmed against the saved source): `lastHitOutside` forced false, the short-hold test forced true, the concurrency count forced to 1 (checked alone, since another failure hid it), the pvp context removed, `track` made a plain call, the engaged/untouched test inverted, `monster` dropped from the Session skip, from `Combat`'s PvE kinds, and `Match`'s summary call removed. Each made its spec fail (8 failures together, 1 alone for the concurrency check). No `TEMPORARY` text remains outside the Collapse specs' own fixture names.
+
+**Not verified.** A live Match with monsters, so no `MonsterSummary` line has been read from a real run yet (the specs build it on a fake clock). That is the Studio matrix.
+
+**Gate.** Step 6 goes back to the developer for review before the Studio matrix (step 7).
+
 #### Population and selection
 
 Chosen once at Match setup, after `assignSpawns` and after Wardens (monsters do not depend on occupied pads). **Tunable starting rule, not scaled by player count:**
