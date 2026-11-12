@@ -292,7 +292,7 @@ From [Ticket 23](milestone-2-tickets.md#23-rift-warden), **built in steps** (ste
 
 From [Ticket 24](milestone-2-tickets.md#24-regular-monsters), **built in steps** (step 0, the shared primitives, and step 1a exist). With the Reference Kit no monster exists and no loop runs, and nothing yet calls the rules at all.
 
-- **`MonsterRules`** (pure, `Shared/Rules`) holds the deal (`deal`, with its fixed draw order), the Idle, Engaged, Returning and Dead machine (`step`, `noteDamage`, `kill`), targeting, the edge-point goal with the pair offset, no-progress, Fault and config validation. It reuses `PveMotionRules`, `PveThreatRules` and `PveActionRules`. Its config is `Tuning.monsters`.
+- **`MonsterRules`** (pure, `Shared/Rules`) holds the deal (`deal`, with its fixed draw order), the Idle, Engaged, Returning and Dead machine (`step`, `noteDamage`, `kill`), targeting, the goal (a pair offset inside the Territory only, the unshifted edge point beyond it, and `step` measuring the edge hold against the runtime's own `view.goal` when given), no-progress, Fault and config validation. It reuses `PveMotionRules`, `PveThreatRules` and `PveActionRules`. Its config is `Tuning.monsters`.
 - **Not built yet:** the Home markers and validators (step 1b), the `Monsters` runtime, the `Match` integration, `MonsterVisuals`, telemetry and the `monster` cases in `Session`, `Feedback` and `Combat`.
 
 ## Rift Collapse presentation
