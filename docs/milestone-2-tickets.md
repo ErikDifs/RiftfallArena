@@ -14,6 +14,7 @@ Being settled from 2026-11-08, before any building. Work stops after each ticket
 | 2026-11-09 | Published place `134091394433436`, version 86 | Ticket 19: Rift Hook and Stone Guard, the `Self` form, forced movement with its own duration, the Shield, and the four-Ability loot bag |
 | 2026-11-10 | Published place `134091394433436`, version 98, from commit `8f027c8` | Ticket 20: the run-test telemetry and its specs (427), the Kill and Reaction confirm sound changes. Reference-safe: `startingKit = "Reference"`, `maxSeconds = 480`, no temporary aids |
 | 2026-11-11 | Published place `134091394433436`, version 125, docs at commit `ce1ccff` | Ticket 21 (the Rift Crown, built and measured, human play checks postponed) and Ticket 22 steps 1 and 2 (`CollapseRules`, the `Collapse` runtime on a fixture, 574 specs). Reference-safe: `startingKit = "Reference"`, `maxSeconds = 480`, nothing requires the Collapse yet, no temporary aids |
+| 2026-11-12 | Published place `134091394433436`, version 156, docs at commit `f411904` | Ticket 22 complete (the Rift Collapse, steps 1 to 10, 699 specs, S1 and S2 on the real map, settle 1.75 and the boundary rule). Published by the developer from the live editing session |
 
 Roblox version history is the code's history, as [Milestone 1's checkpoints](milestone-1-tickets.md#checkpoints) set out, and only versions marked Published count.
 
