@@ -4363,6 +4363,29 @@ A Reaction resolves before the Shield, so a Reaction on a fully shielded player 
 
 **Results.** `RunAll` on the Server in Play: **1022 passed, 0 failed** (1005 before). Mutation checks, each with a `TEMPORARYMUTATION` marker and the original restored from the saved source: the idle boundary made exclusive, the calm note removed from `stamp`, the opponent filter removed, the 60 s gate removed, `explore` allowed without `reserve`, a use spendable at zero, a Lane completable twice (seven together: 9 specs failed, each mutation with its own), and the negative-damage clamp removed (alone: 1 failed). After the revert the source equals the saved original, no `TEMPORARY` text or instance exists outside the Collapse specs' fixture names, and `Tuning` loads with `startingKit = "Reference"` and `arrivalHoldSeconds = 3`. Solo Play creates no Match, Monsters or Wardens. Nothing was saved or published from this session.
 
+The developer approved Step 1 and its interpretations on 2026-11-12.
+
+**Step 2: the Riposte rules (2026-11-12, built, 1037 specs).** Pure rules only. Nothing in the game calls `RiposteRules` yet, so the Reference Kit and every Match behave as before.
+
+| Where | What |
+|---|---|
+| `Tuning.milestones.riposte` | `uses` 3, `startupSeconds` 0.1, `windowSeconds` 0.35, `failureRecoverySeconds` 0.4, `frontHalfAngleDegrees` 90, `replyRange` 9.5, `replySeconds` 1 |
+| `RiposteRules` (`Shared/Rules`, new) | `validate` (uses a whole number of 1 or more, the window and reply above 0, the startup and recovery 0 or more, the half angle above 0 and at most 180, the reach at most `MAX_REPLY_RANGE` 11). `phase` (Startup, Active, Recovery or Ready) and `blocksAttack`. `refusal` and `activate`, which spends the Contest use and stamps the combat-idle signal. `frontAngle` on the flat plane, `eligible`, `tryParry`, `dash`, `resolve`, `replyRange` and `takeReply`. It requires `MilestoneRules`, and the uses live on the Contest Lane's record |
+| `RiposteRulesSpec` (new, 15) | The pure parts of S5, including the committed numbers |
+
+**Interpretations made here (reviewable).**
+- **Refusals are checked in this order:** not in a Match, Locked (not earned, or earned and not yet unlocked), no uses, Busy (in a stance or its recovery), Charging, Stunned, Frozen. Rooted is not a refusal. A refusal spends nothing and stamps nothing, and an accepted activation does both in the same rule.
+- **The window starts inclusive and ends exclusive.** A hit at the first instant of the window is parried, and one at its end is not. The ±90° front is inclusive.
+- **A hit that the stance does not parry leaves it running:** one in the startup, one from behind, and one that isn't eligible (a projectile, a PvE attack). It lands as usual. "Only the first eligible hit" means the first one parried, and every hit after it in the same window lands.
+- **A Dash ends a running stance, in its startup too, as a failure, and the 0.4 s recovery runs from the Dash,** not from where the window would have ended. A Dash after the window has run out or after a parry changes nothing.
+- **The phase is worked out from the times,** so a window that ran out is in Recovery before any step notices. `resolve` records the failure at the window's end however late it runs, like the calm moment in Step 1.
+- **A parry leaves no recovery,** so another activation can start at once if uses remain. A new activation replaces the stance, and with it any reply not yet taken.
+- **The reply is taken by the next accepted Basic only,** within 1 s of the parry, inclusive at 1 s. Another Ability's Cast doesn't use it up.
+- **An attack origin directly above or below the defender, or a facing with no flat part, reads as 0° (in front).** The camera keeps the root level, so the second case shouldn't happen.
+- **Open for Step 4:** a Stun or Freeze that lands during a stance doesn't end it in these rules. The ticket only refuses an activation in those states.
+
+**Results.** `RunAll` on the Server in Play: **1037 passed, 0 failed** (1022 before). The first run failed one spec, because of a bug in the spec itself: an override of `sector = nil` can't replace a value (see the quirks doc). That spec was fixed. Mutation checks, each with a `TEMPORARYMUTATION` marker and the original kept in `_G`, in two rounds. **Round 1, ten mutations:** no Busy refusal, the window's end inclusive, the front exclusive, a failure ending when resolved rather than at the window's end, a Dash's recovery from the window's end, the reply reusable, no stamp on activation, PvE eligible, height not flattened, the reach ceiling removed. **Ten specs failed, each with its own mutation.** **Round 2:** a parry that doesn't end the stance, and a window that runs out to Ready with no recovery. **Seven specs failed.** After the revert the source equals the saved original, no `TEMPORARY` text or instance exists outside the Collapse specs' fixture names, and `Tuning` loads with `startingKit = "Reference"` and `arrivalHoldSeconds = 3`. Nothing was saved or published from this session.
+
 #### Milestone engine
 
 - **State** is per player and per Match: for each Lane, `earnedAt`, `unlockedAt`, uses spent. It is created at GO, cleared at Match end and at Elimination, and never persists. There is nothing to carry across a Match or a rejoin.
