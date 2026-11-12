@@ -344,6 +344,14 @@ _Avoid_: Turret, tower, monster
 An optional, contested, elite-tier (mini-boss-style) PvE guardian that stands on a Layer 2 platform inside its own circular Home Territory, carries a visible Ability reward, fights with two Telegraphed melee attacks and drops one ordinary Rank 1 Ability Pickup when killed. It is rare, takes a competent solo player about 15 to 20 seconds, never gates a route, Kit or progression step, never respawns, and despawns with its Section. It is not a normal monster and not a true boss. "Elite Warden", "Boss" and "Crown Boss" are reserved for genuinely larger future encounters (the Dais slot).
 _Avoid_: Monster, boss, elite, mob
 
+**Warded**:
+The result of a hit that a Rift Warden refuses: its attacker was not a valid player, was farther than its Territory plus attack reach from its Home, or the Warden's Section is already consumed. Nothing happens to the Warden: no damage, Status, Reaction, Threat or wake.
+_Avoid_: Evaded (that is a Dash's Evade), immune, blocked
+
+**Resisted**:
+The result of a hit that lands on a Rift Warden, with its damage and Statuses, but whose push or pull moves nothing. The Warden is immune to forced movement.
+_Avoid_: Immune, blocked
+
 **Regular monster**:
 A weak, quick-to-kill (about 3 to 5 seconds for a competent solo player), more numerous PvE enemy scattered near loot and routes, clearly different from a Rift Warden. Its role is ambient PvP pressure first: it comes to players, makes noise and gets pulled into fights, and a reward source only second. One rarely kills a healthy player alone and it deals no Knockback. It is dangerous in groups, in PvP overlap or near a Collapse edge. Most drop nothing. A kill may roll a small, configurable chance of one ordinary Rank 1 Ability Pickup, tuned as expected bonus drops per Match and kept clearly below the guaranteed Warden supply. It gives no XP, never respawns, gives no drop when its Section collapses, and never gates a route, Cache or the Crown. It has a small circular Home Territory with a hard leash, never follows across connectors or Shards, and takes a short hold at the edge then a full reset if its target stays out of reach. The first is the Riftling. Specified in Ticket 24, not built yet. It is not a Monster Family member, and it is not an "eligible monster kill" for any guaranteed-drop rule.
 _Avoid_: Warden, mini-boss, mob
