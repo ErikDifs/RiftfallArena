@@ -291,13 +291,13 @@ From [Ticket 23](milestone-2-tickets.md#23-rift-warden), **built in steps** (ste
 
 ## Regular monsters
 
-From [Ticket 24](milestone-2-tickets.md#24-regular-monsters), **built in steps** (steps 0 to 2 and the `Match` integration exist). With the Reference Kit no monster exists and no loop runs.
+From [Ticket 24](milestone-2-tickets.md#24-regular-monsters), **built** (the rules, the runtime and its `Match` integration, the visuals and the telemetry). With the Reference Kit no monster exists and no loop runs.
 
 - **`MonsterRules`** (pure, `Shared/Rules`) holds the deal (`deal`, with its fixed draw order), the Idle, Engaged, Returning and Dead machine (`step`, `noteDamage`, `kill`), targeting, the goal (a pair offset inside the Territory only, the unshifted edge point beyond it, and `step` measuring the edge hold against the runtime's own `view.goal` when given), no-progress, Fault and config validation. It reuses `PveMotionRules`, `PveThreatRules` and `PveActionRules`. Its config is `Tuning.monsters`.
 - **`MonsterChecks`** (server, read-only, step 1b) is the static Home placement validator, like `WardenChecks`. The six `MonsterHome<n>` markers (one per Shard, on its Inner Section) carry `SlotKind = "Monster"`, `HomeId`, `ShardId`, `SectionId`, `TerritoryRadius` and two slot offsets. A monster's reward appears at Home, as a Warden's does. `RiftCrownGreybox` writes the six markers from its `MONSTER_HOMES` table, so a rebuild keeps them.
 - **`Monsters`** (server, step 2) is a module like `Wardens`, with its dependencies injected so specs run it in manual mode. It owns the records, the `monster:<Shard>-<slot>` targets, the one Heartbeat, `finish`, `removeSection` and `clear`, and spawns a flagged kill's reward at Home. `Main` starts it and `Match` is its lifecycle owner, as for Wardens: `setup(matchId)` after `wardens.setup` and before anyone is placed, `setGo`, `clear` at Results, `removeSection` from the Collapse hook and `setSync`. With the Reference Kit `Match` never starts, so none exists. Telemetry (step 6) is per-Home counters kept in protected calls, and `Match.endMatch` calls `summary(players)` once, before `clear`, to log `MonsterSummary`.
 - **`MonsterVisuals`** (client, step 5) draws each Riftling from its tag and attributes alone: a Part rig, the claw's wedge from `PveTelegraph`, damage stages, the wake, return and death body language and the Cache-break cue on a reward drop. Wet and the other Statuses come from `StatusVisuals.mirror`, shared with `WardenVisuals`. `Feedback` names the claw and a `monster` id.
-- **Not built yet:** the full telemetry and the `monster` cases in `Session` and `Combat`.
+- **PvE classification (step 6).** `Session` keeps a Riftling's death out of players' kills, damage and hits, as for Sentries and Wardens, and still names a Riftling that kills a player. In `Combat`, an attack by a Sentry, Warden or Riftling on another of them is `Blocked`. A Pickup from a Warden or a Riftling carries a generic `sourceId`.
 
 ## Rift Collapse presentation
 

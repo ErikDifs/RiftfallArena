@@ -4216,7 +4216,7 @@ Correctly deferred: see Future work. Review result: **no new ADR required.** ADR
 
 ### 25. Match Milestones
 
-**Status: specified 2026-11-10 and reviewed adversarially the same day, not built, and conditional on gameplay evidence.** The ticket is **staged**: Stage 1 may be built now, Stage 2 only after Tickets 21 to 24 are built, and Stage 3 (Reserve) only if run tests justify it. Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`milestone-design.md`](milestone-design.md) and [ADR-0009](adr/0009-match-progression-through-one-time-milestones.md). This entry is the build contract. Numbers are **tunable** unless marked fixed, and are starting values, not balance guarantees. Exact module names and folder layout are provisional and recorded when built.
+**Status: specified 2026-11-10 and reviewed adversarially the same day, conditional on gameplay evidence. Stage 1's open points were settled on 2026-11-12 (see [Settled for Stage 1](#settled-for-stage-1-2026-11-12-with-the-developer-before-building)) and Stage 1A is being built in steps.** The ticket is **staged**: Stage 1 may be built now, Stage 2 only after Tickets 21 to 24 are built, and Stage 3 (Reserve) only if run tests justify it. Every design point was grilled with the developer and settled. The reasoning, rejected options and edge cases are in [`milestone-design.md`](milestone-design.md) and [ADR-0009](adr/0009-match-progression-through-one-time-milestones.md). This entry is the build contract. Numbers are **tunable** unless marked fixed, and are starting values, not balance guarantees. Exact module names and folder layout are provisional and recorded when built.
 
 **Targets and balance expectations are not pass criteria.** Riposte's value, Catch Breath's value, Lane completion rates, the 2-player and full-lobby behaviour, and stacking produce tuning notes. Only the **Completion criteria** decide completion.
 
@@ -4230,8 +4230,8 @@ During a Match a player can earn up to three **Milestones**, one per **Lane**: *
 
 | Stage | Contents | Can be built | Evidence to proceed |
 |---|---|---|---|
-| **1. Core** | The combat-idle signal, the Milestone engine, **Contest with Riposte**, **Endure with Catch Breath** (Close Call only), Match-local state, minimal HUD, telemetry | **Now**, on the current Match | A Stage 1 run test shows the Lanes are pursued and completed, Riposte and Catch Breath are used, and no unanticipated exploit. If Milestones don't change play, **reconsider the system before expanding.** |
-| **2. Arena and PvE integration** | Pressured Exit, Warden damage as an Endure source, the Explore feats (kept **inactive** until its reward exists) | **After Tickets 21 to 24 are built** | Stage 1 evidence, plus the integration contracts below verified in code |
+| **1. Core** | The combat-idle signal, the Milestone engine, **Contest with Riposte** (1A), **Endure with Catch Breath** (1B, Close Call only, with Warden damage as a source), Match-local state, minimal HUD, telemetry | **Now**, on the current Match | A Stage 1 run test shows the Lanes are pursued and completed, Riposte and Catch Breath are used, and no unanticipated exploit. If Milestones don't change play, **reconsider the system before expanding.** |
+| **2. Arena and PvE integration** | Pressured Exit, the Explore feats (kept **inactive** until its reward exists) | **After Tickets 21 to 24 are built** | Stage 1 evidence, plus the integration contracts below verified in code |
 | **3. Reserve** | The full Reserve spec below | **Only on evidence**, independent of whether Riposte and Catch Breath succeeded | Loot-saturation evidence (see below). If it proves valuable independently of Milestones, **revisit whether it belongs in the base Kit system.** |
 
 #### Scope
@@ -4259,13 +4259,15 @@ During a Match a player can earn up to three **Milestones**, one per **Lane**: *
 - Ticket 23: the Warden's Engagement lifecycle and a per-player effective-damage tally.
 - Ticket 24: Riftling kills with Last Hit credit.
 
-**2. Ticket 25 builds itself (Stage 1, testable on the current Match):** the combat-idle signal (stamp points in `Combat`, `Casts` and Charging, with PvE stamps added by Tickets 23 and 24), the Milestone engine, Riposte, Catch Breath, the player-damage window keyed by a **source class** so the Warden and PvE plug in later, input actions, HUD, telemetry and specs.
+**2. Ticket 25 builds itself (Stage 1, testable on the current Match):** the combat-idle signal (stamp points in `Combat`, `Casts` and Charging, with the PvE stamps added here in `Combat`, since Tickets 23 and 24 did not build them), the Milestone engine, Riposte, Catch Breath, the player-damage window keyed by a **source class** so the Warden and PvE plug in later, input actions, HUD, telemetry and specs.
 
 **3. Integration hooks added to earlier tickets (requirements, not redesign), recorded in each ticket:**
 - **Ticket 21:** expose each player's start Shard and a Shard-membership lookup.
 - **Ticket 22:** expose a Section lookup from a position, the Warning flag and the applied removal and settle times, read-only.
 - **Ticket 23:** keep a **per-player effective-damage tally per Engagement**, cleared when regeneration starts, on a full reset or on despawn, and report a `sourceClass` on its hits. Last Hit still decides loot.
 - **Ticket 24:** report a Riftling kill with its killer and Home Shard, report `sourceClass` on its hits, and give no credit on despawn, Fault or Return.
+
+**As built (checked 2026-11-12):** neither Ticket 23 nor Ticket 24 reports a `sourceClass` or stamps the combat-idle signal. Stage 1 derives the class in `Combat` from the attacker's kind and adds the stamps there. The Warden's per-Engagement tally and the Riftling's kill report are still Stage 2's to verify.
 
 **Stage 3 additionally relies on** Ticket 21's and Ticket 22's Kit-drop spread and live-floor fallback, which currently assume the drop spread of an existing Kit. They must handle **up to three** items.
 
@@ -4281,12 +4283,67 @@ During a Match a player can earn up to three **Milestones**, one per **Lane**: *
 | `explore` | **off** | **Requires `reserve`.** A spec asserts `explore` implies `reserve`, so Explore is never active without its reward. |
 | `reserve` | **off** | Stage 3 |
 
-Milestones exist only inside a Match, which is itself dormant under the Reference Kit. With every gate off, or outside a Match, there are no Milestone attributes, tags, remotes or log lines, and the arena, dummies and Stage 3 builds behave as today. **No placeholder reward is introduced for an inactive Lane.**
+Milestones exist only inside a Match, which is itself dormant under the Reference Kit. With every gate off, or outside a Match, there are no Milestone attributes, tags or log lines, no request can start a Riposte or a Catch Breath, and the arena, dummies and Stage 3 builds behave as today. The request remotes themselves exist, because `Protocol` creates every declared event at startup. **No placeholder reward is introduced for an inactive Lane.**
 
 #### Settle before building Stage 1
 
 - **Input.** Three new actions (Riposte, Catch Breath, and Stage 3's Reserve swap) are reviewed together for keys and accessibility. Keyboard is the only input today (no gamepad or touch handling exists). The actions are device-independent (`Riposte`, `Recover`, `SwapReserve(slot)`) and **no key is assigned here**. Studio tests use placeholder bindings only. The review includes touch (see the platform input note at the end of this ticket and [Ticket 29](#29-platform-input-and-mobiletablet-support)).
 - **The combat-idle window** and the other values below are placeholders until measured.
+
+#### Settled for Stage 1 (2026-11-12, with the developer, before building)
+
+Checked first against the live Studio source at version 191 (`Combat`, `Sectors`, `Casts`, `Movement`, `Match`, `Protocol`, the client `Camera`). Where this record differs from a paragraph below, the paragraph has been corrected to match.
+
+**Found in the code.**
+- **`sourceClass` and the PvE combat-idle stamps do not exist.** The integration contracts in Tickets 23 and 24 list them, but neither ticket built them (the signal they would stamp was not there). Stage 1 adds both itself, in `Combat`, with no change to `Wardens` or `Monsters`.
+- **`Combat.applyHit` is the only place a player's Health is reduced.** Void and Collapse deaths go through `Match.eliminate` and never touch Health, so no environmental damage can be given a class. Every hit has exactly one attacker, and its class is that attacker's kind (`Protocol.idKind`). A Reaction's bonus belongs to the triggering attacker's hit, so no hit mixes classes. A dummy has no class.
+- **`Combat` reports damage after Shield but not clamped to the Health that remained,** so a killing hit overstates. Milestones read a new Health-lost value (before minus after) on the hit report.
+- **A Sector hit is evaluated in the server call that accepts its Cast,** and carries the attacker's server-side origin (`sourcePosition`). `Combat` cannot tell a Sector hit from a projectile hit today, so `Sectors.fire` marks its hits.
+- **The character always faces the camera's yaw:** the client `Camera` sets the root's rotation every render frame. Facing is therefore replicated continuously with position, not sent on a key press. It is **client-owned and server-observed, never validated** (Movement Validation checks position only).
+- **`Protocol.createRemotes` builds every declared event at startup,** so a new request remote exists under the Reference Kit too.
+- **`CastStarted` carries no range.** `Feedback` treats a `CombatResult` kind it does not know as a hit.
+
+**Decisions.**
+
+| Point | Settled |
+|---|---|
+| Stage split | **1A:** the combat-idle signal, the Milestone engine, Contest and Riposte. **1B:** Endure and Catch Breath, the Reserve demand counters and Catch Breath's telemetry. Each has its own specs, review gates and commits, and the Stage 1 evidence gate follows 1B |
+| Values | Every number in this ticket stands as the starting value: a playtest baseline, not a balance decision |
+| Keys | **R** for Riposte and **C** for Catch Breath, as provisional PC bindings for Studio testing. Ticket 29 owns the cross-platform review |
+| Warden damage | Counts toward Close Call **from Stage 1**, since Wardens exist, so the Lane does not behave differently by stage. Riftling and Sentry damage stay excluded |
+| `sourceClass` | Derived once in `Combat` for all four classes (Player, Warden, Riftling, Sentry) |
+| Combat-idle stamps | See the table below |
+| Contest damage | Health actually lost, clamped to what remained. Never nominal damage or overkill |
+| Riposte's front | The attacker's Sector origin lies within **±90°** of the defender's server-observed facing, on the flat plane, read at the hit (`frontHalfAngleDegrees`, tunable). No facing and no time travel in the request. Telemetry logs the angle on every parry and every stance that failed on angle, and how far the defender's yaw moved between activation and the hit |
+| Riposte and movement | The server does not enforce stillness during the stance (the rules below never did). The stance is short, and facing is what limits it |
+| Client state | **Player attributes**, written only by `Milestones` and absent outside a Match, for the earned Lane, the unlock, the uses left and the time the player becomes calm. No owner-only remote. Names are provisional and recorded when built |
+| Banners | Derived on the client from the earned-Lane attribute appearing on its own Player. **No Milestone event.** The client takes the value it finds at start as a silent baseline, so a late join or a respawn replays nothing. The "ready" notice keys on the unlock attribute alone. Presentation only |
+| Dormancy (S8) | **Behavioural**, not the absence of remotes: under the Reference Kit or with the gates off, no Milestone handler acts, no state or attribute is written, nothing is announced or logged, a request cannot start a Riposte or a Catch Breath, and existing play is unchanged |
+| Elimination order | In one step inside `Match.eliminate`: the killer's Contest credit first, then the victim's state cleared, before the Kit drop and before the step that can end the Match. A hit from an already Eliminated player credits nothing |
+| Catch Breath at full Health | Refused, with no use spent and no channel (built in 1B) |
+| Reach override | `CastStarted` gains one optional range field, so other clients draw the 9.5 reply |
+| Test setup | A TEMPORARY hook and test-only `Tuning` overrides, removed and read back before any publish. Two-client cases need a Server & Clients session started by the developer |
+
+**What stamps the combat-idle signal** (server time, at these points only):
+
+| Event | Stamps | Contest damage |
+|---|---|---|
+| A hit that costs Health | Attacker and target | The Health lost |
+| A hit fully absorbed by a Shield | Attacker and target | 0 |
+| An Evaded hit, including a Sentry's, Warden's or Riftling's attack | Attacker and target (players only) | 0 |
+| A Parried hit | Attacker and target, and the Riposte activation stamps the defender | 0 |
+| A Warded hit (a Warden's gate) or a Blocked one (PvE on PvE) | No hit stamp. The attacker's own Cast already stamped them | none |
+| A hit on a Rift Cache | None: a Cache is an objective, not an opponent | none |
+| An accepted damaging Cast or Basic swing, a Charge start | The player who made it | none |
+| Stone Guard, a rejected or repeated request, anything cosmetic | None | none |
+
+A Reaction resolves before the Shield, so a Reaction on a fully shielded player still counts as triggered for Contest. A ring-out that names a player as the killer counts as an Elimination, and one with no player credit does not.
+
+**Accepted gap.** A Contest earned by the kill that ends the Match is set and cleared in the same moment, so that client may see no banner. Telemetry records it.
+
+**Risks carried into the build.** The server's view of facing trails the defender's screen by the usual one-way latency, unmeasured until the first live check of 1A (the fallback is a wider angle, never client-reported facing). A Basic Attack lands the instant the server accepts it, so a Riposte is timed on rhythm, and a 0.35 s window against a 0.4 s Basic cooldown may be too reliable against Basic spam. A modified client can auto-face one attacker, which the window and the 3 uses bound but do not prevent.
+
+**Stage 1A steps,** each ending with `RunAll`, mutation checks on its new specs, a record here, a commit and the developer's review: (0) this record; (1) `Tuning.milestones` and `MilestoneRules` for Lanes, Contest, the unlock and combat idle; (2) the Riposte rules; (3) `Milestones` with Contest live, the `Combat` report, the stamps, the `Match` lifecycle and the attributes; (4) Riposte on the server; (5) the client; (6) telemetry; (7) the live matrix for 1A; (8) cleanup and results.
 
 #### Milestone engine
 
@@ -4304,10 +4361,10 @@ One server value, `lastHostileAt[player]`, and one rule: a player is **out of co
 - An accepted hit dealt or taken, **including a fully absorbed hit**.
 - A hit voided by Evade, **for both attacker and defender**, and a hit voided by Parry, for both.
 - The player's own damaging Cast, Basic swing or Charge start.
-- PvE damage dealt or taken (stamps added by Tickets 23 and 24).
+- PvE damage dealt or taken, and an Evaded PvE attack: Sentries, Wardens and Riftlings (stamps added by this ticket, in `Combat`).
 - A Riposte activation.
 
-**Never stamped by:** a rejected or invalid request, a non-hostile Cast (Stone Guard), or proximity. A missed projectile that passes without hitting is **not detected**, so a missed attack doesn't keep a target in combat indefinitely. This is accepted.
+**Never stamped by:** a rejected or invalid request, a non-hostile Cast (Stone Guard), a hit on a Rift Cache, a Warded or Blocked hit, or proximity. A missed projectile that passes without hitting is **not detected**, so a missed attack doesn't keep a target in combat indefinitely. This is accepted.
 
 The existing 7 s `fightIdleSeconds` (fight logging) and the 7 s Natural Recovery delay are **separate** and are not reused.
 
@@ -4325,7 +4382,7 @@ Reward: **Riposte**.
 
 #### Endure (Stage 1 for Close Call, Stage 2 for Pressured Exit)
 
-Completed by **either** path. **Only damage from players and Wardens qualifies.** Riftling and Sentry damage does not, and a Warden contributes only once Ticket 23 is built. Damage is **effective Health lost**, not raw incoming damage. The qualifying tally keeps `(time, effective damage, sourceClass)` entries for 10 s.
+Completed by **either** path. **Only damage from players and Wardens qualifies.** Riftling and Sentry damage does not. Warden damage counts from Stage 1, since Ticket 23 is built. Damage is **effective Health lost**, not raw incoming damage. The qualifying tally keeps `(time, effective damage, sourceClass)` entries for 10 s.
 
 | Path | Rule |
 |---|---|
@@ -4353,8 +4410,8 @@ An activated tool, **3 fixed uses per Match, no refunds**. A use is spent on act
 - **Failure:** if the window ends with no parry (including after a Dash), about **0.4 s** with no Basic or Cast. Dash stays available.
 - **Refused while:** not unlocked, no uses left, Charging, Stunned or Frozen, already in a stance or recovery, or outside an active Match.
 - **Assembly defaults, not individually grilled:** a stance parries **only the first** eligible hit and then ends, so two attackers can't both be negated in one window. A multi-target Arc Burst is negated only for the parrying player. A parried attack's cooldown is still spent.
-- **Authority:** under ADR-0002 facing and movement are client-controlled. The server reads root position and orientation at the check, with a stated tolerance. A client could spin to face an attacker, so the 0.35 s window and the 3 uses are the real limit.
-- The **reach override** has to reach the server's hit spec and the client's drawn Sector (`CosmeticSectors`). What `CastStarted` carries is to be verified when building.
+- **Authority:** under ADR-0002 facing and movement are client-controlled. Facing is **client-owned and server-observed, never validated**: the client's camera sets the root's yaw every frame, and the server reads root position and orientation at the hit. "From the front" means the attacker's Sector origin lies within ±90° of that facing on the flat plane (`frontHalfAngleDegrees`, tunable). The server is authoritative over the window, the uses, the attacker's position and the hit evaluation, and the request carries no facing and no time. A client could spin to face an attacker, so the 0.35 s window and the 3 uses are the real limit.
+- The **reach override** has to reach the server's hit spec and the client's drawn Sector (`CosmeticSectors`). `CastStarted` carries no range today, so it gains one optional range field.
 
 #### Catch Breath (Stage 1)
 
@@ -4393,9 +4450,9 @@ The complete approved design is kept here so it isn't lost. **Nothing in Stage 1
 #### Protocol, authority and guards
 
 - New requests: `RiposteRequest` and `RecoverRequest` (Stage 1), `SwapReserveRequest` (Stage 3). Each is a minimal, validated payload, and **declares its guard**. Following Ticket 20's inventory, only `ReplaceRequest` is rate-guarded today and the Cast, Charge and Dash requests rely on state gates. Riposte and Catch Breath rely on state gates (uses, stance, recovery, unlock), `SwapReserve` reuses the replacement bucket. **Each new remote throttles its malformed-request warning** to one per second per player.
-- Results travel as a `Riposting` tag (like `Evading`), a `Recovering` attribute with its start and end, a `Parried` `CombatResult` kind, and a Milestone event for banners. `Feedback` must treat the new kind explicitly.
-- **Server authority.** The server owns every state, use count, unlock time and validation. Clients display only.
-- **Hit reports** need a `sourceClass` (Player, Warden, Riftling, Sentry) so Endure can filter. Player hits get one in Stage 1.
+- Results travel as a `Riposting` tag (like `Evading`), a `Recovering` attribute with its start and end, a `Parried` `CombatResult` kind, and **Player attributes** for the earned Lane, the unlock, the uses left and the time the player becomes calm. Banners are derived from those attributes on the client, with no Milestone event. `Feedback` must treat the new kind explicitly, as must every other `CombatResult` consumer, since an unknown kind is read as a hit today.
+- **Server authority.** The server owns every state, use count, unlock time and validation. Clients display only, and the attributes are a read-only surface.
+- **Hit reports** need a `sourceClass` (Player, Warden, Riftling, Sentry) so Endure can filter. All four are derived in `Combat` in Stage 1, with the Health actually lost.
 
 #### Presentation
 
@@ -4416,7 +4473,7 @@ Minimal: a Lane banner on completion (naming the feat), a "ready" notice when a 
 
 #### Tests
 
-All blocking specs run in `RunAll` on the Server in Play, and every existing spec stays green (427 at version 98).
+All blocking specs run in `RunAll` on the Server in Play, and every existing spec stays green (1005 at version 191; the 427 this ticket first named was the count at version 98).
 
 - **S1 `MilestoneRules`:** each Lane's feats, one completion per Lane, the 60 s and calm unlock (the later of the two, and not revoked), and clear on Elimination and Match end.
 - **S2 Contest:** the damage path counts effective damage only (Shield, overkill, PvE, Collapse and self excluded, summed across opponents), the Elimination path, and the Reaction path credited to the trigger.
@@ -4425,7 +4482,7 @@ All blocking specs run in `RunAll` on the Server in Play, and every existing spe
 - **S5 Riposte rules:** the stance timings, first hit only, Sector and player only, no projectile or PvE parry, the order against Evade and Shield, the refresh and reach override for 1 s, the failure recovery, 3 fixed uses with no refund, and every refusal consuming nothing.
 - **S6 Catch Breath rules:** completion heals once and clamps, every interruption consumes the use, rejected activations don't, and the combat refusal.
 - **S7 Protocol:** each new request's validation, malformed payloads, throttled warnings, and the `Parried` kind.
-- **S8 dormancy:** no Milestone state, attributes, tags, remotes or log lines under the Reference Kit, with the gates off, or outside a Match. The `explore` implies `reserve` assertion.
+- **S8 dormancy (behavioural):** under the Reference Kit, with the gates off, or outside a Match, no Milestone handler acts, no state, attribute or tag is written, nothing is announced or logged, a request cannot start a Riposte or a Catch Breath, and existing play is unchanged. The remotes may exist. The `explore` implies `reserve` assertion.
 - **S9 elimination:** Milestone state clears at the defined point of the Elimination order.
 
 #### Studio matrix (Stage 1, by `studio-tester`, two clients)
@@ -4478,7 +4535,7 @@ Recorded, none built: a second reward per Lane (Echo, Backtrace, Scout's Sweep, 
 | # | Discrepancy | Where |
 |---|---|---|
 | D1 | Resolved by Ticket 21's build (2026-11-11): the loot comment now says 6 each of 24 | `Tuning.loot` |
-| D2 | `Tuning.match.maxSeconds` is 480, where Ticket 22 sets a 600 s failsafe | `Tuning.match` |
+| D2 | Resolved by Ticket 22's build: `Tuning.match.maxSeconds` is 600 (read from the live `Tuning` on 2026-11-12) | `Tuning.match` |
 | D3 | Resolved by Ticket 20: `startingKit` was a TEMPORARY `"Empty"` and is `"Reference"` again at version 98 | `Tuning.kit` |
 
 Ticket 25's timings assume Ticket 22's schedule for Pressured Exit only. Stage 1 doesn't depend on D2.
@@ -4519,7 +4576,7 @@ Accepted, with evidence to follow: the recorded risks above. Correctly deferred:
 
 - **Actions stay device-independent.** `Riposte`, `Recover` and `SwapReserve(slot)` join the shared action dispatcher through one category entry and one bindings entry each. The "Input" review above covers touch as well as keys, using Ticket 29's bindings table.
 - **Riposte** is time-critical and needs a direct single-tap control that shares nothing with Dash, Q or E. Ticket 29 reserves a **fixed slot** for it in the touch layout, hidden until it unlocks, so no other control ever moves. No Riposte behaviour is built there.
-- **Recover and SwapReserve** are out-of-combat actions. On touch they use a contextual card, not a permanent button, and are **not displayed unless the client can read their eligibility**. **Requirement for this ticket when built:** expose read-only client state for the unlock, the uses left, the shared combat-idle state (or an equivalent) and, for Stage 3, the Reserve's occupancy. Until it exists Ticket 29 shows no such cards, and server rejection stays the safety check, not the way a player learns whether an action is usable.
+- **Recover and SwapReserve** are out-of-combat actions. On touch they use a contextual card, not a permanent button, and are **not displayed unless the client can read their eligibility**. **Requirement for this ticket when built:** expose read-only client state for the unlock, the uses left, the shared combat-idle state (or an equivalent) and, for Stage 3, the Reserve's occupancy. **Settled 2026-11-12:** Stage 1 exposes these as Player attributes. Until it exists Ticket 29 shows no such cards, and server rejection stays the safety check, not the way a player learns whether an action is usable.
 - **Order:** whichever ticket reaches `Input` first, the other adapts to it. They never run in parallel Studio sessions, and neither waits for the other.
 
 ### 26. Rift Collapse Visuals and Atmosphere
