@@ -3862,7 +3862,45 @@ Extract **only** what both real implementations genuinely need, from the built W
 
 **Not verified.** A live Match with monsters, so no `MonsterSummary` line has been read from a real run yet (the specs build it on a fake clock). That is the Studio matrix.
 
-**Gate.** Step 6 goes back to the developer for review before the Studio matrix (step 7).
+**Step 6 review (2026-11-12): accepted by the developer, with these decisions.**
+- **`sourceId=` kept.** The generic key stays for Warden and Monster Pickups. `warden=` is not also emitted. Ticket 23's historical logs are unchanged, so an offline analysis across old and new logs must accept both `warden=` and `sourceId=`. (`Match.eliminate` has its own `sourceId` parameter, the elimination source. It is a different thing.)
+- **Metrics not built, recorded as deviations from the Telemetry list.** `finishedAfterPlayerDamage` is not in the runtime summary: it can be reconstructed offline by joining the `Hit` and `Kill` Session lines with the `MonsterPlayerDeath` line on `seconds`. `escapes` is dropped from the field list, because `faults`, `snapHome` and `maxOutsideDistance` cover it. Collapse removals by layer are derived offline from the Section id (`removed=engaged/untouched` per Home plus the static Section-to-layer map). `reengagedByOutsideHitDuringReturn` is not logged, and is proven by the live P8 check, not by construction.
+- **Definitions stay provisional and evidence-only** (context precedence, `overlapImpacts`' 1 s window, `outsideDamage`). Two caveats: `pairBurstMax` and claw damage are **nominal** damage, so a Shield-absorbed hit still counts and it can overstate real Health damage, so it is **not** a strict balance gate. `outsideDamage` also counts the gate's nominal damage, so it excludes a Reaction's bonus (a Wet then Arc Burst counted 14, not 30).
+
+**Step 7: the live matrix (2026-11-12, run in Studio).** Done with a TEMPORARY server hook and `startingKit = "Empty"` and `arrivalHoldSeconds = 20`, both removed afterwards (Step 8). `studio-tester` ran P1 to P12 from a written brief in solo Play, and the main session reviewed its evidence and ran the rest. No `MonsterFault`, `snapHome`, leaked monster, target or model, second `Monsters` folder or client console error was seen in any run.
+
+| Case | Result | Evidence |
+|---|---|---|
+| P1 | PASS (hold part) | Placed 6 studs from a single during the Arrival Hold: Idle, aggro 0, claws 0. First aggro at GO + 0.07 s. Monsters exist only from the Match's setup, so the Countdown has nothing to test |
+| P2 | PASS | Engaged, first claw about 0.6 s later (inside the 0.3 to 0.7 s stagger), Return in about 2 s, reset at Health 45, largest step 0.237 stud per frame, `snapHome` 0 |
+| P3 | PASS, solo part | One evaluation per claw, hits only inside the wedge. Hits were also seen at 35 degrees and 4 studs, and 6.5 studs straight ahead: those are the capsule (radius 1.5) plus Hit Tolerance (0.3) on a 5.5 reach, about 7.3 effective, so **the drawn wedge understates the real hit area by up to about 1.8 studs, as for every Sector** |
+| P4, P5, P6, P7 | PASS | Evade negated the claw (`evaded` +1). Stone Guard absorbed 25 then 17, and the hits still counted. Wet then Arc Burst did 30 (14 + 16) with `WetReaction`. Hook and Tidal moved nothing (`resisted=true`, position delta 0), and a Hook from 15 studs did 8 damage with no pull (largest step 0.224, the monster's own chase) |
+| P8 | PASS | Six hits from 16 studs, never Warded. The monster reached the edge in 0.65 s, held, returned, and a hit during Return left it Returning with no target. A kill inside the hold was accepted. `holdSeconds` is 1.7 per reset (the 0.2 s AI loop on a 1.5 s hold), `holdShortResets` 0 |
+| P9 | PASS | The real `Monsters.setup` with a seeded stream flagged one monster. Its kill dropped exactly one Rank 1 RiftHook, collected at once, with `source=Monster sourceId=monster:3-2`. The unflagged kill dropped nothing, and `dropped` equals `flaggedKilled` |
+| P10, P11 | PASS | No push and no Movement Validation correction over a fight (farthest 5.65 of a Territory of 6). After Results, `live` 0, 0 models, a fresh `MonsterDeal` |
+| P12 | PASS | `MonsterSummary` is 3.47 to 3.51 k characters, not truncated, 6 `{home=` blocks, `logCapped=0`, all correctness fields 0, no coordinates in 145 Monster lines |
+| M1 | PASS | `MonsterChecks` on the real `MatchMap` reported 0 problems. 30 real `setup` runs each gave 6 Homes, 8 monsters, 2 pairs, one Home per Shard |
+| M2 | **NOT RUN** | The ignoring route from every pad was not checked in Studio |
+| C1 | PASS | `removeSection` gave `cause=Collapsed`, and a flagged pair was removed with no drop. A Fault forced by raising `faultBelowY` in memory gave `MonsterFault reason=BelowSafetyY` for all 8, with `dropped` 0 |
+| C2 | PASS | Six live monsters at Match end were removed with `cause=MatchEnd` and no Pickup (`activeAtEnd=6`) |
+| X1 | PARTIAL | `WardenDeal` and `MonsterDeal` coexist in one Match with separate deals and no interference. Aggro-circle gaps are the static check. The Warden specs are in `RunAll` |
+| T1 | PASS | A real 3-player Match, 8 monsters, 2 Wardens, run to a Winner. The summary has `players=3` |
+| T2 | PASS | One player killed a flagged monster, and another collected it 0.18 s after arriving. The killer's full Kit did not take it |
+| T3 | PASS | All 5 claws hit both players standing in the wedge for 8 each (10 hits) |
+| T4 | PASS | A spectator saw the same `MonsterImpactAt` and states as the server, with the Telegraph and claw sound |
+| P14 | PASS, **finding** | See below |
+| Warden Telegraph | PASS (measurable part) | Swing geometry reaches 6.96 of a reach of 7, with the sound at the impact and a linger of about 0.2 s. Slam spans 1.85 to 10.15 studs (centre reach 6, radius 5), lasts 1.42 s, sound at the impact. 0 Telegraph objects left after the Warden returned to Idle, and no client console error |
+| P13, V1 to V10 | **Developer judgement** | The developer reviewed the visuals in the live 3-client session and said they looked good. No device-emulator or real-phone pass is recorded, so the real-device pass stays a release gate |
+
+**P14 finding (evidence for the "Unfair pair burst?" trigger).** A pair's two wake staggers are independent draws, but the AI loop runs at 5 Hz (0.2 s) and the stagger range is 0.3 to 0.7 s, so a pair's first claws land on the same tick or one tick apart (measured 0.0000 s, 0.216 s and 0.216 s apart), and the fixed 1.65 s cycle keeps that offset for the whole fight. The real summary agrees: Shard 2's pair had `overlapImpacts=18` of 36 claws, `pairBurstMax=16`, all damage as `multiMonster`. This meets the ticket's "repeated `overlapImpacts`" trigger for a per-target Telegraph cap. **Nothing was changed.** It is a balance decision for a later ticket, taken together with tester feedback.
+
+**Test-method findings.** `Monsters.setup` clears the Match's GO time, so monsters re-set up through a hook stay inert until `setGo` is called again (a hook artefact, inferred from state and not read in the code). A forced Fault cannot come from moving a model (motion re-places it every frame): raise `faultBelowY` in memory. After `setupFlagged`, Monster Session lines carry the hook's setup id as `match=`.
+
+**Not covered.** M2. The Countdown part of P1. The real-phone pass. The random-stream invariance (specs only). **Provenance:** versions 178, 180 and 182 are recorded above. No published version is recorded for Steps 4, 5, 6 or 7, and none is inferred.
+
+**Step 8 (2026-11-12).** The TEMPORARY hook and its BindableFunction are deleted, `Tuning` is back to `startingKit = "Reference"` and `arrivalHoldSeconds = 3` (loaded and read back), and no instance is named TEMPORARY. `RunAll` on the Server in Play: **1005 passed, 0 failed**. With the Reference Kit, solo Play creates no Match, no Monsters folder and no Wardens folder. The place was not saved or published from this session.
+
+**Gate.** The developer publishes, and the version is recorded in [Checkpoints](#checkpoints) with its commit.
 
 #### Population and selection
 

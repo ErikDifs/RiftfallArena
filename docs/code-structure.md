@@ -272,7 +272,7 @@ From [Ticket 22](milestone-2-tickets.md#22-rift-collapse), **built in steps**. S
   - `MatchHud` builds its status line from `CollapseRules.present` whenever the Workspace carries `CollapseLayer`, for a player, a spectator and a Hub viewer, and keeps its old lines otherwise. It adds the local danger alert beneath the line (only while the presenter says `alert`) with the arrow, and the Warning announcement. It holds its last presentation for 80 ms after a Collapse attribute changes, because the four attributes arrive a few frames apart.
   - `CollapseTelegraph` gives each Section or connector in `Warning` (its own `CollapseState`, while `CollapseWarning` is true) a Riftlight `Highlight` and a beacon in `Workspace.CollapseTelegraph`, pulsing on its removal time. It also finds the Section the local character stands on and the arrow's direction. Ticket 26 replaces it in place.
 
-- **Telemetry (step 7).** Log lines only, no gameplay or remote.
+- **Telemetry (step 6).** Log lines only, no gameplay or remote.
   - `Collapse` takes an optional `observe` hook from `Match` (the Alive players, for telemetry alone, run in a protected call so it can never fail an event). It adds the Alive fields, `CollapseTick` (`CollapseRules.ticksDue`) and `CollapseExposed`, and keeps the checkpoints, summed loot and health counters for `Collapse:summary`.
   - `Session.setDamageListener` tells the `Match` of damage to players. The `Match` owns the QuietSpan state and the PvP, elimination, Void and Kit-drop counters, and writes `QuietSpan` and `CollapseSummary`.
 
