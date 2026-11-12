@@ -16,6 +16,7 @@ Being settled from 2026-11-08, before any building. Work stops after each ticket
 | 2026-11-11 | Published place `134091394433436`, version 125, docs at commit `ce1ccff` | Ticket 21 (the Rift Crown, built and measured, human play checks postponed) and Ticket 22 steps 1 and 2 (`CollapseRules`, the `Collapse` runtime on a fixture, 574 specs). Reference-safe: `startingKit = "Reference"`, `maxSeconds = 480`, nothing requires the Collapse yet, no temporary aids |
 | 2026-11-12 | Published place `134091394433436`, version 156, docs at commit `f411904` | Ticket 22 complete (the Rift Collapse, steps 1 to 10, 699 specs, S1 and S2 on the real map, settle 1.75 and the boundary rule). Published by the developer from the live editing session |
 | 2026-11-12 | Published place `134091394433436`, version 172, docs at commit `d843541` | Ticket 23 (the Rift Warden, steps 1 to 6, 879 specs): `WardenRules`, the `Wardens` runtime, the combat hooks, `WardenChecks`, `WardenVisuals`, the moved slots and the reward at Home. Reference-safe: `startingKit = "Reference"`, `arrivalHoldSeconds = 3`, no temporary aids, hook removed. The developer looked at the visuals and accepted them as good enough for now |
+| 2026-11-12 | Published place `134091394433436`, version 178, docs at commit `6e2a124` | Ticket 24 steps 0 and 1a (the shared PvE primitives, `MonsterRules`, `Tuning.monsters`, 937 specs). Reference-safe: nothing calls `MonsterRules` yet |
 
 Roblox version history is the code's history, as [Milestone 1's checkpoints](milestone-1-tickets.md#checkpoints) set out, and only versions marked Published count.
 
@@ -3722,6 +3723,33 @@ Extract **only** what both real implementations genuinely need, from the built W
 **Remaining risks.** (1) The code is still only in the open Studio place until the developer saves and publishes it. (2) `view.goal` is an interface the runtime must honour: it has to pass the dead-zoned goal it is moving toward, or the hold falls back to the raw goal and the dead-zone gap returns. Record it as a requirement of the runtime step and spec it there. (3) A player standing in the fringe now gets a claw, as intended, but a target kiting just beyond contest still gets the hold and reset, which is the settled design.
 
 **Gate.** The corrected Step 1a goes back to the developer for review before Step 1b. Step 1b (Home markers, validators and the structural checks, with `RunAll` and the structural check rerun straight after) starts only with the developer's approval, and the `Monsters` runtime stays unbuilt until Step 1b passes.
+
+**Step 1b: Home placement, markers and validators (2026-11-12, built, 963 specs).** No `Monsters` runtime, no `Match` integration, nothing in the game reads the markers yet.
+
+**Placement contradiction found and settled with the developer (2026-11-12).** A search of the real built Rift Crown (a 1 stud floor raster with every rule applied to every point of each Shard) showed **no Shard can hold a Home under the first design's rules**. Pad clearance `max(45, aggro + 20)` and a 15 stud lip margin were never both achievable: the best distance to the nearest pad was 19 to 20.5 studs at a 15 stud lip margin, 21 to 24 at 10, 32 to 33 at 5 and 35 to 36 with no margin. The real `Pickups.drop` places one Pickup at the given position with no spread, so there is no extra drop spread to cover. The developer chose to **use the Warden's placement values and drop the reward at Home**:
+- pad clearance is now **at least aggro + 20** (30 at radius 6), not 45;
+- the Territory edge is **at least 5 studs from a lethal lip**, not 15;
+- **a flagged monster's reward Pickup spawns at its Home, as the Warden's does, not at the kill position.** This changes the Reward table's "spawned at the death position". The Step 2 runtime must use `pickups.drop` at Home, and the docs that say "at the death position" (this ticket's Reward and Loot-safe Territory text, `regular-monster-design.md`, `monsters.md`) are superseded by this paragraph;
+- **one Home per Shard**, not two (variants A and B). Under those rules each Shard has exactly one feasible cluster (about 3 to 7 studs across), so two distinct Homes do not exist. The developer chose one Home per Shard. The population is unchanged (6 Homes, 4 singles, 2 pairs, 8 monsters). The A or B variant draw is removed from `MonsterRules.deal`, so the fixed draw order is now: the pair Shards (a partial shuffle), then a flag draw and an Ability draw for every monster in Home then slot order.
+
+**Layer.** The feasible spot of every Shard is on its **Inner Section (Layer 2)**, which the design preferred, and it lives to the Layer 2 removal. All the other rules hold at their original values: strict Forward Cache band 20 to 32 (22.4 to 23.5 measured), Home Caches at least 20 (41 or more), connector and apron clearance aggro + 2 (25 or more beyond), Warden gap at least 2 beyond both aggro circles (18 or more), Sentries at least 50 (51.5 or more), steps 0, no props, and a route from the Shard's pad to its spoke that stays out of the aggro disc.
+
+**Built.**
+| Part | What |
+|---|---|
+| `Tuning.monsters` | the placement values: `padBufferStuds` 20, `lipMarginStuds` 5, `homeCacheClearStuds` 20, `forwardCacheRange` {20, 32}, `cacheClearStuds` 5, `wardenGapStuds` 2, `sentryClearStuds` 50, `connectorClearStuds` 2, `slotSpareStuds` 2 and `slotSeparationStuds` 3 |
+| `MonsterChecks` (server, read-only) | `evaluate` (pure, on plain data), `read` (raycasts and overlap queries on a map folder) and `run`, in the shape of `WardenChecks`. It checks one Home per Shard, Layer 1 or 2, radius range, the whole circle on the Home's own Section, lip, connector and apron clearance, props, floor steps, pad, Home Cache, Forward Cache band, Warden gap, Sentry clearance, `aggro <= radius + 4`, two slot offsets inside the Territory and apart, and the ignoring route |
+| 6 Home markers | `Workspace.MatchMap.Markers.MonsterHome1` to `MonsterHome6`: `SlotKind = "Monster"`, `HomeId` and `ShardId` (equal), `SectionId` (`Shard<n>Inner`), `TerritoryRadius` 6, `SlotOffset1` (-2, 0, 0) and `SlotOffset2` (2, 0, 0). Positions: Shard 1 (674, -426), 2 (584, -374), 3 (542, -399), 4 (542, -502), 5 (584, -526), 6 (674, -474), all at y 3.2 |
+| `MonsterChecksSpec` | a sound fixture, a deliberately failing fixture for each rule (22 cases), the boundary values, and the real map read and judged sound (M1) |
+
+**Results.** `RunAll` on the Server in Play: **963 passed, 0 failed**. The structural check (`RunAll.structuralProblems`) reports 0 problems. The Warden, Collapse, Map and Match specs (`WardenRulesSpec`, `WardensSpec`, `WardenChecksSpec`, `PveRulesSpec`, `CollapseRulesSpec`, `CollapseSpec`, `CollapseChecksSpec`, `MatchMapSpec`, `MapRulesSpec`, `MatchSpec`) are 381 passed, 0 failed, so the Warden and Collapse behaviour is unchanged. `MapLayout` reads the new markers as kind `Monster` and `MapRules.validate` still passes. The weakest margins are the pad clearance (31.2 to 31.4 against 30) and the lip (6.5 to 7 against 5).
+
+**Not done in 1b.**
+- `ServerStorage.Tools.RiftCrownGreybox` does not yet write the six markers. A rebuild with the tool would drop them, so add them to the tool's marker table before the tool is next run (a later step, since the tool rebuilds the whole map).
+- The mutation check was not repeated for `MonsterChecks`: each rule has its own failing fixture instead.
+- The `ShardId`-based route uses the spoke whose `FromSection` is the Shard's Inner Section, and was sampled on a 1 stud grid. The Studio playtest of the ignoring route (M2) is still a Studio check.
+
+**Gate.** Step 1b goes back to the developer for review. The `Monsters` runtime (step 2) stays unbuilt until it is accepted, and the reward-at-Home change above applies to it.
 
 #### Population and selection
 
