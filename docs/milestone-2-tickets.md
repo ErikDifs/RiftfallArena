@@ -3197,7 +3197,7 @@ Settled with the developer at the start of the build. Ticket 21's arena geometry
 - **Not yet verified, for later steps.** `StatusVisuals` on a non-player model, and the Pickup `source` tag in the log lines.
 - **Recovery's loop** can't be reached by a spec (`recoverAll` is local to the real loop), so the Warden's exclusion from Natural Recovery is covered in Studio (P2).
 
-**Step 3 blocked at the geometry measurement (2026-11-12): no valid Territory fits the authored Layer 2 platform.** Measured in Edit mode with read-only floor raycasts on the real map (centre 600, -450; Studio untouched). Stopped for the developer's decision, as settled.
+**Step 3 geometry, measured and resolved (2026-11-12).** First result: no valid Territory fit the authored Layer 2 platform under the original rules, so the build stopped for a decision. Measured in Edit mode with read-only floor raycasts on the real map (centre 600, -450; Studio untouched). Stopped for the developer's decision, as settled.
 
 - **The platform.** `Shard1Inner` (Layer 2) is about 37 wide, 25 deep in extent terms and roughly 40 by 56 studs of usable floor. The current `WardenSlot1` (azimuth 38.9, radius 58.2, so about +9 degrees from the Shard's 30 toward the Gate at 60) sits on its western edge. From it the void is **9.0** studs away and `Spoke1` **9.5**. `CacheForward1` is only **8.7** away, so even at the minimum radius the Forward Cache is inside the automatic aggro (`Territory + 4`) at the fallback offset.
 - **The +15 to +20 degree offset has no floor.** At azimuth 45, 47.5, 50 and 52 the slot is at the void or on `PairLink12`: void 3.5, 1.0, 0.5, 0.5 studs and other floor 4.5, 2.5, none, none. Every candidate offset fails the Territory and lip checks, so the experiment's answer is that none pass and the +10 degree slot (measured +8.9) is the only position on Layer 2 floor.
@@ -3208,7 +3208,27 @@ Settled with the developer at the start of the build. Ticket 21's arena geometry
 | 20 (ticket) | 4.5 | 5.9 | 7.9 | 10.1 |
 | 10 or 0 | 6.6 | 7.3 | 8.4 | 10.1 |
 
-- **Alternatives for the developer:** (A) keep the 7 to 12 range and the Territory rules, but spawn the reward at the Warden's validated Home point instead of its death position, which makes the 15 stud loot margin unnecessary (a void margin of about 5 gives 7.9); (B) relax the margin or the pad buffer without moving the reward; (C) accept a Territory under 7 (about 4.5), which the Slam (reach 6 plus radius 5) outgrows; (D) enlarge or reshape the local Layer 2 platform, a Ticket 21 geometry change the developer must approve. Nothing was changed.
+- **Alternatives offered to the developer:** (A) keep the 7 to 12 range and the Territory rules, but spawn the reward at the Warden's validated Home point instead of its death position, which makes the 15 stud loot margin unnecessary (a void margin of about 5 gives 7.9); (B) relax the margin or the pad buffer without moving the reward; (C) accept a Territory under 7 (about 4.5), which the Slam (reach 6 plus radius 5) outgrows; (D) enlarge or reshape the local Layer 2 platform, a Ticket 21 geometry change the developer must approve. Nothing was changed.
+
+
+**Resolution: Option A, approved 2026-11-12 ("subject to the following checks").** The reward spawns at `WardenHome`, which removes the need for the 15 stud loot margin, the 20 stud spawn-pad buffer is kept, and the Ticket 21 geometry is untouched. The existing slot cannot be used (its `CacheForward1` is 8.7 away, inside aggro at any radius), so the slot marker moves within the same Layer 2 Section, and the failed +15 to +20 degree experiment is not forced.
+
+- **Chosen Home and radius: `WardenSlot1` at (657.5, -400.25), azimuth 40.9 degrees (+10.9 from the Shard, on the Gate side, matching the +10 degree fallback), 76.0 from the centre; `TerritoryRadius` 7.5, aggro 11.5.** The other two slots are the same point rotated 120 and 240 degrees, as the Ticket 21 slots already were. The best radius at that point is 7.75 (limited at once by the pad buffer, the Forward Cache and the connector clearance), so 7.5 leaves 0.25 for measurement error. `RiftCrownGreybox` carries the new `warden` offset (74.67, 14.33 in the Shard's frame), `wardenRadius`, and the `GateId` and `TerritoryRadius` attributes, so a rebuild reproduces it. `GateId` is `ceil(ShardId / 2)` on the pads and slots, so Gate 1 holds Shards 1 and 2, Gate 2 Shards 3 and 4, Gate 3 Shards 5 and 6.
+- **The edge margin used is 5** (`Tuning.wardens.lipMarginStuds`), the least that gave a radius of at least 7 at this point with the other rules at their ticket values. The measured void is 13.98 from Home, so the Territory edge is 6.5 from it.
+- **The seven checks.**
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Home on stable, traversable Layer 2 ground, room for the reward | `Shard1Inner.SlabFlank`, anchored and collidable, y = 0.00. Flat across all 1517 samples within 11 of Home (y 0.00 to 0.00, no holes). Nearest object is `CacheForward1` at 13.8, nearest connector floor `PairLink12` at 13.1, nothing within 5 of the circle that isn't floor |
+| 2 | Reward reachable with no risky jump or Dash | Same flat floor, no step. A walk from `MapSpawn1` to `Home` exists on contiguous floor |
+| 3 | No overlap with a connector, Cache, obstacle or other object | No marker within 13.8, no collidable part but the floor within R + 5, `Spoke1` floor 26.9 and `PairLink12` 13.1 away (aggro 11.5, so traversal never wakes it) |
+| 4 | Not ground already removed by the Collapse | The reward spawns only on a `Killed` finish, which the gate allows only before the Layer 2 removal (285 s). A kill before it has the floor under Home. `Pickups.drop` raycasts down, so a Home with no floor yields no spawn, and a Pickup on a Section that is then consumed is swept as loose loot, as the ticket already says |
+| 5 | The Warden does not teleport on death | Its body fades in place after `removeSeconds`. Only the reward appears at Home |
+| 6 | No unfair Slam or knockback near the edge | A Warden's attacks carry no push or pull (`WardenSwing` and `WardenSlam` have no `pushStrength`, spec C4), so nothing it does moves a player over the lip. It is itself immune to forced movement and can't leave its Territory. A player pushed by another player's Ability is the ordinary PvP edge risk that exists everywhere |
+| 7 | Pad buffer 20 kept, radius at least 7 | Nearest pad `MapSpawn1` is 31.75, needs 7.5 + 4 + 20 = 31.5. Radius 7.5 |
+
+- **Route.** A walk from `MapSpawn1` to the `Spoke1` deck and to the `PairLink12` deck exists on a 1 stud grid with the aggro disc (plus 0.5) blocked, and the ignoring route needs no Dash (every step within 2.5).
+- **What changed as a consequence.** `Tuning.map.pveSlotClearance` (45) is replaced by `wardenPadBuffer` (20) and `wardenAggroExtraStuds`, and `MapRules` rule 7 now requires each Warden marker to have a positive `TerritoryRadius` and a `GateId` and to be at least `radius + aggro extra + buffer` from every pad. `MapLayout` reads `GateId` and `TerritoryRadius`. Ticket 24's own spawn clearance (`max(45, aggro + 20)`) still names the planning constant, which stays in `Tuning` for it. No Ticket 21 section, connector or pad geometry changed: only the three marker Parts moved and gained attributes, and the pads gained a `GateId`.
 
 #### Summary
 
@@ -3348,11 +3368,11 @@ Open combat circle: no collidable authored prop inside the usable movement circl
 | Collapse, fault, Match end | no reward, no credit |
 | Not in this ticket | XP, Kill Recovery, currency, Relic, second Pickup, Rank 2 or 3 world Pickups |
 
-The reward pickup is spawned through `Pickups.drop` at the death position with the normal spread. A `source = "Warden"` tag and Warden id are carried into the normal collect, consume and clear log lines.
+The reward pickup is spawned through `Pickups.drop` **at the Warden's `WardenHome`, not at its death position** (amended 2026-11-12, see the step 3 record), with the normal spread. The Warden's body stays and fades where it fell, and only the reward appears at Home. A `source = "Warden"` tag and Warden id are carried into the normal collect, consume and clear log lines.
 
 Wardens are also excluded from the fast-opening guaranteed-drop rule in `ranks-and-pickups.md`: a Warden reward is pre-dealt and never a Monster Family Drop Table roll.
 
-**Loot-safe Territory.** The Warden can die anywhere in its circle and the drop spreads. The circle edge must keep a lip margin of `lethalLootMargin + maximumPickupDropSpread`, about 15 studs, **verified from the actual `Pickups.drop` spread before it is locked**. Safe reward spawn outranks the Territory size.
+**Loot-safe Territory (amended 2026-11-12).** The reward spawns at Home, so the Territory no longer needs the loot-safe lip margin of about 15. What it needs instead is that **Home itself is safe**: stable, flat, traversable Layer 2 floor with the drop spread (`Tuning.match.dropSpreadStuds` and the Pickup collect radius) clear of every lip, connector, Cache and obstacle, which `WardenChecks` verifies. The Territory edge keeps `Tuning.wardens.lipMarginStuds` (5) from a lip, as room to fight. A Warden's attacks never move a player, so the nearer lip adds no displacement risk of its own.
 
 #### Runtime architecture and interfaces
 
@@ -3392,7 +3412,7 @@ Server owns gameplay state, an anchored root, the fixed Hitbox and the attribute
 | Warded hit | translucent shimmer, a hollow tink, a hollow marker with no damage number. An optional rate-limited "out of range" hint |
 | Resisted movement | stone-set dust puff, thud, brief brace |
 | Return and regen | calmer seams, bar visible, no text, a gentle pulse while healing, fill follows real Health |
-| Death | seams out, core becomes the real Pickup at once, no corpse |
+| Death | seams out, the body fades where it fell with no teleport, and the reward Pickup appears at Home at once (not at the body) |
 | Collapse or fault | no kill-like effect |
 | Spectators | see the same Warden information |
 
@@ -3413,9 +3433,9 @@ Three tiers. **Correctness (hard):** `WardenFault` = 0, snap-home = 0 in normal 
 #### Validators (static, Edit-mode safe)
 
 - Slot count, unique `GateId`, `SectionId` on Layer 2, `TerritoryRadius` present and positive. Every pad has a `GateId`.
-- Territory circle wholly on live Layer 2 floor, clear of lethal lips by the loot-safe margin, connectors, aprons, the Crown approach and Sentries.
+- Territory circle wholly on live Layer 2 floor, its edge at least `lipMarginStuds` (5) from a lethal lip, and clear of connectors, aprons, the Crown approach and Sentries. Home is stable, flat floor with the reward's spread clear of lips, connectors, Caches and props.
 - No collidable authored prop inside the circle plus clearance.
-- `distance(Home, every pad) >= AggroRadius + spawnSafetyBuffer` (buffer about 20, from Ticket 21), for all six pads.
+- `distance(Home, every pad) >= AggroRadius + padBufferStuds` (20), for all six pads. `MapRules` rule 7 enforces it too, in place of Ticket 21's planning constant `pveSlotClearance` (45).
 - No Home Cache inside aggro. The Forward Cache outside aggro (initial extra clearance about 2, not a universal formula). Ordinary connector and apron traversal does not automatically trigger the Warden.
 - `AggroRadius <= TerritoryRadius + 4`.
 - An ignoring route exists from each pad to its Safe spoke and link without Dash, fighting or taking unavoidable damage (a Studio playtest requirement, with a simple sampled clearance check allowed to support it, and no pathfinding built to validate it).

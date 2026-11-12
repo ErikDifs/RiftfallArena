@@ -62,7 +62,7 @@ The reasoning behind [Ticket 23](milestone-2-tickets.md#23-rift-warden). The tic
 
 **Visibility and stealing.** The Warden carries the Ability it will drop, shown with the Pickup colour and shape (two channels). The Pickup is immediately contested with no ownership delay, and Last Hit credit is attribution only. A kill seconds before the Section goes can drop a Pickup the Collapse then consumes. That is accepted.
 
-**Geometry consequence.** The Warden can die anywhere in its circle and the drop spreads, so the Territory must keep the loot-safe lip margin (about 15 studs from a lip, from the actual Pickup behaviour). Safe reward spawn outranks a larger Territory.
+**Geometry consequence (amended 2026-11-12).** The reward spawns at the Warden's validated `WardenHome`, not where it dies, so the Territory does not need the loot-safe lip margin of about 15 studs: its edge keeps 5 from a lip as room to fight, and what must be safe is Home and the spread around it. The original wording (the Warden can die anywhere in its circle, so the Territory must keep about 15 from a lip) failed on the real Ticket 21 platform, where no Territory of 7 or more fitted with that margin (measurements in the ticket). The developer chose to move the reward, keep the 20 stud spawn-pad buffer, and not touch the arena. Safe reward spawn still outranks a larger Territory.
 
 ## Point 6. Locomotion
 
