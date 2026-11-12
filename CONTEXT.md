@@ -32,6 +32,14 @@ _Avoid_: Dead, knocked out, out
 Watching the living players of a Match after being Eliminated, with no effect on play.
 _Avoid_: Ghost, observer mode
 
+**Winner reveal**:
+The end-of-Match presentation for a Match that has a Winner, specified in [Ticket 28](docs/milestone-2-tickets.md#28-final-kill-presentation-impact-beat-and-winner-reveal), not built. About 0.35 s after the Match ends, every client shows a gold title card naming the Winner with an outline highlight on the Winner's character, and players who were in the Match also hear a victory sting. It never changes who won or when. A Match with no Winner (no survivors, or a time out) keeps the plain banner.
+_Avoid_: Victory screen, win screen, end screen
+
+**Impact beat**:
+The short, simulated moment on the screens of the players who were in a Match, specified in [Ticket 28](docs/milestone-2-tickets.md#28-final-kill-presentation-impact-beat-and-winner-reveal), not built. It plays for about 0.75 s only when the Winner also earned the final Elimination: a small field-of-view punch, a vignette, one flash and a pulse on the Winner. It is not slow motion, and it never changes gameplay speed, character physics or where the camera points.
+_Avoid_: Slow motion, kill cam, cinematic
+
 **Hub**:
 The place outside any Match where players gather, respawn freely and enter Matches, and where Return to Hub takes an Eliminated player.
 _Avoid_: Lobby, menu

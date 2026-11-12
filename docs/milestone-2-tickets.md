@@ -3110,7 +3110,7 @@ Quirks found are recorded in [`studio-mcp-quirks.md`](testing/studio-mcp-quirks.
 | A combat death 0.3 s before a removal ended the Match as `Winner` at T-0.05, while the survivor stood on ground about to vanish. A death 0.04 s before gave `NoSurvivors` | Explained and **corrected by the developer's decision**, see the boundary rule below. Rows 18 and 19 above describe the behaviour before the correction (a death 0.04 s before the removal gave `NoSurvivors`) |
 | With 2 players the Match ends right after the first death, so a spectator sees the Collapse for 0.3 s | A real spectator check needs 3 or more players |
 | Branch 2 of row 21 (no live ancestor) cannot happen on the committed map | Covered by the specs, not live |
-| Ticket 28 (slow motion and a Win-cam on the final kill) was proposed during this step | Written as a staged idea, not built |
+| Ticket 28 (a presentation for the final kill) was proposed during this step | Specified 2026-11-12 as an impact beat and a Winner reveal, with the Win-cam deferred to a later ticket, in [Ticket 28](#28-final-kill-presentation-impact-beat-and-winner-reveal). Not built |
 
 New quirks are in [`studio-mcp-quirks.md`](testing/studio-mcp-quirks.md).
 
@@ -4680,63 +4680,117 @@ Reads `MatchCrownOpensAt`, `WardenHome` and `WardenState`, and adds the glyph at
 - **No ADR required.** The ticket is presentation over state that is already replicated and changes no authority, movement, hitbox or one-life decision. The rule that no map ever shows another player is recorded here and in the design archive, and a future ticket that adds scanning or pings must reopen it deliberately.
 - **Glossary:** `CONTEXT.md` gains **Minimap** and **Tactical map**, and **Riftlight** gains the map's Warning fill.
 
-### 28. Final Kill presentation: slow motion and the Win-cam
+### 28. Final Kill presentation: impact beat and Winner reveal
 
-**Status: proposed 2026-11-11 by the developer, specified here as a staged idea, not settled, not built.** The open points below are the first thing to settle. **Nothing starts before Ticket 22 is accepted.** It changes presentation only: the Match's result, timing and authority stay the server's.
+**Status: settled 2026-11-12 with the developer, not built.** Every design point was grilled with the developer, one decision at a time, and settled. It changes presentation only: the Match's result, timing and authority stay the server's, and no server script, `Protocol` event or ADR changes. **Ticket 22 is a met prerequisite** (its status line reads built and accepted, and the Checkpoints table lists version 156 published on 2026-11-12). **Nothing starts without the developer's go-ahead, while Ticket 23 is still being implemented in another session, and Studio has one driver.** The Win-cam replay this ticket first proposed is **deferred to a separate later ticket**.
 
 #### Summary
 
-When a Match ends with a Winner, the last Elimination plays in **slow motion** on the clients, and the Results phase can open with a **Win-cam**: a replay of that last kill from a replay camera. Neither changes who won, when the server decided it or what the rules say.
+When a Match ends with a Winner, every client shows a **Winner reveal** (a gold title card, a highlight on the Winner and, for players who were in the Match, a victory sting) 0.35 s after `MatchEnded`. When the Winner also earned the final Elimination, players who were in the Match first get a short **impact beat**: a small FOV punch, a vignette, one flash and a pulse on the Winner. The beat is simulated and is **not slow motion**: the client has no control over other players' replicated movement or over character physics, so nothing about gameplay speed, physics or camera position changes. Neither part changes who won, when the server decided it or what the rules say.
 
-#### What exists now (read 2026-11-11)
+#### What exists now (read 2026-11-12)
 
-- `Tuning.match.endResolutionSeconds = 0.25`: when a Match first reaches one Alive player, committed attacks get this long to land. Not a phase.
-- `Tuning.match.display.bannerSeconds = 3`: the end banner, before the results panel. `resultsSeconds = 10`: the Results phase.
-- `bodySeconds = 3` and `voidBodySeconds = 1` are how long an Eliminated body stays. They are **not** a hold on the Match end.
-- A Collapse Void death waits for the settle window (`collapseSettleSeconds`, 1.75 after Ticket 22's measurement) before the verdict.
-- `Client.Spectating` exists. No replay, history buffer or slow-motion exists.
+- `Tuning.match.endResolutionSeconds = 0.25`: when a Match first reaches one Alive player, committed attacks get this long to land. `Tuning.match.display.bannerSeconds = 3` is the end banner before the results panel. The server's Results phase (`resultsSeconds = 10`) starts at `MatchEnded`, so the results panel shows for about the last 7 s of it. The server then returns the players still in the Match to the Hub with a hard cut, and this ticket leaves that alone.
+- `MatchHud.onMatchEnded` shows the banner at once, from `message.cause`, `winnerId` and `rows` only, and hides the player's "Eliminated by X" title at once. `refresh` also hides that title whenever the phase is `Results`. `RACE_GRACE_SECONDS = 1` is how long a message's presentation survives the attributes disagreeing, because a remote can reach a client before its attribute.
+- `PlayerEliminated` carries `matchId`, `playerId`, `killerId` (a player, only when credited), `cause`, `aliveCount` and `position`. `Match.eliminate` is synchronous and numbers each elimination in order, so in a Winner Match exactly one has `aliveCount == 1` and nothing is eliminated after it. A Winner's `MatchEnded` is always at least `endResolutionSeconds` after it (longer while the Collapse settle window holds the verdict). Both remotes are plain reliable `RemoteEvent`s. A Void fall's `killerId` can name a player who has since died or left.
+- `MatchState` (`Alive`, `Eliminated`, `Hub`) is a server-written player attribute (`MatchRules.stateOf`), `Hub` for everyone who is not in the Match or who returned to the Hub. `Spectating` drops a Hub spectator back to their own camera as soon as the phase is not `Running`. An Eliminated player's camera stays on their own body for `bodySeconds` before it moves to a target.
+- `Camera.update` (bound at `RenderPriority.Camera + 1`) is the only `FieldOfView` writer in the project, and writes `Tuning.camera.fieldOfView` every frame while not suspended. It returns early while `Spectating` has suspended it, and `Spectating` never writes FOV.
+- `Feedback.onKill` plays `Kill` (`victory.wav`) for the attacker at the killing hit, 0.25 s or more before `MatchEnded`. A credited Void fall is not a `CombatResult` and plays no `Kill`. Highlights on other players are `Occluded` (`newEvadeHighlight`). The sounds are built-in `rbxasset://` placeholders in `Tuning.sounds`.
+- `MatchHud`'s `endBanner` is a fixed 48 px label 800 px wide. The status line and announcement already use `TextScaled` with size constraints.
+- Riftlight (rose-magenta) is reserved for Collapse and erasure. The six player accent colours include a pink close to it, a red close to the Eliminated red and a yellow close to gold.
 
-#### Scope (proposed)
+#### Settled design
 
-- **Slow motion.** Client-side only, on the final Elimination of a Winner Match: the Cosmetic Projectile, effects, the victim's animation tracks and the camera's tween are slowed by a factor for a short real-time window, then eased back. The server's physics and timers never slow, and nothing the server decides waits for it.
-- **Win-cam.** The server keeps a **bounded rolling history** of the Alive players' positions and facing, and of the killing hit's Cosmetic Projectile, for the last few seconds. At a Winner's `MatchEnd` it sends one clip. The clients replay it with cosmetic rigs and a replay camera, in the Results phase, then the normal results panel. The replay never reads live physics.
-- **Cleanup.** Every rig, effect, camera binding and connection ends with the replay, the Match and the player's leave.
+1. **Scope (2026-11-12).** An impact beat plus a Winner reveal, both client-only, with no new replication and no server history. The Win-cam is deferred. "Slow motion" is retired as a term: the ticket never promises it.
+2. **Trigger.** The beat plays only when `MatchEnded.cause == "Winner"`, a stored final-elimination record exists for the same `matchId`, that record's `killerId` equals `winnerId`, and the local `MatchState` is `Alive` or `Eliminated`. The beat is judged on `MatchEnded`, never on `PlayerEliminated`, so a Match that does not end as a Winner can never trigger it. The Winner never gets credit for a kill they did not make: an uncredited fall, a Sentry kill, a leave, or a credit that names someone else (including a dead player) gets no beat.
+3. **The final elimination** is the `PlayerEliminated` with `aliveCount == 1` for the Match, held as one record keyed by `matchId`. It does not depend on arrival order among eliminations. **Fail closed:** the beat is never played on a missing, stale or mismatched record, and **the delivery order of two different remotes is not a correctness assumption**. A record that arrives after `MatchEnded` was handled is never used for that Match. A reordering costs the beat and nothing else.
+4. **No Winner.** `NoSurvivors` and Timeout keep today's plain banner, immediately, with no card, no beat and no sting. So does a leave or removal that ends the Match, a mixed same-tick pair that leaves a non-credited final elimination, and any Match whose record cannot be matched.
+5. **The beat** is one real-time curve of about 0.75 s: 0.08 s in, 0.27 s hold, 0.4 s out, driven by `os.clock`, so it lasts the same time at any frame rate. It has a hard cap and guaranteed cleanup, and no skip input (it is short, blocks nothing and cannot be accidentally cancelled). Parts: a subtle FOV punch, a UI-frame vignette, optional desaturation (default off), one gentle flash that only decays (no strobing), and a character-centred pulse on the Winner. Any particle the beat creates is authored to look slow and never has its `TimeScale` changed. The camera's position and rotation are never touched, so a Void fall behaves like a combat kill and a live player's aim is unaffected.
+6. **The pulse** is a screen-facing ring: a `BillboardGui` adorned to the Winner's `HumanoidRootPart` with a transparent circular `Frame` and a gold `UIStroke`, `AlwaysOnTop = false` (so cover and the floor hide it), `LightInfluence = 0` and a `MaxDistance` limit. It follows the character through jumps and movement with no raycast. If the Winner's root is absent on this client, or beyond the Winner-layer distance at the start, the pulse is skipped. It stays subtle: roughly 1.6 times a character's height at its largest, a thin stroke and no fill.
+7. **FOV ownership.** The beat binds one render step at `RenderPriority.Camera + 2`, after `Camera.update`, captures `base = camera.FieldOfView` once on its first step (never re-read, never written with `-=`), and writes the absolute value `base - punch * strength`. It does not hard-code 70 and edits neither `Camera` nor `Spectating`. After each write it reads the property back as `lastWritten`, because a float property does not return the double that was written.
+   - **Cleanup is fail-safe.** It runs on normal completion, the hard cap, a cancel or an error (a `pcall` around the step unbinds first, then restores). It restores `base` only if the same `workspace.CurrentCamera` instance is still in use, its `CameraType` has not changed since the start and the current value is within a small tolerance of `lastWritten`. Otherwise it writes nothing.
+   - **A value comparison is a heuristic, not proof of ownership**, so the rule is built so that the wrong outcomes are bounded. It never overwrites a value that differs from the last write by more than the tolerance. A coincidental match writes `base`, which differs from that value by at most the current punch. The final step of a normal completion writes exactly `base` and unbinds, so a completed beat never leaves a partial punch.
+8. **Audience.** The beat is for the Match's participants only: the local `MatchState` is `Alive` or `Eliminated` when `MatchEnded` arrives. It cancels if the state becomes `Hub` (Return to Hub). Hub players, Hub spectators (who leave spectating at `MatchEnded` anyway), players who already returned to the Hub and late joiners (who never receive `MatchEnded`) get no camera or screen effect. The final victim, whose camera is still on their own body, gets the screen layer, and the Winner layer shows only if the Winner is in view.
+9. **The Winner reveal** shows 0.35 s after `MatchEnded` for every Winner ending, whether or not the beat plays or is enabled: the banner, the gold title card and the Winner highlight. `NoSurvivors` and Timeout stay immediate and plain. The server's Results phase, `bannerSeconds` (3 s, from `MatchEnded`), the results panel time, `ResultsEnded` and the Hub transition are unchanged, so the card shows for about 2.65 s. The local Winner reads `VICTORY` in gold and everyone else reads `<Name> wins` in white, as today.
+   - **The Eliminated title is held** until the card shows, in both `onMatchEnded` and `refresh`, so the final victim sees no empty 0.35 s.
+   - **The elimination feed is hidden** while the card is visible and restored after, so a late feed line cannot overlap the card on a short screen.
+10. **The title card.** A vertical `UIListLayout` of an optional caption, the banner and a thin gold rule that wipes outward from the centre, with a restrained scale-pop on the banner. It uses the existing `GothamBold` styling and gold. The banner is `TextScaled` with a `UITextSizeConstraint` (18 to 48), `TextTruncate = AtEnd` as a last resort, and a width of the screen minus 32 px capped at 800. A 20-character display name still fits at 18 px on a 320 px screen. The card sits at 0.28 of the screen height, handles no input, and stays clear of the top bar and the thumb zones. **The caption is a `Tuning` string that is empty by default and collapses when empty. No placeholder wording is added unless visual testing shows the card benefits from one.** The existing Results panel's mobile layout is out of scope.
+11. **The Winner highlight** is outline-only gold (`FillTransparency = 1`, a partly transparent outline), `DepthMode = Occluded` as on the existing Evade highlight so it cannot show a position through cover, parented to the Winner's character. It fades in with the card and out when the card hides, and is skipped if the Winner's character is absent or far.
+12. **Identity and sound.** Gold is the universal victory colour, never a player accent colour and never Riftlight. `WinImpact` (a low impact) plays at the start of the beat, and **is skipped for the local Winner when the final cause was `Died`**, who has just heard `Kill`. `WinSting` plays at the reveal. **`WinSting` is for participants only** (`Alive` or `Eliminated`): Hub players still see the global announcement but hear no sting for a Match they were not in. `WinSting` is not `victory.wav` (a Winner would hear it twice). Both are `Tuning.sounds` keys using built-in sounds, chosen by ear, and neither copies the exact `CrownOpen` or `ChargeFull` settings. No upload.
+13. **Independence.** `MatchHud` owns the reveal: the delayed card and banner, the rule and scale-pop, the highlight and `WinSting`. A new client module `ImpactBeat` owns the final-elimination record, the trigger, the FOV step, vignette, flash, pulse, `WinImpact` and their cleanup. A pure shared module `ImpactRules` holds the trigger test, the curve and the `WinImpact` rule. The two paths **never call each other and share no token, container or lifecycle**: each has its own `OnClientEvent` connections, token and cleanup. They share only `Tuning` and `ImpactRules`.
+14. **The feature flag.** `Tuning.match.impact.enabled` controls `ImpactBeat` only. `MatchHud` never reads it. Disabling it leaves the card, its timing, the highlight and `WinSting` unchanged. `Tuning.match.display.winnerRevealDelay = 0` degrades the reveal to immediate without removing it.
+15. **The delayed reveal cannot be resurrected.** The delayed callback shows the card only if its token is unchanged, it is still within `bannerSeconds` of that `MatchEnded` on the local clock, and the phase is `Results` (or within `RACE_GRACE_SECONDS` of the event, since the phase attribute can lag). Each new `MatchEnded`, a `matchId` change and the phase leaving `Results` (beyond that grace) cancel it and its highlight, and the highlight dies with its character. After `ResultsEnded` or a Match change no stale callback can show a card. A player who returns to the Hub during the delay still sees the banner and results as today, as the rules for the global announcement are unchanged.
 
-#### Non-goals (proposed)
+#### Tuning (starting values, tuned by eye)
 
-- No change to Match rules, the end check, `endResolutionSeconds`, scoring or the result row.
-- No slowing of gameplay while play is live, for anyone, ever. This is the end of the Match only.
-- No replay of a Match with no Winner (`NoSurvivors`, Timeout), unless the open points say otherwise.
-- No upload of any asset, and no sharing or saving of replays.
+- **`Tuning.match.impact`:** `enabled`; the entry, hold and exit seconds (0.08, 0.27, 0.4); the FOV punch degrees (a few degrees); the vignette strength; optional desaturation (default 0); the flash alpha (low); the pulse size, stroke and start transparency; `MaxDistance` (about 120 studs); the Winner-layer maximum distance (about 150 studs); the FOV restore tolerance.
+- **`Tuning.match.display`:** `winnerRevealDelay` (0.35), the scale-pop amount and time, the rule's maximum width and wipe time, `caption` (empty), the highlight fade-in and fade-out and outline transparency. `bannerSeconds = 3` stays.
+- **`Tuning.sounds`:** `WinImpact` and `WinSting`, with volumes under the existing `soundVolume`.
 
-#### Open points to settle with the developer before any build
+#### Non-goals
 
-1. **Who sees it.** The victim, the Winner, the spectators and the Hub players: all of them, or only some? Does a victim who is already Eliminated and spectating see the slow motion?
-2. **What counts as the last kill.** The Winner's last Elimination only, or also the last Elimination before the Winner's, a Void fall by a Collapse, or a push credit (Tidal or Hook)? A Collapse fall as the final event is the awkward one: nobody "killed".
-3. **The cases with no killer.** `NoSurvivors`, Timeout, a leave, and a combat death 0.3 s before a removal that ends the Match as a Winner (seen in Ticket 22's S2 runs).
-4. **Slow-motion length and factor.** A starting value to measure: for example 0.3 times speed for about 1.5 s of real time, and whether the end banner starts after it. It must stay inside `bannerSeconds` plus `resultsSeconds`, or those change deliberately.
-5. **Replay length, camera and skip.** For example the last 3 s from a third-person orbit, with a skip input, and whether the panel waits for it. Does the Win-cam run before or inside the Results phase?
-6. **History size and cost.** Players covered (all Alive in the last N seconds, or only the killer and the victim), sample rate, a hard cap per Match and the network size of one clip. All measurements, never guesses.
-7. **Fidelity.** Rigs standing in for the characters, with their animations replayed or approximated, and what the replay shows for a projectile or a Cache.
+- No Win-cam, replay, history buffer, recorder or cosmetic rigs, and no slow motion.
+- No server change, no new `Protocol` event and no change to Match rules, the end check, `endResolutionSeconds`, scoring or the result row. The Results phase, `ResultsEnded` and the Hub transition keep their timing, and the hard cut to the Hub gets no fade.
+- No skip input, and no camera takeover, movement or rotation. Gameplay is never slowed or paused, for anyone.
+- No beat or sting for a Match with no Winner, and none for Hub players, Hub spectators or late joiners.
+- No mobile layout for the existing Results panel.
+- No upload of any asset, and no accent-colour identity.
 
-#### Likely approach (to confirm after the points above)
+#### Stages, gates and commit boundaries
 
-- A pure `ReplayRules` with specs: a ring buffer with a size cap, trimming to a window, and the clip's shape. Raycasts and the clock are passed in, as the other `Rules` do.
-- A server `Replay` recorder fed by the same tick the Match already runs, with no new authority and one new `Protocol` event for the clip, validated like every other payload.
-- A client `WinCam` controller that builds the rigs from the clip, drives the replay camera and cleans up.
-- **Rendering caveat:** testing runs at about 15 fps and the viewport has stopped rendering in earlier tickets, so slow motion and camera checks need real renders. They go in a Server & Clients session, with the developer eyeballing the result.
+Code lives in Studio ([ADR-0005](adr/0005-game-code-lives-in-studio-edited-through-mcp.md)), so each stage's commit records its results in the docs. The `.rbxl` snapshot is not re-saved and no checkpoint is published (both the developer's). **One agent drives Studio at a time**: the main session does not touch Studio while `studio-implementer` or `studio-tester` runs, those two never run together, and no stage starts while the Ticket 23 session is driving Studio. The developer publishes, and the version goes in Checkpoints.
 
-#### Tests (proposed)
+| Stage | Work | Who | Gate to commit |
+|---|---|---|---|
+| 0 | This ticket text and the two glossary terms. Docs only. | main | Diff reviewed, committed locally |
+| 1 | `ImpactRules` with its specs, the `Tuning` keys and their shape checks | main (the trigger is judgment) | RunAll green, `Protocol` unchanged |
+| 2 | The `MatchHud` reveal: the delayed card and banner, title hold, feed hide, highlight, `WinSting`, responsive layout, stale-callback guards | cosmetics by `studio-implementer` from an exact brief, guards and timing by main | RunAll green, then B3 and B8 on a real client |
+| 3 | `ImpactBeat`: record, trigger, curve, FOV step and fail-safe cleanup, vignette, flash, pulse, `WinImpact`, the kill switch and a read-only status accessor | main (camera ownership and lifecycle) | RunAll green, then B2, B4 to B7 and B9 to B11 |
+| 4 | The Tuning pass and the full matrix, then `code-structure.md` and the quirks doc | `studio-tester` for runs, the developer for visuals | Every blocking check passes and the developer signs off the visuals |
 
-- **Specs:** the buffer's cap, window, order and empty-clip cases, and the clip's validation.
-- **Studio:** a 2-client Match to a Winner, the slow motion seen on each side, the replay shown from the Results phase, skipped and not skipped, and a Match with no Winner showing neither. Rows are written when the open points are settled.
-- **Blocking:** the Match result and its timing are identical with the feature on and off, which the logs show.
+The kill switch is the rollback: `impact.enabled = false` removes the beat and leaves the reveal. Faults found in a stage are fixed in that stage, and a stage is committed only when its gate passes.
+
+#### Tests
+
+**Specs** (`ImpactRules` and the `Tuning` shape), pure with the clock and inputs passed in:
+
+- The trigger table: Winner or not, credited or not, `killerId ~= winnerId`, a wrong or missing `matchId`, a missing record, each local state (`Alive`, `Eliminated`, `Hub`, none) and the flag off.
+- The `aliveCount == 1` selection, and a record that arrives after `MatchEnded` is never used for that Match.
+- The curve: zero at both ends, non-decreasing then non-increasing, total equal to the sum, no value outside 0 to 1, and independent of how the time is sampled. The `WinImpact` rule. The tolerance comparison and the restore decision.
+
+**Blocking acceptance checks** (objective, from specs, logs and reads):
+
+| # | Check |
+|---|---|
+| B1 | The specs above pass, and the whole suite is green |
+| B2 | The `MatchEnded`, `ResultsEnded` and result lines and their timing are identical with `impact.enabled` on and off |
+| B3 | With the beat disabled, a Winner ending shows the card 0.35 s after `MatchEnded`, `NoSurvivors` and Timeout are immediate and plain, the results panel still shows at `bannerSeconds`, and the Eliminated title leaves no empty gap |
+| B4 | A credited combat kill and a credited Void fall play the beat. An uncredited fall, a Sentry kill, a credit naming a dead player, a leave, `NoSurvivors` and Timeout do not, and all of them still get the right banner |
+| B5 | The Winner and the Eliminated players (including the final victim) get the beat and `WinSting`. A Hub player, a Hub spectator, a player who returned to the Hub and a late joiner get no beat and no sting and still see the banner |
+| B6 | **FOV ownership and fail-safe cleanup.** FOV equals its pre-beat value after completion for the Winner and a spectator, and a completed beat leaves no partial punch. Each of these cancels cleanly and never overwrites a newer owner's value: `workspace.CurrentCamera` replaced mid-beat; `CameraType` changed mid-beat; `Spectating` entered or exited mid-beat; Return to Hub mid-beat; the value read back differing from the last write; a float read-back difference. After cleanup nothing writes FOV on later frames |
+| B7 | After at least five repeated Match cycles there is exactly one beat per Match (no duplicated connection), no leaked render step, no stray billboard, highlight or container, the feed restored and the banner hidden. The read-only status accessor shows nothing active between Matches |
+| B8 | A Winner character that is missing or streamed out still shows the banner, with no error and nothing stuck, and a record that is missing or from another Match gives the reveal and no beat |
+| B9 | **Fault injection.** A forced error inside `ImpactBeat` leaves the reveal intact, FOV restored and the step unbound. A stale delayed reveal callback, forced after `ResultsEnded` and after a Match change, cannot show a card |
+| B10 | A live Winner can still move and aim during the beat, and the aim point is unaffected |
+| B11 | No server script and no `Protocol` event is changed. Temporary fault-injection hooks are TEMPORARY, exist only for B9, and are removed before the stage's commit and **confirmed by a search for TEMPORARY**. No test-only branch or hook remains active in production, and the only addition for tests is the read-only status accessor, which changes no behaviour |
+
+**Visual tuning** (not blocking, the developer's eyes, changed in `Tuning`): the punch, vignette, flash, desaturation and pulse values, the scale-pop and rule, the highlight's outline, the sound choice and volume (and that `WinSting` is not a duplicate of `Kill`), whether the caption ever earns wording, the curve and the 0.35 s delay, the low-fps feel, and the card on a narrow viewport in Studio's device emulator. Testing runs at about 15 fps and the viewport has stopped rendering in earlier tickets, so these go in a Server & Clients session with the developer watching.
+
+#### Assumptions to validate in Studio
+
+- **`StreamingEnabled`:** its value is unread. The design degrades safely (a missing Winner character skips the pulse and highlight, never the banner), but the answer shapes B8.
+- **The spectator camera:** whether anything rewrites FOV while `Spectating` has the Custom camera. The captured baseline and the `+2` step are correct either way, but B6 needs the read.
+- **Event order and state:** that `PlayerEliminated` reaches a client before `MatchEnded`, and what `MatchState` reads when `MatchEnded` arrives, from logs on two clients. The design must not depend on either, so a disagreement costs the beat only.
+- **Presentation behaviour:** `UIStroke` on a `BillboardGui`, how the occluded highlight and the depth-tested pulse look, the built-in sounds, and the card on a narrow viewport.
+- **Start preconditions:** the Ticket 23 session is idle and committed and Studio is free.
 
 #### Dependencies, risks and ADRs
 
-- Depends on Ticket 22 being accepted (its `MatchEnd` timing, the Collapse settle window and its Eliminated lines). Related to Ticket 25 (Results) and `Client.Spectating`.
-- **Risks:** a replay that disagrees with what really happened, a buffer that grows without a cap, a replay that blocks the next Match's start (the Hub window is about 15 s), and the cost of cosmetic rigs on a weak device.
-- **ADR:** probably none, since nothing changes authority. A recorder that replicates other players' positions after the fact is a minor fairness point to confirm in the open points: the replay only shows what already happened, to players who are no longer playing.
+- Depends on Ticket 22 (its `MatchEnd` timing, the settle window and its `Eliminated` lines), which is accepted. Touches `Tuning` and `MatchHud` beside the Ticket 23 session's work. Ticket 25's Milestone banners are separate from the end banner, and if Ticket 25 is built first, check that its banners do not share the end banner's place.
+- **Risks:** a screen-facing ring that reads weakly (tuned in Play); a late feed line on a short screen (the feed is hidden while the card shows); FOV shared with spectator cameras (B6); two sounds that clutter or double up (chosen by ear); the beat arriving 0.25 s or more after a kill (accepted, and it lets the impact read first).
+- **ADR:** none. Nothing changes authority, movement, hitbox or the one-life decision ([ADR-0007](adr/0007-one-life-arena-match.md)). The rule that the Winner is never shown to have made a kill they did not earn is recorded here.
+- **Glossary:** `CONTEXT.md` gains **Winner reveal** and **Impact beat**.
+- **Deferred:** the Win-cam (a replay of the last kill from a replay camera, with a server-side bounded history and cosmetic rigs) is a separate future ticket, to be written only if the impact beat is not enough. Nothing here blocks it.
 
 ## Later, after evidence from the run test
 
