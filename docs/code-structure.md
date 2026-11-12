@@ -28,6 +28,7 @@ ReplicatedStorage
     │   ├── SentryRules
     │   ├── WardenRules
     │   ├── MonsterRules
+    │   ├── MilestoneRules
     │   ├── PveMotionRules
     │   ├── PveThreatRules
     │   ├── PveActionRules

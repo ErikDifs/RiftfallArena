@@ -4345,6 +4345,24 @@ A Reaction resolves before the Shield, so a Reaction on a fully shielded player 
 
 **Stage 1A steps,** each ending with `RunAll`, mutation checks on its new specs, a record here, a commit and the developer's review: (0) this record; (1) `Tuning.milestones` and `MilestoneRules` for Lanes, Contest, the unlock and combat idle; (2) the Riposte rules; (3) `Milestones` with Contest live, the `Combat` report, the stamps, the `Match` lifecycle and the attributes; (4) Riposte on the server; (5) the client; (6) telemetry; (7) the live matrix for 1A; (8) cleanup and results.
 
+**Step 1: `Tuning.milestones` and `MilestoneRules` (2026-11-12, built, 1022 specs).** The pure rules only. Nothing in the game calls `MilestoneRules` yet, so the Reference Kit and every Match behave as before.
+
+| Where | What |
+|---|---|
+| `Tuning.milestones` | The five gates as the ticket's table has them (`contest` and `endure` on, `endurePressuredExit`, `explore` and `reserve` off), `unlockSeconds` 60 (the ticket's `milestoneUnlockSeconds`), `combatIdleSeconds` 3 and `contestDamage` 60. Riposte's numbers arrive with its rules in Step 2 |
+| `MilestoneRules` (`Shared/Rules`, new) | `sourceClass(kind)` (Player, Warden, Riftling, Sentry, nothing for a dummy or a Cache). `validate` (the gates are booleans, `explore` needs `reserve`, `endurePressuredExit` needs `endure`, the numbers are sane), `laneActive` and `anyActive`. A player's state for one Match (`new(goAt)`). The combat-idle signal: `stamp`, `calmFrom`, `isIdle`. `complete` (once per Lane, never for a Lane gated off), `contestHit` and `contestElimination`. The unlock: `update` returns the Lanes that became usable, and `isUnlocked`. Uses: `usesLeft` and `spend`, with no refund. `earned` for telemetry |
+| `MilestoneRulesSpec` (new, 17) | S1, the pure parts of S2 and S4, and the gate assertions of S8 |
+
+**Interpretations made here (reviewable).**
+- **A player with no hostile event yet is out of combat,** and the window's boundary is inclusive: calm at exactly 3 s after the last stamp.
+- **The calm moment is noted at the time it began, not when a step notices it.** A stamp first notes any calm moment reached before it, so a slow server step can never lose one, and a late step unlocks at the right time (a fight ending at 110 s unlocks as of 113 s even if the next step runs at 130 s).
+- **`unlockedAt` is the later of the first calm moment after earning and GO + 60 s.** Once a calm moment is noted it is never taken back, so a player fighting at 60 s still unlocks at 60 s if they were calm at any point after earning.
+- **A hit that triggers a Reaction and also reaches 60 damage is named as the Reaction** in the banner and telemetry.
+- **Contest's hit filter is the target:** another player who is a living Match participant. The caller says so with `targetKind`, `isSelf` and `targetInMatch`. Damage stops accumulating once Contest is complete or its gate is off.
+- **`reserve` is a reward's gate, not a Lane,** so it alone makes nothing active.
+
+**Results.** `RunAll` on the Server in Play: **1022 passed, 0 failed** (1005 before). Mutation checks, each with a `TEMPORARYMUTATION` marker and the original restored from the saved source: the idle boundary made exclusive, the calm note removed from `stamp`, the opponent filter removed, the 60 s gate removed, `explore` allowed without `reserve`, a use spendable at zero, a Lane completable twice (seven together: 9 specs failed, each mutation with its own), and the negative-damage clamp removed (alone: 1 failed). After the revert the source equals the saved original, no `TEMPORARY` text or instance exists outside the Collapse specs' fixture names, and `Tuning` loads with `startingKit = "Reference"` and `arrivalHoldSeconds = 3`. Solo Play creates no Match, Monsters or Wardens. Nothing was saved or published from this session.
+
 #### Milestone engine
 
 - **State** is per player and per Match: for each Lane, `earnedAt`, `unlockedAt`, uses spent. It is created at GO, cleared at Match end and at Elimination, and never persists. There is nothing to carry across a Match or a rejoin.
