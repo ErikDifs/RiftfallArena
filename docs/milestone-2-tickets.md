@@ -3197,6 +3197,19 @@ Settled with the developer at the start of the build. Ticket 21's arena geometry
 - **Not yet verified, for later steps.** `StatusVisuals` on a non-player model, and the Pickup `source` tag in the log lines.
 - **Recovery's loop** can't be reached by a spec (`recoverAll` is local to the real loop), so the Warden's exclusion from Natural Recovery is covered in Studio (P2).
 
+**Step 3 blocked at the geometry measurement (2026-11-12): no valid Territory fits the authored Layer 2 platform.** Measured in Edit mode with read-only floor raycasts on the real map (centre 600, -450; Studio untouched). Stopped for the developer's decision, as settled.
+
+- **The platform.** `Shard1Inner` (Layer 2) is about 37 wide, 25 deep in extent terms and roughly 40 by 56 studs of usable floor. The current `WardenSlot1` (azimuth 38.9, radius 58.2, so about +9 degrees from the Shard's 30 toward the Gate at 60) sits on its western edge. From it the void is **9.0** studs away and `Spoke1` **9.5**. `CacheForward1` is only **8.7** away, so even at the minimum radius the Forward Cache is inside the automatic aggro (`Territory + 4`) at the fallback offset.
+- **The +15 to +20 degree offset has no floor.** At azimuth 45, 47.5, 50 and 52 the slot is at the void or on `PairLink12`: void 3.5, 1.0, 0.5, 0.5 studs and other floor 4.5, 2.5, none, none. Every candidate offset fails the Territory and lip checks, so the experiment's answer is that none pass and the +10 degree slot (measured +8.9) is the only position on Layer 2 floor.
+- **Constraint search on the whole platform** (1 stud grid, every point of `Shard1Inner`; the circle wholly on that floor, void at least `margin` beyond its edge, every pad at least `R + 4 + buffer`, Forward Cache beyond `R + 4 + 2`, no Home Cache in aggro, radius at most 12). With the ticket's values (margin 15, pad buffer 20) the best radius anywhere is **4.5** (at about 661, -405), under the documented 7 to 12. What limits it: the void margin (about 6.8 at the optimum), the pad buffer (4.2) and the Forward Cache clearance (5.0). The platform alone allows a circle of **14.5**.
+
+| Pad buffer | Void margin 15 | 10 | 5 | 0 |
+|---:|---:|---:|---:|---:|
+| 20 (ticket) | 4.5 | 5.9 | 7.9 | 10.1 |
+| 10 or 0 | 6.6 | 7.3 | 8.4 | 10.1 |
+
+- **Alternatives for the developer:** (A) keep the 7 to 12 range and the Territory rules, but spawn the reward at the Warden's validated Home point instead of its death position, which makes the 15 stud loot margin unnecessary (a void margin of about 5 gives 7.9); (B) relax the margin or the pad buffer without moving the reward; (C) accept a Territory under 7 (about 4.5), which the Slam (reach 6 plus radius 5) outgrows; (D) enlarge or reshape the local Layer 2 platform, a Ticket 21 geometry change the developer must approve. Nothing was changed.
+
 #### Summary
 
 The **Rift Warden** is the Arena's first mobile PvE enemy: an optional, contested, **elite-tier (mini-boss-style) guardian** standing on an inner-Shard platform near the Safe spoke. It carries a visible Ability reward, fights with two Telegraphed melee attacks, stays on its small Territory, and drops one ordinary Rank 1 Ability Pickup when killed. It is not mandatory for any route, Kit or progression step. It is seasoning around the PvP Match, and it is not a normal monster, a boss, or the baseline monster population.
