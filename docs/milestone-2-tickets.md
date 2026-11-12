@@ -17,6 +17,7 @@ Being settled from 2026-11-08, before any building. Work stops after each ticket
 | 2026-11-12 | Published place `134091394433436`, version 156, docs at commit `f411904` | Ticket 22 complete (the Rift Collapse, steps 1 to 10, 699 specs, S1 and S2 on the real map, settle 1.75 and the boundary rule). Published by the developer from the live editing session |
 | 2026-11-12 | Published place `134091394433436`, version 172, docs at commit `d843541` | Ticket 23 (the Rift Warden, steps 1 to 6, 879 specs): `WardenRules`, the `Wardens` runtime, the combat hooks, `WardenChecks`, `WardenVisuals`, the moved slots and the reward at Home. Reference-safe: `startingKit = "Reference"`, `arrivalHoldSeconds = 3`, no temporary aids, hook removed. The developer looked at the visuals and accepted them as good enough for now |
 | 2026-11-12 | Published place `134091394433436`, version 178, docs at commit `6e2a124` | Ticket 24 steps 0 and 1a (the shared PvE primitives, `MonsterRules`, `Tuning.monsters`, 937 specs). Reference-safe: nothing calls `MonsterRules` yet |
+| 2026-11-12 | Published place `134091394433436`, version 180, docs at commit `e8ae765` | Ticket 24 steps 0 to 1b.1 (the shared PvE primitives, `MonsterRules`, `MonsterChecks`, the six Home markers, the Greybox change, 965 specs). The developer published it after Step 1b.1 and before the Step 2 edits, so it does not contain the `Monsters` runtime. Reference-safe: nothing calls the monster code yet |
 
 Roblox version history is the code's history, as [Milestone 1's checkpoints](milestone-1-tickets.md#checkpoints) set out, and only versions marked Published count.
 
@@ -3765,6 +3766,31 @@ Extract **only** what both real implementations genuinely need, from the built W
 **Results (1b.1).** `RunAll` on the Server in Play: **965 passed, 0 failed**. The Warden, Collapse, Map and Match subset is 307 passed, 0 failed, and the structural check reports 0 problems.
 
 **Gate.** Step 1b.1 goes back to the developer. The live placement and ignoring-route playtest (M2) is not required before step 2 and can ride on the first integration Match. Step 2 (the `Monsters` runtime) is not started.
+
+**Step 2: the `Monsters` runtime (2026-11-12, built, 981 specs).** Dormant: nothing calls `Monsters` yet (`Main` does not require it and `Match` does not call it), so every Match and the Reference Kit behave as before. It mirrors `Wardens`.
+
+| Part | What |
+|---|---|
+| `Monsters` (server) | `start(deps)`, `setup(matchId)`, `clear()`, `step(dt)` (manual mode for specs), `removeSection(sectionId)`, `setSync`, `setGo`, `get(id)` and `counters()`. Dependencies are injected as for `Wardens` (`characters`, `casts`, `statuses`, `pickups`, `clock`, `markers`, `canSee`, `floorAt`, `folder`, `log`, `monsterRandom`, `abilityPool`, `heartbeat`, `manual`) |
+| Deal and build | `setup` clears, reads the Home markers, calls `MonsterRules.deal` with the dedicated `monsterRandom` only, then builds an anchored model (an invisible root for the fixed Hitbox, a placeholder body, a hidden Humanoid) at each slot's authored rest point, registered as `kind = "monster"`, `immovable`, `resistsForcedMovement`, no Kill Recovery, with a gate and an `onKilled` hook. The model is tagged `RiftMonster` and carries `MonsterState`, `MonsterAction`, `MonsterImpactAt`, `MonsterEndsAt`, `MonsterFacing`, `MonsterHome`, `MonsterRadius` and a coarse `MonsterDamageStage` (1, 2, 3 at about 66% and 33%). **No reward attribute exists** |
+| Loop | one Heartbeat connection made at `setup` and disconnected at `clear`. AI decisions at 5 Hz from an accumulator, motion and timestamps every frame, no `task.delay` and no coroutine. The loop passes `view.goal`, the dead-zoned goal it pursues, so the rules' edge hold measures arrival against it (the Step 1a.1 requirement) |
+| Combat | the claw is `casts.attackFromServer` as `"MonsterClaw"` (a locked players-only sector, reach 5.5, 50 degrees, damage 8), evaluated once at `impactAt` after a Collapse sync. A hit's gate only syncs the Collapse and refuses when the monster is gone (no range check), and wakes the monster from any distance (never before GO) |
+| `finish(record, cause)` | idempotent, first call wins. Causes `Killed`, `Collapsed`, `Fault`, `MatchEnd`. Only `Killed` on a flagged record drops a Pickup, exactly once, **at Home** (a pair's second slot offset by `pairOffsetStuds` along its side so two never stack), Rank 1, through `pickups.drop` with `source = "Monster"` |
+| Collapse and clear | `removeSection(sectionId)` is idempotent and non-yielding, removes live and fading monsters with no reward, and counts a body already killed. `clear` gives no reward |
+| Support | `Protocol.monsterId(homeId, slot)` and the `MONSTER_*` names. `Tuning.monsters` gained `rootHeight` 3.2, `eyeHeight` 2.4, `body`, `heightAllowance` 4 and `removeSeconds` 1. `MonsterRules` gained an optional `rest` (the slot a monster stands on and returns to), so a pair returns to two points and not both to the centre |
+
+**Results.** `RunAll` on the Server in Play: **981 passed, 0 failed** (965 before, plus 16 in `MonstersSpec`, S6 to S8). The Warden, Collapse, Match, Protocol and Monster subset is 365 passed, 0 failed, the structural check reports 0 problems, and no `Monsters` folder exists in the workspace before a `setup`. Mutation checks: making `finish` non-idempotent failed the one-drop spec, and removing the gate's Collapse sync failed the gate spec, after that spec was tightened (it first passed with the sync removed, because stepping the loop also syncs the Collapse, so it now advances the clock without stepping). Exact reverts confirmed, no `TEMPORARY` left.
+
+**What the specs cover.** The deal into 6 Homes and 8 monsters with one target each and no reward attribute; the registration flags; inertness before GO; the claw timeline (stagger, one locked evaluation, the cycle) with the right shape and damage; the gate before and after the removal boundary with no range check and from any distance; damage waking onto the damager, the Return ignoring later hits and the full reset on arrival; a flagged kill dropping exactly one Rank 1 Pickup at Home with the right source, an unflagged kill and Collapse, Fault and Match end dropping nothing, and both orderings against the Collapse; a pair's second reward offset; the dealt Ability with repeats; `removeSection` idempotent; `setup` and `clear` idempotent with no duplicate target, model or connection; a stale record's hit refused and counted; and the damage stages.
+
+**Deviations and notes.**
+1. **The reward's source id travels in the Pickup's `wardenId` field**, because `Pickups.spawn` keeps only `source` and `wardenId` and `Session` already logs it (as `warden=monster:3-1`). The name is a misnomer. Renaming it to a PvE source id touches `Pickups`, `Session` and their specs, so it is left for the integration step.
+2. **Telemetry is minimal in step 2**: `MonsterDeal`, `MonsterAggro`, `MonsterKill`, `MonsterFault`, `MonsterRemoved` and `MonsterSnapHome` lines (capped at 32 per Match) and counters. The full `MonsterSummary` is step 6.
+3. **The `Monsters.get` result exposes a monster's reward for specs only.** It never replicates.
+
+**Not built (later steps).** The `Match` integration (setup after `assignSpawns` and `wardens.setup`, `setGo`, `clear` at Results, the Collapse hook calling `removeSection`, the sync), `MonsterVisuals` and the `Feedback` additions, the full telemetry summary, the `monster` cases in `Session` (an own kill line), `Feedback` (a name) and `Combat`, the Studio matrix (including the live Warden Telegraph check, the placement and ignoring-route check M2, and P13) and the `wardenId` rename above.
+
+**Gate.** Step 2 goes back to the developer for review. The Match integration (step 4 of the build order) starts only with approval.
 
 #### Population and selection
 

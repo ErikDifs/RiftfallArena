@@ -294,7 +294,8 @@ From [Ticket 24](milestone-2-tickets.md#24-regular-monsters), **built in steps**
 
 - **`MonsterRules`** (pure, `Shared/Rules`) holds the deal (`deal`, with its fixed draw order), the Idle, Engaged, Returning and Dead machine (`step`, `noteDamage`, `kill`), targeting, the goal (a pair offset inside the Territory only, the unshifted edge point beyond it, and `step` measuring the edge hold against the runtime's own `view.goal` when given), no-progress, Fault and config validation. It reuses `PveMotionRules`, `PveThreatRules` and `PveActionRules`. Its config is `Tuning.monsters`.
 - **`MonsterChecks`** (server, read-only, step 1b) is the static Home placement validator, like `WardenChecks`. The six `MonsterHome<n>` markers (one per Shard, on its Inner Section) carry `SlotKind = "Monster"`, `HomeId`, `ShardId`, `SectionId`, `TerritoryRadius` and two slot offsets. A monster's reward appears at Home, as a Warden's does. `RiftCrownGreybox` writes the six markers from its `MONSTER_HOMES` table, so a rebuild keeps them.
-- **Not built yet:** the `Monsters` runtime, the `Match` integration, `MonsterVisuals`, telemetry and the `monster` cases in `Session`, `Feedback` and `Combat`.
+- **`Monsters`** (server, step 2) is a module like `Wardens`, with its dependencies injected so specs run it in manual mode. It owns the records, the `monster:<Shard>-<slot>` targets, the one Heartbeat, `finish`, `removeSection` and `clear`, and spawns a flagged kill's reward at Home. It is dormant: `Main` does not require it and `Match` does not call it yet.
+- **Not built yet:** the `Match` integration, the `Match` integration, `MonsterVisuals`, telemetry and the `monster` cases in `Session`, `Feedback` and `Combat`.
 
 ## Rift Collapse presentation
 
